@@ -1,0 +1,20 @@
+[package]
+name = "psql-rust-engine"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rustengine"
+crate-type = ["cdylib"]
+
+[dependencies]
+deadpool-postgres = "0.12.1"
+pyo3 = "0.19.2"
+tokio = { version = "1.35.1", features = ["full"] }
+tokio-postgres = { version = "0.7.10", features = ["with-serde_json-1", "array-impls"] }
+pyo3-asyncio = { version = "0.19.0", features = ["tokio-runtime"] }
+thiserror = "1.0.56"
+serde_json = { version = "1.0.113" }
+# serde_json = "1.0.113"
+anyhow = "1.0.79"
