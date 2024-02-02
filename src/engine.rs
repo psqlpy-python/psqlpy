@@ -1,35 +1,55 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{
     pyclass, pymethods,
-    types::{IntoPyDict, PyDict, PyList, PyString},
-    IntoPy, Py, PyAny, PyErr, PyObject, PyResult, Python, ToPyObject,
+    types::{PyList, PyTuple},
+    IntoPy, PyAny, PyObject, Python,
 };
-use serde_json::{Map, Value};
-use std::{
-    borrow::BorrowMut, collections::HashMap, future::Future, hash::BuildHasherDefault,
-    str::FromStr, sync::Arc,
-};
-use tokio_postgres::{
-    types::{FromSql, ToSql, Type},
-    Column, NoTls, Row, ToStatement,
-};
+use std::{future::Future, sync::Arc, vec};
+use tokio_postgres::{types::ToSql, NoTls};
+
+use pyo3::create_exception;
 
 use thiserror::Error;
 
-use crate::value_converter::postgres_to_py;
+use crate::{
+    query_result::RustEnginePyQueryResult,
+    value_converter::{py_to_rust, PythonType},
+};
+
+create_exception!(
+    rustengine.exceptions,
+    RustEnginePyBaseError,
+    pyo3::exceptions::PyException
+);
 
 #[derive(Error, Debug)]
 pub enum RustEngineError {
+    #[error("Database pool error: {0}.")]
+    DatabasePoolError(String),
+    #[error("Can't convert value from engine to python type: {0}")]
+    ValueConversionError(String),
+
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
+    #[error("Database engine exception: {0}.")]
+    DBEngineError(#[from] tokio_postgres::Error),
+    #[error("Database engine pool exception: {0}")]
+    DBEnginePoolError(#[from] deadpool_postgres::PoolError),
 }
 
 pub type RustEnginePyResult<T> = Result<T, RustEngineError>;
 
 impl From<RustEngineError> for pyo3::PyErr {
     fn from(error: RustEngineError) -> Self {
+        let error_desc = error.to_string();
         match error {
             RustEngineError::PyError(err) => err,
+            RustEngineError::DBEngineError(_) => RustEnginePyBaseError::new_err((error_desc,)),
+            RustEngineError::ValueConversionError(_) => {
+                RustEnginePyBaseError::new_err((error_desc,))
+            }
+            RustEngineError::DatabasePoolError(_) => RustEnginePyBaseError::new_err((error_desc,)),
+            RustEngineError::DBEnginePoolError(_) => RustEnginePyBaseError::new_err((error_desc,)),
         }
     }
 }
@@ -44,31 +64,6 @@ where
     Ok(res)
 }
 
-#[pyclass(name = "QueryResult")]
-pub struct RustEnginePyQueryResult {
-    inner: Vec<Row>,
-}
-
-#[pymethods]
-impl RustEnginePyQueryResult {
-    pub fn result<'a>(&self, py: Python<'a>) -> Result<Py<PyAny>, RustEngineError> {
-        let mut result: Vec<&PyDict> = vec![];
-        for row in &self.inner {
-            let python_dict = PyDict::new(py);
-            for (column_idx, column) in row.columns().iter().enumerate() {
-                let python_type = postgres_to_py(py, row, column, column_idx)?;
-                python_dict.set_item(column.name().to_object(py), python_type)?;
-            }
-            result.push(python_dict);
-        }
-
-        Ok(result.to_object(py))
-        // let a = &self.inner[0];
-        // let json_string = postgres_row_to_json_value(a).unwrap();
-        // Ok(PyString::new(py, &json_string).as_ref())
-    }
-}
-
 #[pyclass()]
 pub struct RustEngine {
     username: Option<String>,
@@ -80,31 +75,36 @@ pub struct RustEngine {
 }
 
 impl RustEngine {
-    // pub async fn inner_execute<'a, QS>(
     pub fn inner_execute<'a>(
         &'a self,
         py: Python<'a>,
         querystring: String,
-        // parameters: Option<&'static [&(dyn ToSql + Sync)]>,
+        parameters: Vec<PythonType>,
     ) -> RustEnginePyResult<&'a PyAny> {
         let db_pool_arc = self.db_pool.clone();
 
         rustengine_future(py, async move {
+            let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
+            for param in parameters.iter() {
+                vec_parameters.push(param);
+            }
+
             let db_pool_guard = db_pool_arc.read().await;
 
-            let result = db_pool_guard
+            let db_pool_manager = db_pool_guard
                 .as_ref()
-                .unwrap()
+                .ok_or(RustEngineError::DatabasePoolError(
+                    "Database pool is not initialized".into(),
+                ))?
                 .get()
-                .await
-                .unwrap()
-                // .query(querystring, parameters.unwrap_or_default())
-                .query(&querystring, &[])
-                .await
-                .unwrap();
-            println!("You guessed: {:?}", result);
-            Ok(RustEnginePyQueryResult { inner: result })
+                .await?;
+
+            let result = db_pool_manager
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?;
+            Ok(RustEnginePyQueryResult::new(result))
         })
+        .map_err(Into::into)
     }
 }
 
@@ -173,8 +173,18 @@ impl RustEngine {
         &'a self,
         py: Python<'a>,
         querystring: String,
-        // parameters: Option<&'a PyAny>,
+        parameters: Option<&'a PyAny>,
     ) -> RustEnginePyResult<&'a PyAny> {
-        self.inner_execute(py, querystring)
+        let mut result_vec: Vec<PythonType> = vec![];
+
+        if parameters.unwrap().is_instance_of::<PyList>()
+            || parameters.unwrap().is_instance_of::<PyTuple>()
+        {
+            let params = parameters.unwrap().extract::<Vec<&PyAny>>();
+            for parameter in params?.iter() {
+                result_vec.push(py_to_rust(parameter).unwrap());
+            }
+        }
+        self.inner_execute(py, querystring, result_vec)
     }
 }

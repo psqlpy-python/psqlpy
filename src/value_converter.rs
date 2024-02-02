@@ -1,11 +1,75 @@
-use pyo3::{types::PyString, Py, PyAny, Python, ToPyObject};
-use serde_json::Map;
+use bytes::{BufMut, BytesMut};
+use pyo3::{
+    types::{PyInt, PyList, PyString, PyTuple},
+    Py, PyAny, Python, ToPyObject,
+};
 use tokio_postgres::{
-    types::{FromSql, Type},
+    types::{to_sql_checked, ToSql, Type},
     Column, Row,
 };
 
-use crate::engine::RustEnginePyResult;
+use crate::engine::{RustEngineError, RustEnginePyResult};
+
+#[derive(Debug)]
+pub enum PythonType {
+    PyString(String),
+    PyIntI32(i32),
+    PyIntU32(u32),
+}
+
+impl ToSql for PythonType {
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
+
+    fn to_sql(
+        &self,
+        _ty: &tokio_postgres::types::Type,
+        out: &mut BytesMut,
+    ) -> Result<tokio_postgres::types::IsNull, Box<dyn std::error::Error + Sync + Send>>
+    where
+        Self: Sized,
+    {
+        match self {
+            PythonType::PyString(string) => out.extend(string.as_bytes()),
+            PythonType::PyIntI32(int) => out.put_i32(*int),
+            PythonType::PyIntU32(int) => out.put_u32(*int),
+        }
+        Ok(tokio_postgres::types::IsNull::No)
+    }
+
+    to_sql_checked!();
+}
+
+pub fn convert_python_parameters<'a>(
+    parameters: Option<&'a PyAny>,
+) -> RustEnginePyResult<Vec<PythonType>> {
+    let mut result_vec: Vec<PythonType> = vec![];
+
+    if parameters.unwrap().is_instance_of::<PyList>()
+        || parameters.unwrap().is_instance_of::<PyTuple>()
+    {
+        let params = parameters.unwrap().extract::<Vec<&PyAny>>();
+        for parameter in params?.iter() {
+            result_vec.push(py_to_rust(parameter).unwrap());
+        }
+    }
+
+    return Ok(result_vec);
+}
+
+pub fn py_to_rust(parameter: &PyAny) -> RustEnginePyResult<PythonType> {
+    if parameter.is_instance_of::<PyString>() {
+        return Ok(PythonType::PyString(parameter.extract::<String>()?));
+    }
+    if parameter.is_instance_of::<PyInt>() {
+        return Ok(PythonType::PyIntI32(parameter.extract::<i32>()?));
+    }
+    Ok(PythonType::PyString("Hello!".to_string()))
+}
 
 pub fn postgres_to_py<'a>(
     py: Python<'a>,
@@ -14,15 +78,17 @@ pub fn postgres_to_py<'a>(
     column_i: usize,
 ) -> RustEnginePyResult<Py<PyAny>> {
     match *column.type_() {
-        Type::TEXT | Type::VARCHAR => {
-            let rust_type = row.try_get::<_, Option<String>>(column_i).unwrap().unwrap();
-            Ok(rust_type.to_object(py))
-        }
-        Type::BOOL => {
-            let rust_type = row.try_get::<_, Option<bool>>(column_i).unwrap().unwrap();
-            Ok(rust_type.to_object(py))
-        }
-        _ => Ok("can't convert".to_object(py)),
+        Type::TEXT | Type::VARCHAR => Ok(row.try_get::<_, Option<String>>(column_i)?.to_object(py)),
+        Type::BOOL => Ok(row.try_get::<_, Option<bool>>(column_i)?.to_object(py)),
+        Type::INT2 => Ok(row.try_get::<_, Option<i16>>(column_i)?.to_object(py)),
+        Type::INT4 => Ok(row.try_get::<_, Option<i32>>(column_i)?.to_object(py)),
+        Type::INT8 => Ok(row.try_get::<_, Option<i64>>(column_i)?.to_object(py)),
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<String>>>(column_i)?
+            .to_object(py)),
+        _ => Err(RustEngineError::ValueConversionError(
+            column.type_().to_string(),
+        )),
     }
 }
 

@@ -1,21 +1,27 @@
 import asyncio
 import json
+import time
 
 from rustengine import RustEngine
 
 
-engine = RustEngine(username="postgres", password="postgres", host="localhost", port=5432, db_name="postgres")
+engine = RustEngine(username="postgres", password="postgres", host="localhost", port=5432)
 
 async def main():
     await engine.startup()
-    return await engine.execute("SELECT * FROM users")
+    start = time.time()
+    for _ in range(100000):
+        await engine.execute("SELECT * FROM users", [])
+    print("Took: ", time.time() - start)
+    
 
 
-res = asyncio.run(main())
-str_res = res.result()
+asyncio.run(main())
+# res = asyncio.run(main())
+# str_res = res.result()
 
-print(type(str_res))
-print(str_res)
+# print(type(str_res))
+# print(str_res)
 
 # json_res = json.loads(str_res)
 # print(json_res)
