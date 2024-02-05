@@ -1,5 +1,5 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use pyo3::{pyclass, pymethods, IntoPy, PyAny, PyObject, Python};
+use pyo3::{pyclass, pymethods, IntoPy, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
 use std::{future::Future, sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
@@ -19,57 +19,220 @@ where
     Ok(res)
 }
 
-#[pyclass()]
 pub struct RustEngineTransaction {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
+    is_done: Arc<tokio::sync::RwLock<bool>>,
+}
+
+impl RustEngineTransaction {
+    pub async fn inner_execute<'a>(
+        &'a self,
+        querystring: String,
+        parameters: Vec<PythonType>,
+    ) -> RustEnginePyResult<RustEnginePyQueryResult> {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let db_client_guard = db_client_arc.read().await;
+        let is_started_guard = is_started_arc.read().await;
+        let is_done_guard = is_done_arc.read().await;
+
+        if !*is_started_guard {
+            return Err(RustEngineError::DBTransactionError(
+                "Transaction is not started, please call begin() on transaction".into(),
+            ));
+        }
+        if *is_done_guard {
+            return Err(RustEngineError::DBTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+
+        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
+        for param in parameters.iter() {
+            vec_parameters.push(param);
+        }
+
+        let statement: tokio_postgres::Statement =
+            db_client_guard.prepare_cached(&querystring).await.unwrap();
+
+        let result = db_client_guard
+            .query(&statement, &vec_parameters.into_boxed_slice())
+            .await?;
+
+        Ok(RustEnginePyQueryResult::new(result))
+    }
+
+    pub async fn inner_begin<'a>(&'a self) -> RustEnginePyResult<()> {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if started {
+            return Err(RustEngineError::DBTransactionError(
+                "Transaction is already started".into(),
+            ));
+        }
+
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustEngineError::DBTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard.batch_execute("BEGIN").await?;
+        let mut is_started_write_guard = is_started_arc.write().await;
+        *is_started_write_guard = true;
+
+        Ok(())
+    }
+
+    pub async fn inner_commit<'a>(&'a self) -> RustEnginePyResult<()> {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if !started {
+            return Err(RustEngineError::DBTransactionError(
+                "Can not commit not started transaction".into(),
+            ));
+        }
+
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustEngineError::DBTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard.batch_execute("COMMIT").await?;
+        let mut is_done_write_guard = is_done_arc.write().await;
+        *is_done_write_guard = true;
+
+        Ok(())
+    }
+}
+
+#[pyclass()]
+pub struct PyRustEngineTransaction {
+    transaction: Arc<tokio::sync::RwLock<RustEngineTransaction>>,
 }
 
 #[pymethods]
-impl RustEngineTransaction {
+impl PyRustEngineTransaction {
+    #[must_use]
+    pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    pub fn __anext__(&self, py: Python<'_>) -> RustEnginePyResult<Option<PyObject>> {
+        let transaction_clone = self.transaction.clone();
+        let future = rustengine_future(py, async move {
+            Ok(PyRustEngineTransaction {
+                transaction: transaction_clone,
+            })
+        });
+        Ok(Some(future?.into()))
+    }
+
+    pub fn __await__<'a>(
+        slf: PyRefMut<'a, Self>,
+        _py: Python,
+    ) -> RustEnginePyResult<PyRefMut<'a, Self>> {
+        println!("__await__");
+        Ok(slf)
+    }
+
+    fn __aenter__<'a>(slf: PyRefMut<'a, Self>, py: Python<'a>) -> RustEnginePyResult<&'a PyAny> {
+        let transaction_arc = slf.transaction.clone();
+        let transaction_arc2 = slf.transaction.clone();
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_begin().await?;
+            Ok(PyRustEngineTransaction {
+                transaction: transaction_arc2,
+            })
+        })
+    }
+
+    fn __aexit__<'a>(
+        slf: PyRefMut<'a, Self>,
+        py: Python<'a>,
+        _exception_type: Py<PyAny>,
+        _exception: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) -> RustEnginePyResult<&'a PyAny> {
+        let transaction_arc = slf.transaction.clone();
+        let transaction_arc2 = slf.transaction.clone();
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_commit().await?;
+            Ok(PyRustEngineTransaction {
+                transaction: transaction_arc2,
+            })
+        })
+    }
+
     pub fn execute<'a>(
         &'a self,
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
     ) -> RustEnginePyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let is_started_arc = self.is_started.clone();
-
+        let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonType> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?
         }
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let started = {
-                let is_started_guard = is_started_arc.read().await;
-                is_started_guard.clone()
-            };
+            let transaction_guard = transaction_arc.read().await;
+            Ok(transaction_guard.inner_execute(querystring, params).await?)
+        })
+    }
 
-            if !started {
-                let mut is_started_write_guard = is_started_arc.write().await;
-                println!("Called BEGIN!");
-                db_client_guard.batch_execute("BEGIN").await?;
-                *is_started_write_guard = true;
-            };
+    pub fn begin<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
 
-            let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
-            for param in params.iter() {
-                vec_parameters.push(param);
-            }
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_begin().await?;
 
-            let result = db_client_guard
-                .query(&querystring, &vec_parameters.into_boxed_slice())
-                .await?;
+            Ok(())
+        })
+    }
 
-            Ok(RustEnginePyQueryResult::new(result))
+    pub fn commit<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_commit().await?;
+
+            Ok(())
         })
     }
 }
 
-#[pyclass()]
 pub struct RustEngine {
     username: Option<String>,
     password: Option<String>,
@@ -77,6 +240,25 @@ pub struct RustEngine {
     port: Option<u16>,
     db_name: Option<String>,
     db_pool: Arc<tokio::sync::RwLock<Option<Pool>>>,
+}
+
+impl RustEngine {
+    pub fn new(
+        username: Option<String>,
+        password: Option<String>,
+        host: Option<String>,
+        port: Option<u16>,
+        db_name: Option<String>,
+    ) -> Self {
+        RustEngine {
+            username,
+            password,
+            host,
+            port,
+            db_name,
+            db_pool: Arc::new(tokio::sync::RwLock::new(None)),
+        }
+    }
 }
 
 impl RustEngine {
@@ -111,7 +293,7 @@ impl RustEngine {
         Ok(RustEnginePyQueryResult::new(result))
     }
 
-    pub async fn inner_transaction<'a>(&'a self) -> RustEnginePyResult<RustEngineTransaction> {
+    pub async fn inner_transaction<'a>(&'a self) -> RustEnginePyResult<PyRustEngineTransaction> {
         let db_pool_arc = self.db_pool.clone();
         let db_pool_guard = db_pool_arc.read().await;
 
@@ -123,9 +305,14 @@ impl RustEngine {
             .get()
             .await?;
 
-        Ok(RustEngineTransaction {
+        let inner_transaction = RustEngineTransaction {
             db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
             is_started: Arc::new(tokio::sync::RwLock::new(false)),
+            is_done: Arc::new(tokio::sync::RwLock::new(false)),
+        };
+
+        Ok(PyRustEngineTransaction {
+            transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
         })
     }
 
@@ -169,25 +356,6 @@ impl RustEngine {
 
         *db_pool_guard = Some(Pool::builder(mgr).max_size(1).build()?);
         Ok(())
-    }
-}
-
-impl RustEngine {
-    pub fn new(
-        username: Option<String>,
-        password: Option<String>,
-        host: Option<String>,
-        port: Option<u16>,
-        db_name: Option<String>,
-    ) -> Self {
-        RustEngine {
-            username,
-            password,
-            host,
-            port,
-            db_name,
-            db_pool: Arc::new(tokio::sync::RwLock::new(None)),
-        }
     }
 }
 

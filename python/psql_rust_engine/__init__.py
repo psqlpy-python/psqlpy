@@ -1,6 +1,5 @@
-from ._internal import RustEngine, PyRustEngine
+from ._internal import PyRustEngine
 
 __all__ = [
-    "RustEngine",
     "PyRustEngine",
 ]

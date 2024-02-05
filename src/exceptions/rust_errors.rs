@@ -12,6 +12,8 @@ pub enum RustEngineError {
     RustToPyValueConversionError(String),
     #[error("Can't convert value from python to rust type: {0}")]
     PyToRustValueConversionError(String),
+    #[error("Transaction exception: {0}")]
+    DBTransactionError(String),
 
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
@@ -38,6 +40,7 @@ impl From<RustEngineError> for pyo3::PyErr {
             RustEngineError::DatabasePoolError(_) => RustEnginePyBaseError::new_err((error_desc,)),
             RustEngineError::DBEnginePoolError(_) => RustEnginePyBaseError::new_err((error_desc,)),
             RustEngineError::DBEngineBuildError(_) => RustEnginePyBaseError::new_err((error_desc,)),
+            RustEngineError::DBTransactionError(_) => RustEnginePyBaseError::new_err((error_desc,)),
         }
     }
 }
