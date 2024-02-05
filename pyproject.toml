@@ -3,7 +3,7 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "qaspen_rust_engine2"
+name = "psql-rust-engine"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
@@ -13,4 +13,6 @@ classifiers = [
 dynamic = ["version"]
 
 [tool.maturin]
+python-source = "python"
+module-name = "psql_rust_engine._internal"
 features = ["pyo3/extension-module"]

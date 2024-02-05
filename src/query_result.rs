@@ -1,7 +1,7 @@
 use pyo3::{pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
-use crate::{engine::RustEngineError, value_converter::postgres_to_py};
+use crate::{exceptions::rust_errors::RustEnginePyResult, value_converter::postgres_to_py};
 
 #[pyclass(name = "QueryResult")]
 pub struct RustEnginePyQueryResult {
@@ -18,7 +18,7 @@ impl RustEnginePyQueryResult {
 
 #[pymethods]
 impl RustEnginePyQueryResult {
-    pub fn result<'a>(&self, py: Python<'a>) -> Result<Py<PyAny>, RustEngineError> {
+    pub fn result<'a>(&self, py: Python<'a>) -> RustEnginePyResult<Py<PyAny>> {
         let mut result: Vec<&PyDict> = vec![];
         for row in &self.inner {
             let python_dict = PyDict::new(py);
