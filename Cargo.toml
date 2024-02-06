@@ -1,11 +1,11 @@
 [package]
-name = "psql-rust-engine"
+name = "psql-rust-driver"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "psql_rust_engine"
+name = "psql_rust_driver"
 crate-type = ["cdylib"]
 
 [dependencies]

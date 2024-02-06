@@ -14,5 +14,5 @@ dynamic = ["version"]
 
 [tool.maturin]
 python-source = "python"
-module-name = "psql_rust_engine._internal"
+module-name = "psql_rust_driver._internal"
 features = ["pyo3/extension-module"]

@@ -1,24 +1,24 @@
 use pyo3::{pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
-use crate::{exceptions::rust_errors::RustEnginePyResult, value_converter::postgres_to_py};
+use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};
 
 #[pyclass(name = "QueryResult")]
-pub struct RustEnginePyQueryResult {
+pub struct PSQLDriverPyQueryResult {
     inner: Vec<Row>,
 }
 
-impl RustEnginePyQueryResult {
+impl PSQLDriverPyQueryResult {
     pub fn new(database_result: Vec<Row>) -> Self {
-        RustEnginePyQueryResult {
+        PSQLDriverPyQueryResult {
             inner: database_result,
         }
     }
 }
 
 #[pymethods]
-impl RustEnginePyQueryResult {
-    pub fn result<'a>(&self, py: Python<'a>) -> RustEnginePyResult<Py<PyAny>> {
+impl PSQLDriverPyQueryResult {
+    pub fn result<'a>(&self, py: Python<'a>) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let mut result: Vec<&PyDict> = vec![];
         for row in &self.inner {
             let python_dict = PyDict::new(py);

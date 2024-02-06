@@ -535,7 +535,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "psql-rust-engine"
+name = "psql-rust-driver"
 version = "0.1.0"
 dependencies = [
  "byteorder",

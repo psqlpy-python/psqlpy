@@ -10,7 +10,7 @@ use tokio_postgres::{
     Column, Row,
 };
 
-use crate::exceptions::rust_errors::{RustEngineError, RustEnginePyResult};
+use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
 #[derive(Debug, Clone)]
 pub enum PythonType {
@@ -22,12 +22,12 @@ pub enum PythonType {
 }
 
 impl PythonType {
-    pub fn array_type(&self) -> RustEnginePyResult<tokio_postgres::types::Type> {
+    pub fn array_type(&self) -> RustPSQLDriverPyResult<tokio_postgres::types::Type> {
         match self {
             PythonType::PyString(_) => Ok(tokio_postgres::types::Type::TEXT_ARRAY),
             PythonType::PyIntI32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
             PythonType::PyIntU32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
-            _ => Err(RustEngineError::PyToRustValueConversionError(
+            _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
         }
@@ -69,7 +69,7 @@ impl ToSql for PythonType {
     to_sql_checked!();
 }
 
-pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustEnginePyResult<Vec<PythonType>> {
+pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<Vec<PythonType>> {
     let mut result_vec: Vec<PythonType> = vec![];
 
     if parameters.is_instance_of::<PyList>()
@@ -84,7 +84,7 @@ pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustEnginePyResult<Vec<P
     return Ok(result_vec);
 }
 
-pub fn py_to_rust(parameter: &PyAny) -> RustEnginePyResult<PythonType> {
+pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonType> {
     if parameter.is_instance_of::<PyString>() {
         return Ok(PythonType::PyString(parameter.extract::<String>()?));
     }
@@ -106,7 +106,7 @@ pub fn postgres_to_py<'a>(
     row: &Row,
     column: &Column,
     column_i: usize,
-) -> RustEnginePyResult<Py<PyAny>> {
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
     match *column.type_() {
         Type::TEXT | Type::VARCHAR => Ok(row.try_get::<_, Option<String>>(column_i)?.to_object(py)),
         Type::BOOL => Ok(row.try_get::<_, Option<bool>>(column_i)?.to_object(py)),
@@ -116,7 +116,7 @@ pub fn postgres_to_py<'a>(
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
             .try_get::<_, Option<Vec<String>>>(column_i)?
             .to_object(py)),
-        _ => Err(RustEngineError::RustToPyValueConversionError(
+        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             column.type_().to_string(),
         )),
     }

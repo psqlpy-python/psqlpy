@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Any, List
 
 
-class RustEnginePyQueryResult:
+class QueryResult:
     """Result."""
 
     def __init__(
@@ -13,7 +13,7 @@ class RustEnginePyQueryResult:
         """"""
 
 
-class PyRustEngine:
+class PSQLPool:
     """Aboba"""
 
     def __init__(
@@ -23,6 +23,7 @@ class PyRustEngine:
         host: Optional[str],
         port: Optional[int],
         db_name: Optional[str],
+        max_db_pool_size: Optional[str],
     ) -> None:
         """Test ebana."""
 
@@ -33,7 +34,7 @@ class PyRustEngine:
         self,
         querystring: str,
         parameters: List[Any],
-    ) -> RustEnginePyQueryResult:
+    ) -> QueryResult:
         ...
 
     async def transaction(self):

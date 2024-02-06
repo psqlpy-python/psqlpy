@@ -4,14 +4,14 @@ use std::{future::Future, sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
-    exceptions::rust_errors::{RustEngineError, RustEnginePyResult},
-    query_result::RustEnginePyQueryResult,
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonType},
 };
 
-pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustEnginePyResult<&PyAny>
+pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
 where
-    F: Future<Output = RustEnginePyResult<T>> + Send + 'static,
+    F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
     T: IntoPy<PyObject>,
 {
     let res = pyo3_asyncio::tokio::future_into_py(py, async { future.await.map_err(Into::into) })
@@ -19,18 +19,18 @@ where
     Ok(res)
 }
 
-pub struct RustEngineTransaction {
+pub struct RustTransaction {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
     is_done: Arc<tokio::sync::RwLock<bool>>,
 }
 
-impl RustEngineTransaction {
+impl RustTransaction {
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
         parameters: Vec<PythonType>,
-    ) -> RustEnginePyResult<RustEnginePyQueryResult> {
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
@@ -40,12 +40,12 @@ impl RustEngineTransaction {
         let is_done_guard = is_done_arc.read().await;
 
         if !*is_started_guard {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
         if *is_done_guard {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
@@ -62,10 +62,10 @@ impl RustEngineTransaction {
             .query(&statement, &vec_parameters.into_boxed_slice())
             .await?;
 
-        Ok(RustEnginePyQueryResult::new(result))
+        Ok(PSQLDriverPyQueryResult::new(result))
     }
 
-    pub async fn inner_begin<'a>(&'a self) -> RustEnginePyResult<()> {
+    pub async fn inner_begin<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
@@ -75,7 +75,7 @@ impl RustEngineTransaction {
             is_started_guard.clone()
         };
         if started {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Transaction is already started".into(),
             ));
         }
@@ -85,7 +85,7 @@ impl RustEngineTransaction {
             is_done_guard.clone()
         };
         if done {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
@@ -98,7 +98,7 @@ impl RustEngineTransaction {
         Ok(())
     }
 
-    pub async fn inner_commit<'a>(&'a self) -> RustEnginePyResult<()> {
+    pub async fn inner_commit<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
@@ -108,7 +108,7 @@ impl RustEngineTransaction {
             is_started_guard.clone()
         };
         if !started {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         }
@@ -118,7 +118,7 @@ impl RustEngineTransaction {
             is_done_guard.clone()
         };
         if done {
-            return Err(RustEngineError::DBTransactionError(
+            return Err(RustPSQLDriverError::DBTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
@@ -133,21 +133,21 @@ impl RustEngineTransaction {
 }
 
 #[pyclass()]
-pub struct PyRustEngineTransaction {
-    transaction: Arc<tokio::sync::RwLock<RustEngineTransaction>>,
+pub struct Transaction {
+    transaction: Arc<tokio::sync::RwLock<RustTransaction>>,
 }
 
 #[pymethods]
-impl PyRustEngineTransaction {
+impl Transaction {
     #[must_use]
     pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 
-    pub fn __anext__(&self, py: Python<'_>) -> RustEnginePyResult<Option<PyObject>> {
+    pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let transaction_clone = self.transaction.clone();
         let future = rustengine_future(py, async move {
-            Ok(PyRustEngineTransaction {
+            Ok(Transaction {
                 transaction: transaction_clone,
             })
         });
@@ -157,18 +157,20 @@ impl PyRustEngineTransaction {
     pub fn __await__<'a>(
         slf: PyRefMut<'a, Self>,
         _py: Python,
-    ) -> RustEnginePyResult<PyRefMut<'a, Self>> {
-        println!("__await__");
+    ) -> RustPSQLDriverPyResult<PyRefMut<'a, Self>> {
         Ok(slf)
     }
 
-    fn __aenter__<'a>(slf: PyRefMut<'a, Self>, py: Python<'a>) -> RustEnginePyResult<&'a PyAny> {
+    fn __aenter__<'a>(
+        slf: PyRefMut<'a, Self>,
+        py: Python<'a>,
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let transaction_arc = slf.transaction.clone();
         let transaction_arc2 = slf.transaction.clone();
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_begin().await?;
-            Ok(PyRustEngineTransaction {
+            Ok(Transaction {
                 transaction: transaction_arc2,
             })
         })
@@ -180,13 +182,13 @@ impl PyRustEngineTransaction {
         _exception_type: Py<PyAny>,
         _exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustEnginePyResult<&'a PyAny> {
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let transaction_arc = slf.transaction.clone();
         let transaction_arc2 = slf.transaction.clone();
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_commit().await?;
-            Ok(PyRustEngineTransaction {
+            Ok(Transaction {
                 transaction: transaction_arc2,
             })
         })
@@ -197,7 +199,7 @@ impl PyRustEngineTransaction {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
-    ) -> RustEnginePyResult<&PyAny> {
+    ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonType> = vec![];
         if let Some(parameters) = parameters {
@@ -210,7 +212,7 @@ impl PyRustEngineTransaction {
         })
     }
 
-    pub fn begin<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&PyAny> {
+    pub fn begin<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
@@ -221,7 +223,7 @@ impl PyRustEngineTransaction {
         })
     }
 
-    pub fn commit<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&PyAny> {
+    pub fn commit<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
@@ -233,47 +235,50 @@ impl PyRustEngineTransaction {
     }
 }
 
-pub struct RustEngine {
+pub struct RustPSQLPool {
     username: Option<String>,
     password: Option<String>,
     host: Option<String>,
     port: Option<u16>,
     db_name: Option<String>,
+    max_db_pool_size: Option<usize>,
     db_pool: Arc<tokio::sync::RwLock<Option<Pool>>>,
 }
 
-impl RustEngine {
+impl RustPSQLPool {
     pub fn new(
         username: Option<String>,
         password: Option<String>,
         host: Option<String>,
         port: Option<u16>,
         db_name: Option<String>,
+        max_db_pool_size: Option<usize>,
     ) -> Self {
-        RustEngine {
+        RustPSQLPool {
             username,
             password,
             host,
             port,
             db_name,
+            max_db_pool_size,
             db_pool: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
 }
 
-impl RustEngine {
+impl RustPSQLPool {
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
         parameters: Vec<PythonType>,
-    ) -> RustEnginePyResult<RustEnginePyQueryResult> {
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool_arc = self.db_pool.clone();
 
         let db_pool_guard = db_pool_arc.read().await;
 
         let db_pool_manager = db_pool_guard
             .as_ref()
-            .ok_or(RustEngineError::DatabasePoolError(
+            .ok_or(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is not initialized".into(),
             ))?
             .get()
@@ -290,45 +295,54 @@ impl RustEngine {
                 &vec_parameters.into_boxed_slice(),
             )
             .await?;
-        Ok(RustEnginePyQueryResult::new(result))
+        Ok(PSQLDriverPyQueryResult::new(result))
     }
 
-    pub async fn inner_transaction<'a>(&'a self) -> RustEnginePyResult<PyRustEngineTransaction> {
+    pub async fn inner_transaction<'a>(&'a self) -> RustPSQLDriverPyResult<Transaction> {
         let db_pool_arc = self.db_pool.clone();
         let db_pool_guard = db_pool_arc.read().await;
 
         let db_pool_manager = db_pool_guard
             .as_ref()
-            .ok_or(RustEngineError::DatabasePoolError(
+            .ok_or(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is not initialized".into(),
             ))?
             .get()
             .await?;
 
-        let inner_transaction = RustEngineTransaction {
+        let inner_transaction = RustTransaction {
             db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
             is_started: Arc::new(tokio::sync::RwLock::new(false)),
             is_done: Arc::new(tokio::sync::RwLock::new(false)),
         };
 
-        Ok(PyRustEngineTransaction {
+        Ok(Transaction {
             transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
         })
     }
 
-    pub async fn inner_startup<'a>(&'a self) -> RustEnginePyResult<()> {
+    pub async fn inner_startup<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_pool_arc = self.db_pool.clone();
         let password = self.password.clone();
         let username = self.username.clone();
         let db_host = self.host.clone();
         let db_port = self.port;
         let db_name = self.db_name.clone();
+        let max_db_pool_size = self.max_db_pool_size.clone();
 
         let mut db_pool_guard = db_pool_arc.write().await;
         if db_pool_guard.is_some() {
-            return Err(RustEngineError::DatabasePoolError(
+            return Err(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is already initialized".into(),
             ));
+        }
+
+        if let Some(max_db_pool_size) = max_db_pool_size {
+            if max_db_pool_size < 2 {
+                return Err(RustPSQLDriverError::DBPoolConfigurationError(
+                    "Maximum database pool size must be more than 1".into(),
+                ));
+            }
         }
 
         let mut pg_config = tokio_postgres::Config::new();
@@ -354,18 +368,23 @@ impl RustEngine {
         };
         let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
 
-        *db_pool_guard = Some(Pool::builder(mgr).max_size(1).build()?);
+        let mut db_pool_builder = Pool::builder(mgr);
+        if let Some(max_db_pool_size) = max_db_pool_size {
+            db_pool_builder = db_pool_builder.max_size(max_db_pool_size);
+        }
+
+        *db_pool_guard = Some(db_pool_builder.build()?);
         Ok(())
     }
 }
 
 #[pyclass()]
-pub struct PyRustEngine {
-    engine: Arc<tokio::sync::RwLock<Option<RustEngine>>>,
+pub struct PSQLPool {
+    engine: Arc<tokio::sync::RwLock<Option<RustPSQLPool>>>,
 }
 
 #[pymethods]
-impl PyRustEngine {
+impl PSQLPool {
     #[new]
     pub fn new(
         username: Option<String>,
@@ -373,20 +392,22 @@ impl PyRustEngine {
         host: Option<String>,
         port: Option<u16>,
         db_name: Option<String>,
+        max_db_pool_size: Option<usize>,
     ) -> Self {
-        PyRustEngine {
-            engine: Arc::new(tokio::sync::RwLock::new(Some(RustEngine {
+        PSQLPool {
+            engine: Arc::new(tokio::sync::RwLock::new(Some(RustPSQLPool {
                 username,
                 password,
                 host,
                 port,
                 db_name,
+                max_db_pool_size,
                 db_pool: Arc::new(tokio::sync::RwLock::new(None)),
             }))),
         }
     }
 
-    pub fn startup<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&'a PyAny> {
+    pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let db_engine_arc = self.engine.clone();
         rustengine_future(py, async move {
             let mut db_pool_guard = db_engine_arc.write().await;
@@ -394,7 +415,7 @@ impl PyRustEngine {
         })
     }
 
-    pub fn transaction<'a>(&'a self, py: Python<'a>) -> RustEnginePyResult<&'a PyAny> {
+    pub fn transaction<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let engine_arc = self.engine.clone();
 
         rustengine_future(py, async move {
@@ -416,7 +437,7 @@ impl PyRustEngine {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
-    ) -> RustEnginePyResult<&'a PyAny> {
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let engine_arc = self.engine.clone();
         let mut params: Vec<PythonType> = vec![];
         if let Some(parameters) = parameters {
