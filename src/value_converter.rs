@@ -129,18 +129,29 @@ pub fn postgres_to_py<'a>(
     column_i: usize,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     match *column.type_() {
+        // Convert TEXT and VARCHAR type into String, then into str
         Type::TEXT | Type::VARCHAR => Ok(row.try_get::<_, Option<String>>(column_i)?.to_object(py)),
+        // Convert BOOL type into bool
         Type::BOOL => Ok(row.try_get::<_, Option<bool>>(column_i)?.to_object(py)),
+        // Convert SmallInt into i16, then into int
         Type::INT2 => Ok(row.try_get::<_, Option<i16>>(column_i)?.to_object(py)),
+        // Convert Integer into i32, then into int
         Type::INT4 => Ok(row.try_get::<_, Option<i32>>(column_i)?.to_object(py)),
+        // Convert BigInt into i64, then into int
         Type::INT8 => Ok(row.try_get::<_, Option<i64>>(column_i)?.to_object(py)),
+        // Convert REAL into f32, then into float
         Type::FLOAT4 => Ok(row.try_get::<_, Option<f32>>(column_i)?.to_object(py)),
+        // Convert DOUBLE PRECISION into f64, then into float
         Type::FLOAT8 => Ok(row.try_get::<_, Option<f64>>(column_i)?.to_object(py)),
+        // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
             .try_get::<_, Option<Vec<String>>>(column_i)?
             .to_object(py)),
+        // Convert ARRAY of SmallInt into Vec<i16>, then into list[int]
         Type::INT2_ARRAY => Ok(row.try_get::<_, Option<Vec<i16>>>(column_i)?.to_object(py)),
+        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
         Type::INT4_ARRAY => Ok(row.try_get::<_, Option<Vec<i32>>>(column_i)?.to_object(py)),
+        // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
         Type::INT8_ARRAY => Ok(row.try_get::<_, Option<Vec<i64>>>(column_i)?.to_object(py)),
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             column.type_().to_string(),
