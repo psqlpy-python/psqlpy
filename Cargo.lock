@@ -541,6 +541,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "deadpool-postgres",
+ "postgres-protocol",
  "pyo3",
  "pyo3-asyncio",
  "thiserror",

@@ -17,3 +17,4 @@ pyo3-asyncio = { version = "0.19.0", features = ["tokio-runtime"] }
 thiserror = "1.0.56"
 bytes = "1.5.0"
 byteorder = "1.5.0"
+postgres-protocol = "0.6.6"

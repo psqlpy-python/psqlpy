@@ -56,7 +56,7 @@ impl RustTransaction {
         }
 
         let statement: tokio_postgres::Statement =
-            db_client_guard.prepare_cached(&querystring).await.unwrap();
+            db_client_guard.prepare_cached(&querystring).await?;
 
         let result = db_client_guard
             .query(&statement, &vec_parameters.into_boxed_slice())
@@ -380,7 +380,7 @@ impl RustPSQLPool {
 
 #[pyclass()]
 pub struct PSQLPool {
-    engine: Arc<tokio::sync::RwLock<Option<RustPSQLPool>>>,
+    rust_psql_pool: Arc<tokio::sync::RwLock<RustPSQLPool>>,
 }
 
 #[pymethods]
@@ -395,7 +395,7 @@ impl PSQLPool {
         max_db_pool_size: Option<usize>,
     ) -> Self {
         PSQLPool {
-            engine: Arc::new(tokio::sync::RwLock::new(Some(RustPSQLPool {
+            rust_psql_pool: Arc::new(tokio::sync::RwLock::new(RustPSQLPool {
                 username,
                 password,
                 host,
@@ -403,30 +403,26 @@ impl PSQLPool {
                 db_name,
                 max_db_pool_size,
                 db_pool: Arc::new(tokio::sync::RwLock::new(None)),
-            }))),
+            })),
         }
     }
 
     pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let db_engine_arc = self.engine.clone();
+        let psql_pool_arc = self.rust_psql_pool.clone();
         rustengine_future(py, async move {
-            let mut db_pool_guard = db_engine_arc.write().await;
-            db_pool_guard.as_mut().unwrap().inner_startup().await
+            let db_pool_guard = psql_pool_arc.write().await;
+            db_pool_guard.inner_startup().await?;
+            Ok(())
         })
     }
 
     pub fn transaction<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let engine_arc = self.engine.clone();
+        let psql_pool_arc = self.rust_psql_pool.clone();
 
         rustengine_future(py, async move {
-            let mut engine_guard = engine_arc.write().await;
+            let psql_pool_guard = psql_pool_arc.write().await;
 
-            let transaction = engine_guard
-                .as_mut()
-                .unwrap()
-                .inner_transaction()
-                .await
-                .unwrap();
+            let transaction = psql_pool_guard.inner_transaction().await.unwrap();
 
             Ok(transaction)
         })
@@ -438,7 +434,7 @@ impl PSQLPool {
         querystring: String,
         parameters: Option<&'a PyAny>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let engine_arc = self.engine.clone();
+        let engine_arc = self.rust_psql_pool.clone();
         let mut params: Vec<PythonType> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?
@@ -447,11 +443,7 @@ impl PSQLPool {
         rustengine_future(py, async move {
             let engine_guard = engine_arc.read().await;
 
-            engine_guard
-                .as_ref()
-                .unwrap()
-                .inner_execute(querystring, params)
-                .await
+            engine_guard.inner_execute(querystring, params).await
         })
     }
 }

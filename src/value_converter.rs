@@ -1,8 +1,9 @@
 use std::fmt::Debug;
 
 use bytes::{BufMut, BytesMut};
+use postgres_protocol::types;
 use pyo3::{
-    types::{PyInt, PyList, PySet, PyString, PyTuple},
+    types::{PyBool, PyFloat, PyInt, PyList, PySet, PyString, PyTuple},
     Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
@@ -12,11 +13,15 @@ use tokio_postgres::{
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PythonType {
+    PyNone,
+    PyBool(bool),
     PyString(String),
     PyIntI32(i32),
     PyIntU32(u32),
+    PyFloat32(f32),
+    PyFloat64(f64),
     PyList(Vec<PythonType>),
     PyTuple(Vec<PythonType>),
 }
@@ -44,16 +49,27 @@ impl ToSql for PythonType {
 
     fn to_sql(
         &self,
-        _ty: &tokio_postgres::types::Type,
+        ty: &tokio_postgres::types::Type,
         out: &mut BytesMut,
     ) -> Result<tokio_postgres::types::IsNull, Box<dyn std::error::Error + Sync + Send>>
     where
         Self: Sized,
     {
+        if *self == PythonType::PyNone {
+            return Ok(tokio_postgres::types::IsNull::Yes);
+        }
+
         match self {
-            PythonType::PyString(string) => out.extend(string.as_bytes()),
+            PythonType::PyNone => {}
+            PythonType::PyBool(boolean) => types::bool_to_sql(*boolean, out),
+            // PythonType::PyString(string) => out.extend(string.as_bytes()),
+            PythonType::PyString(string) => {
+                <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
+            }
             PythonType::PyIntI32(int) => out.put_i32(*int),
             PythonType::PyIntU32(int) => out.put_u32(*int),
+            PythonType::PyFloat32(float) => out.put_f32(*float),
+            PythonType::PyFloat64(float) => out.put_f64(*float),
             PythonType::PyList(py_iterable) | PythonType::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
                 for inner in py_iterable.iter() {
@@ -85,13 +101,18 @@ pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<V
 }
 
 pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonType> {
-    if parameter.is_instance_of::<PyString>() {
+    if parameter.is_none() {
+        return Ok(PythonType::PyNone);
+    } else if parameter.is_instance_of::<PyBool>() {
+        return Ok(PythonType::PyBool(parameter.extract::<bool>()?));
+    } else if parameter.is_instance_of::<PyString>() {
         return Ok(PythonType::PyString(parameter.extract::<String>()?));
-    }
-    if parameter.is_instance_of::<PyInt>() {
+    } else if parameter.is_instance_of::<PyFloat>() {
+        // TODO: Add support for all types of float.
+        return Ok(PythonType::PyFloat32(parameter.extract::<f32>()?));
+    } else if parameter.is_instance_of::<PyInt>() {
         return Ok(PythonType::PyIntI32(parameter.extract::<i32>()?));
-    }
-    if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
+    } else if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
         let mut items = Vec::new();
         for inner in parameter.iter()? {
             items.push(py_to_rust(inner?)?);
@@ -113,6 +134,8 @@ pub fn postgres_to_py<'a>(
         Type::INT2 => Ok(row.try_get::<_, Option<i16>>(column_i)?.to_object(py)),
         Type::INT4 => Ok(row.try_get::<_, Option<i32>>(column_i)?.to_object(py)),
         Type::INT8 => Ok(row.try_get::<_, Option<i64>>(column_i)?.to_object(py)),
+        Type::FLOAT4 => Ok(row.try_get::<_, Option<f32>>(column_i)?.to_object(py)),
+        Type::FLOAT8 => Ok(row.try_get::<_, Option<f64>>(column_i)?.to_object(py)),
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
             .try_get::<_, Option<Vec<String>>>(column_i)?
             .to_object(py)),
