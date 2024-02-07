@@ -6,7 +6,7 @@ use tokio_postgres::{types::ToSql, NoTls};
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
-    value_converter::{convert_parameters, PythonType},
+    value_converter::{convert_parameters, PythonDTO},
 };
 
 pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
@@ -29,7 +29,7 @@ impl RustTransaction {
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
-        parameters: Vec<PythonType>,
+        parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
@@ -201,7 +201,7 @@ impl Transaction {
         parameters: Option<&'a PyAny>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
-        let mut params: Vec<PythonType> = vec![];
+        let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?
         }
@@ -270,7 +270,7 @@ impl RustPSQLPool {
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
-        parameters: Vec<PythonType>,
+        parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool_arc = self.db_pool.clone();
 
@@ -435,7 +435,7 @@ impl PSQLPool {
         parameters: Option<&'a PyAny>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let engine_arc = self.rust_psql_pool.clone();
-        let mut params: Vec<PythonType> = vec![];
+        let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?
         }

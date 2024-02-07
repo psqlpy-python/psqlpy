@@ -28,7 +28,6 @@ impl PSQLDriverPyQueryResult {
             }
             result.push(python_dict);
         }
-
         Ok(result.to_object(py))
     }
 }
