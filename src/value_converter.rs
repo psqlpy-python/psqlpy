@@ -1,11 +1,14 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use chrono_tz::Tz;
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
+use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
-    types::{PyBool, PyDate, PyDateTime, PyFloat, PyInt, PyList, PySet, PyString, PyTime, PyTuple},
+    types::{
+        PyBool, PyBytes, PyDate, PyDateTime, PyFloat, PyInt, PyList, PySet, PyString, PyTime,
+        PyTuple,
+    },
     Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
@@ -13,14 +16,20 @@ use tokio_postgres::{
     Column, Row,
 };
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::{
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    extra_types::{BigInt, Integer, SmallInt},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PythonDTO {
     PyNone,
+    PyBytes(Vec<u8>),
     PyBool(bool),
     PyString(String),
+    PyIntI16(i16),
     PyIntI32(i32),
+    PyIntI64(i64),
     PyIntU32(u32),
     PyFloat32(f32),
     PyFloat64(f64),
@@ -67,12 +76,27 @@ impl ToSql for PythonDTO {
 
         match self {
             PythonDTO::PyNone => {}
+            PythonDTO::PyBytes(pybytes) => {
+                <Vec<u8> as ToSql>::to_sql(pybytes, ty, out)?;
+            }
             PythonDTO::PyBool(boolean) => types::bool_to_sql(*boolean, out),
             // PythonType::PyString(string) => out.extend(string.as_bytes()),
             PythonDTO::PyString(string) => {
-                <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
+                let uuid = Uuid::from_str(&string);
+                println!("{:?}", uuid);
+
+                match uuid {
+                    Ok(ok_uuid) => {
+                        <Uuid as ToSql>::to_sql(&ok_uuid, ty, out)?;
+                    }
+                    Err(_) => {
+                        <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
+                    }
+                }
             }
+            PythonDTO::PyIntI16(int) => out.put_i16(*int),
             PythonDTO::PyIntI32(int) => out.put_i32(*int),
+            PythonDTO::PyIntI64(int) => out.put_i64(*int),
             PythonDTO::PyIntU32(int) => out.put_u32(*int),
             PythonDTO::PyFloat32(float) => out.put_f32(*float),
             PythonDTO::PyFloat64(float) => out.put_f64(*float),
@@ -82,18 +106,17 @@ impl ToSql for PythonDTO {
             PythonDTO::PyTime(pytime) => {
                 <&NaiveTime as ToSql>::to_sql(&pytime, ty, out)?;
             }
-            PythonDTO::PyDateTimeTz(pydatetime_tz) => {
-                <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
-            }
             PythonDTO::PyDateTime(pydatetime_no_tz) => {
                 <&NaiveDateTime as ToSql>::to_sql(&pydatetime_no_tz, ty, out)?;
+            }
+            PythonDTO::PyDateTimeTz(pydatetime_tz) => {
+                <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
                 for inner in py_iterable.iter() {
                     items.push(inner);
                 }
-                // items.to_sql(&tokio_postgres::types::Type::TEXT_ARRAY, out)?;
                 items.to_sql(&items[0].array_type()?, out)?;
             }
         }
@@ -127,6 +150,10 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
         return Ok(PythonDTO::PyBool(parameter.extract::<bool>()?));
     }
 
+    if parameter.is_instance_of::<PyBytes>() {
+        return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
+    }
+
     if parameter.is_instance_of::<PyDateTime>() {
         let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
 
@@ -150,9 +177,28 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_instance_of::<PyString>() {
         return Ok(PythonDTO::PyString(parameter.extract::<String>()?));
     }
+
     if parameter.is_instance_of::<PyFloat>() {
         // TODO: Add support for all types of float.
         return Ok(PythonDTO::PyFloat32(parameter.extract::<f32>()?));
+    }
+
+    if parameter.is_instance_of::<SmallInt>() {
+        return Ok(PythonDTO::PyIntI16(
+            parameter.extract::<SmallInt>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<Integer>() {
+        return Ok(PythonDTO::PyIntI32(
+            parameter.extract::<Integer>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<BigInt>() {
+        return Ok(PythonDTO::PyIntI64(
+            parameter.extract::<BigInt>()?.retrieve_value(),
+        ));
     }
 
     if parameter.is_instance_of::<PyInt>() {
@@ -185,6 +231,12 @@ pub fn postgres_to_py<'a>(
     column_i: usize,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     match *column.type_() {
+        // ---------- Bytes Types ----------
+        // Convert BYTEA type into Vector<u8>, then into PyBytes
+        Type::BYTEA => match row.try_get::<_, Option<Vec<u8>>>(column_i)? {
+            Some(rest_bytes) => Ok(PyBytes::new(py, &rest_bytes).to_object(py)),
+            None => return Ok(py.None()),
+        },
         // ---------- String Types ----------
         // Convert TEXT and VARCHAR type into String, then into str
         Type::TEXT | Type::VARCHAR => Ok(row.try_get::<_, Option<String>>(column_i)?.to_object(py)),
@@ -215,6 +267,17 @@ pub fn postgres_to_py<'a>(
         Type::TIMESTAMPTZ => Ok(row
             .try_get::<_, Option<DateTime<FixedOffset>>>(column_i)?
             .to_object(py)),
+        // ---------- UUID Types ----------
+        // Convert UUID into Uuid type, then into String if possible
+        Type::UUID => {
+            let rust_uuid = row.try_get::<_, Option<Uuid>>(column_i)?;
+            match rust_uuid {
+                Some(rust_uuid) => {
+                    return Ok(PyString::new(py, &rust_uuid.to_string()).to_object(py))
+                }
+                None => return Ok(py.None()),
+            }
+        }
         // ---------- Array Types ----------
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
