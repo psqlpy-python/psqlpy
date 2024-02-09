@@ -1,24 +1,18 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use pyo3::{pyclass, pymethods, IntoPy, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
-use std::{future::Future, sync::Arc, vec};
+use pyo3::{pyclass, pymethods, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
+use std::{sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
+    common::rustengine_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
 };
 
-pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
-where
-    F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
-    T: IntoPy<PyObject>,
-{
-    let res = pyo3_asyncio::tokio::future_into_py(py, async { future.await.map_err(Into::into) })
-        .map(Into::into)?;
-    Ok(res)
-}
-
+/// Transaction for internal use only.
+///
+/// It is not exposed to python.
 pub struct RustTransaction {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
@@ -26,6 +20,19 @@ pub struct RustTransaction {
 }
 
 impl RustTransaction {
+    /// Execute querystring with parameters.
+    ///
+    /// Method doesn't acquire lock on any structure fields.
+    /// It prepares and caches querystring in the inner Object object.
+    ///
+    /// Then execute the query.
+    ///
+    /// # Errors:
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done already
+    /// 3) Can not create/retrieve prepared statement
+    /// 4) Can not execute statement
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
@@ -65,6 +72,16 @@ impl RustTransaction {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Start the transaction.
+    ///
+    /// Execute `BEGIN` commands and mark transaction as `started`.
+    ///
+    /// # Errors:
+    ///
+    /// May return Err Result if:
+    /// 1) Transaction is already started.
+    /// 2) Transaction is done.
+    /// 3) Cannot execute `BEGIN` command.
     pub async fn inner_begin<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
@@ -98,6 +115,16 @@ impl RustTransaction {
         Ok(())
     }
 
+    /// Commit the transaction.
+    ///
+    /// Execute `COMMIT` command and mark transaction as `done`.
+    ///
+    /// # Errors:
+    ///
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Cannot execute `COMMIT` command
     pub async fn inner_commit<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
@@ -194,6 +221,16 @@ impl Transaction {
         })
     }
 
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors:
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
     pub fn execute<'a>(
         &'a self,
         py: Python<'a>,
@@ -212,6 +249,10 @@ impl Transaction {
         })
     }
 
+    /// Start the transaction.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot execute command.
     pub fn begin<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
 
@@ -223,6 +264,10 @@ impl Transaction {
         })
     }
 
+    /// Commit the transaction.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot execute command.
     pub fn commit<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
 

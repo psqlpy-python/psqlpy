@@ -21,6 +21,11 @@ use crate::{
     extra_types::{BigInt, Integer, SmallInt},
 };
 
+/// Additional type for types come from Python.
+///
+/// It's necessary because we need to pass this
+/// enum into `to_sql` method of ToSql trait from
+/// `postgres` crate.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PythonDTO {
     PyNone,
@@ -42,7 +47,16 @@ pub enum PythonDTO {
     PyTuple(Vec<PythonDTO>),
 }
 
+/// Implement necessary methods for this type.
 impl PythonDTO {
+    /// Return type of the Array for PostgreSQL.
+    ///
+    /// Since every Array must have concrete type,
+    /// we must say exactly what type of array we try to pass into
+    /// postgres.
+    ///
+    /// # Errors
+    /// May return Err Result if there is no support for passed python type.
     pub fn array_type(&self) -> RustPSQLDriverPyResult<tokio_postgres::types::Type> {
         match self {
             PythonDTO::PyUUID(_) => Ok(tokio_postgres::types::Type::UUID_ARRAY),
@@ -60,7 +74,15 @@ impl PythonDTO {
     }
 }
 
+/// Implement ToSql trait.
+///
+/// It allows us to pass PythonDTO enum as parameter
+/// directly into `.execute()` method in
+/// `DatabasePool`, `Connection` and `Transaction`.
 impl ToSql for PythonDTO {
+    /// Answer the question Is this type can be passed into sql?
+    ///
+    /// Always True.
     fn accepts(_ty: &tokio_postgres::types::Type) -> bool
     where
         Self: Sized,
@@ -68,6 +90,14 @@ impl ToSql for PythonDTO {
         true
     }
 
+    /// Convert our `PythonDTO` enum into bytes.
+    ///
+    /// We convert every inner type of PythonDTO enum variant
+    /// into bytes and write them into bytes buffer.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if cannot write bytes into buffer.
     fn to_sql(
         &self,
         ty: &tokio_postgres::types::Type,
@@ -124,6 +154,17 @@ impl ToSql for PythonDTO {
     to_sql_checked!();
 }
 
+/// Convert parameters come from python.
+///
+/// Parameters for `execute()` method can be either
+/// a list or a tuple or a set.
+///
+/// We parse every parameter from python object and return
+/// Vector of out `PythonDTO`.
+///
+/// # Errors:
+///
+/// May return Err Result if can't convert python object.
 pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
 
@@ -139,6 +180,12 @@ pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<V
     return Ok(result_vec);
 }
 
+/// Convert single python parameter to `PythonDTO` enum.
+///
+/// # Errors
+///
+/// May return Err Result if python type doesn't have support yet
+/// or value of the type is incorrect.
 pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
@@ -230,6 +277,12 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     )))
 }
 
+/// Convert type from postgres to python type.
+///
+/// # Errors:
+///
+/// May return Err Result if cannot convert postgres
+/// type into rust one.
 pub fn postgres_to_py<'a>(
     py: Python<'a>,
     row: &Row,

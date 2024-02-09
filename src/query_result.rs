@@ -18,6 +18,16 @@ impl PSQLDriverPyQueryResult {
 
 #[pymethods]
 impl PSQLDriverPyQueryResult {
+    /// Return result as a Python list of dicts.
+    ///
+    /// It's a common variant how to return a result for the future
+    /// processing.
+    ///
+    /// # Errors:
+    ///
+    /// May return Err Result if can not convert
+    /// postgres type to python or set new key-value pair
+    /// in python dict.
     pub fn result<'a>(&self, py: Python<'a>) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let mut result: Vec<&PyDict> = vec![];
         for row in &self.inner {

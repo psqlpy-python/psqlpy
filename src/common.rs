@@ -1,4 +1,8 @@
-use pyo3::{types::PyModule, PyResult, Python};
+use std::future::Future;
+
+use pyo3::{types::PyModule, IntoPy, PyAny, PyObject, PyResult, Python};
+
+use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
 
 /// Add new module to the parent one.
 ///
@@ -22,4 +26,14 @@ pub fn add_module(
         sub_module,
     )?;
     Ok(())
+}
+
+pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
+where
+    F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
+    T: IntoPy<PyObject>,
+{
+    let res = pyo3_asyncio::tokio::future_into_py(py, async { future.await.map_err(Into::into) })
+        .map(Into::into)?;
+    Ok(res)
 }
