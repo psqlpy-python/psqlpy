@@ -26,6 +26,7 @@ pub enum PythonDTO {
     PyNone,
     PyBytes(Vec<u8>),
     PyBool(bool),
+    PyUUID(Uuid),
     PyString(String),
     PyIntI16(i16),
     PyIntI32(i32),
@@ -44,8 +45,13 @@ pub enum PythonDTO {
 impl PythonDTO {
     pub fn array_type(&self) -> RustPSQLDriverPyResult<tokio_postgres::types::Type> {
         match self {
+            PythonDTO::PyUUID(_) => Ok(tokio_postgres::types::Type::UUID_ARRAY),
             PythonDTO::PyString(_) => Ok(tokio_postgres::types::Type::TEXT_ARRAY),
+            PythonDTO::PyIntI16(_) => Ok(tokio_postgres::types::Type::INT2_ARRAY),
             PythonDTO::PyIntI32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
+            PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
+            PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
+            PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
             PythonDTO::PyIntU32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
@@ -80,19 +86,11 @@ impl ToSql for PythonDTO {
                 <Vec<u8> as ToSql>::to_sql(pybytes, ty, out)?;
             }
             PythonDTO::PyBool(boolean) => types::bool_to_sql(*boolean, out),
-            // PythonType::PyString(string) => out.extend(string.as_bytes()),
+            PythonDTO::PyUUID(pyuuid) => {
+                <Uuid as ToSql>::to_sql(&pyuuid, ty, out)?;
+            }
             PythonDTO::PyString(string) => {
-                let uuid = Uuid::from_str(&string);
-                println!("{:?}", uuid);
-
-                match uuid {
-                    Ok(ok_uuid) => {
-                        <Uuid as ToSql>::to_sql(&ok_uuid, ty, out)?;
-                    }
-                    Err(_) => {
-                        <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
-                    }
-                }
+                <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
             }
             PythonDTO::PyIntI16(int) => out.put_i16(*int),
             PythonDTO::PyIntI32(int) => out.put_i32(*int),
@@ -175,7 +173,12 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     }
 
     if parameter.is_instance_of::<PyString>() {
-        return Ok(PythonDTO::PyString(parameter.extract::<String>()?));
+        let python_str = parameter.extract::<String>()?;
+
+        match Uuid::from_str(&python_str) {
+            Ok(pyuuid) => return Ok(PythonDTO::PyUUID(pyuuid)),
+            Err(_) => return Ok(PythonDTO::PyString(python_str)),
+        }
     }
 
     if parameter.is_instance_of::<PyFloat>() {
@@ -221,7 +224,10 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
         return Ok(PythonDTO::PyList(items));
     }
 
-    Ok(PythonDTO::PyString("Can't convert!".to_string()))
+    Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+        "Can not covert you type {} into inner one",
+        parameter,
+    )))
 }
 
 pub fn postgres_to_py<'a>(
@@ -278,17 +284,52 @@ pub fn postgres_to_py<'a>(
                 None => return Ok(py.None()),
             }
         }
-        // ---------- Array Types ----------
+        // ---------- Array Text Types ----------
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
             .try_get::<_, Option<Vec<String>>>(column_i)?
             .to_object(py)),
+        // ---------- Array Integer Types ----------
         // Convert ARRAY of SmallInt into Vec<i16>, then into list[int]
         Type::INT2_ARRAY => Ok(row.try_get::<_, Option<Vec<i16>>>(column_i)?.to_object(py)),
         // Convert ARRAY of Integer into Vec<i32>, then into list[int]
         Type::INT4_ARRAY => Ok(row.try_get::<_, Option<Vec<i32>>>(column_i)?.to_object(py)),
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
         Type::INT8_ARRAY => Ok(row.try_get::<_, Option<Vec<i64>>>(column_i)?.to_object(py)),
+        // Convert ARRAY of Float4 into Vec<f32>, then into list[float]
+        Type::FLOAT4_ARRAY => Ok(row.try_get::<_, Option<Vec<f32>>>(column_i)?.to_object(py)),
+        // Convert ARRAY of Float8 into Vec<f64>, then into list[float]
+        Type::FLOAT8_ARRAY => Ok(row.try_get::<_, Option<Vec<f64>>>(column_i)?.to_object(py)),
+        // Convert ARRAY of Date into Vec<NaiveDate>, then into list[datetime.date]
+        Type::DATE_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<NaiveDate>>>(column_i)?
+            .to_object(py)),
+        // Convert ARRAY of Time into Vec<NaiveTime>, then into list[datetime.date]
+        Type::TIME_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<NaiveTime>>>(column_i)?
+            .to_object(py)),
+        // Convert ARRAY of TIMESTAMP into Vec<NaiveDateTime>, then into list[datetime.date]
+        Type::TIMESTAMP_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<NaiveDateTime>>>(column_i)?
+            .to_object(py)),
+        // Convert ARRAY of TIMESTAMPTZ into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        Type::TIMESTAMPTZ_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<DateTime<FixedOffset>>>>(column_i)?
+            .to_object(py)),
+        // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        Type::UUID_ARRAY => match row.try_get::<_, Option<Vec<Uuid>>>(column_i)? {
+            Some(rust_uuid_vec) => {
+                return Ok(PyList::new(
+                    py,
+                    rust_uuid_vec
+                        .iter()
+                        .map(|rust_uuid| rust_uuid.to_string().as_str().to_object(py))
+                        .collect::<Vec<Py<PyAny>>>(),
+                )
+                .to_object(py))
+            }
+            None => return Ok(py.None().to_object(py)),
+        },
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             column.type_().to_string(),
         )),
