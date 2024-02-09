@@ -280,6 +280,9 @@ impl Transaction {
     }
 }
 
+/// PSQLPool for internal use only.
+///
+/// It is not exposed to python.
 pub struct RustPSQLPool {
     username: Option<String>,
     password: Option<String>,
@@ -291,6 +294,7 @@ pub struct RustPSQLPool {
 }
 
 impl RustPSQLPool {
+    /// Create new `RustPSQLPool`.
     pub fn new(
         username: Option<String>,
         password: Option<String>,
@@ -312,6 +316,13 @@ impl RustPSQLPool {
 }
 
 impl RustPSQLPool {
+    /// Execute querystring with parameters.
+    ///
+    /// Prepare statement and cache it, then execute.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot retrieve new connection
+    /// or prepare statement or execute statement.
     pub async fn inner_execute<'a>(
         &'a self,
         querystring: String,
@@ -343,6 +354,10 @@ impl RustPSQLPool {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Create new inner transaction and return it.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot retrieve connection from the pool.
     pub async fn inner_transaction<'a>(&'a self) -> RustPSQLDriverPyResult<Transaction> {
         let db_pool_arc = self.db_pool.clone();
         let db_pool_guard = db_pool_arc.read().await;
@@ -366,6 +381,11 @@ impl RustPSQLPool {
         })
     }
 
+    /// Create new Database pool.
+    ///
+    /// # Errors:
+    /// May return Err Result if Database pool is already initialized,
+    /// max_db_pool_size is less than 2 or it's impossible to build db pool.
     pub async fn inner_startup<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let db_pool_arc = self.db_pool.clone();
         let password = self.password.clone();
@@ -452,6 +472,10 @@ impl PSQLPool {
         }
     }
 
+    /// Startup Database Pool.
+    ///
+    /// # Errors:
+    /// May return Err Result if `inner_startup` returns error.
     pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
         rustengine_future(py, async move {
@@ -461,18 +485,27 @@ impl PSQLPool {
         })
     }
 
+    /// Return python transaction.
+    ///
+    /// # Errors:
+    /// May return Err Result if `inner_transaction` returns error.
     pub fn transaction<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
 
         rustengine_future(py, async move {
             let psql_pool_guard = psql_pool_arc.write().await;
 
-            let transaction = psql_pool_guard.inner_transaction().await.unwrap();
+            let transaction = psql_pool_guard.inner_transaction().await?;
 
             Ok(transaction)
         })
     }
 
+    /// Execute querystring with parameters.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot convert parameters
+    /// or `inner_execute` returns Err.
     pub fn execute<'a>(
         &'a self,
         py: Python<'a>,
@@ -488,7 +521,7 @@ impl PSQLPool {
         rustengine_future(py, async move {
             let engine_guard = engine_arc.read().await;
 
-            engine_guard.inner_execute(querystring, params).await
+            Ok(engine_guard.inner_execute(querystring, params).await?)
         })
     }
 }
