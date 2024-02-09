@@ -1,4 +1,4 @@
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, types::PyModule, PyResult, Python};
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -31,3 +31,10 @@ macro_rules! build_python_type {
 build_python_type!(SmallInt, i16);
 build_python_type!(Integer, i32);
 build_python_type!(BigInt, i64);
+
+pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+    pymod.add_class::<SmallInt>()?;
+    pymod.add_class::<Integer>()?;
+    pymod.add_class::<BigInt>()?;
+    Ok(())
+}

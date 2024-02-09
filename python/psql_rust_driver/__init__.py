@@ -1,4 +1,4 @@
-from ._internal import PSQLPool, QueryResult, Transaction, SmallInt, Integer, BigInt
+from ._internal import PSQLPool, QueryResult, Transaction
 
 __all__ = [
     "PSQLPool",
