@@ -219,6 +219,15 @@ impl RustTransaction {
         Ok(())
     }
 
+    /// Execute ROLLBACK command.
+    ///
+    /// Run ROLLBACK command and mark the transaction as done.
+    ///
+    /// # Errors:
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Can not execute ROLLBACK command
     pub async fn inner_rollback<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
@@ -251,6 +260,16 @@ impl RustTransaction {
         Ok(())
     }
 
+    /// ROLLBACK to the specified savepoint
+    ///
+    /// Execute ROLLBACK TO SAVEPOINT <name of the savepoint>.
+    ///
+    /// # Errors:
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Specified savepoint name doesn't exist
+    /// 4) Can not execute ROLLBACK TO SAVEPOINT command
     pub async fn inner_rollback_to<'a>(
         &'a self,
         rollback_name: String,
@@ -292,6 +311,62 @@ impl RustTransaction {
         let db_client_guard = db_client_arc.read().await;
         db_client_guard
             .batch_execute(format!("ROLLBACK TO SAVEPOINT {}", rollback_name).as_str())
+            .await?;
+
+        Ok(())
+    }
+
+    /// Execute RELEASE SAVEPOINT.
+    ///
+    /// Run RELEASE SAVEPOINT command.
+    ///
+    /// # Errors:
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Specified savepoint name doesn't exists
+    /// 4) Can not execute RELEASE SAVEPOINT command
+    pub async fn inner_release_savepoint<'a>(
+        &'a self,
+        rollback_name: String,
+    ) -> RustPSQLDriverPyResult<()> {
+        let is_started_arc = self.is_started.clone();
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if !started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Can not commit not started transaction".into(),
+            ));
+        };
+
+        let is_done_arc = self.is_done.clone();
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        };
+
+        let rollback_savepoint_arc = self.rollback_savepoint.clone();
+        let is_rollback_exists = {
+            let rollback_savepoint_guard = rollback_savepoint_arc.read().await;
+            rollback_savepoint_guard.contains(&rollback_name)
+        };
+        if !is_rollback_exists {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Don't have rollback with this name".into(),
+            ));
+        }
+
+        let db_client_arc = self.db_client.clone();
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard
+            .batch_execute(format!("RELEASE SAVEPOINT {}", rollback_name).as_str())
             .await?;
 
         Ok(())
@@ -448,6 +523,10 @@ impl Transaction {
         })
     }
 
+    /// Rollback the whole transaction.
+    ///
+    /// # Errors:
+    /// May return Err Result if `rollback` returns Error.
     pub fn rollback<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
 
@@ -459,6 +538,11 @@ impl Transaction {
         })
     }
 
+    /// Rollback to the specified savepoint.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot extract string
+    /// or`inner_rollback_to` returns Error.
     pub fn rollback_to<'a>(
         &'a self,
         py: Python<'a>,
@@ -479,6 +563,36 @@ impl Transaction {
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_rollback_to(py_string).await?;
+
+            Ok(())
+        })
+    }
+
+    /// Rollback to the specified savepoint.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot extract string
+    /// or`inner_rollback_to` returns Error.
+    pub fn release_savepoint<'a>(
+        &'a self,
+        py: Python<'a>,
+        savepoint_name: &'a PyAny,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let py_string = {
+            if savepoint_name.is_instance_of::<PyString>() {
+                savepoint_name.extract::<String>()?
+            } else {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Can't convert your savepoint_name to String value".into(),
+                ));
+            }
+        };
+
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_release_savepoint(py_string).await?;
 
             Ok(())
         })
