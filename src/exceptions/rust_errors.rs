@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use super::python_errors::RustPSQLDriverPyBaseError;
+use crate::exceptions::python_errors::{
+    DBPoolConfigurationError, DBPoolError, DBTransactionError, PyToRustValueMappingError,
+    RustPSQLDriverPyBaseError, RustToPyValueMappingError,
+};
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
 
@@ -13,9 +16,9 @@ pub enum RustPSQLDriverError {
     #[error("Can't convert value from python to rust type: {0}")]
     PyToRustValueConversionError(String),
     #[error("Transaction exception: {0}")]
-    DBTransactionError(String),
+    DataBaseTransactionError(String),
     #[error("Configuration database pool error: {0}")]
-    DBPoolConfigurationError(String),
+    DataBasePoolConfigurationError(String),
 
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
@@ -36,25 +39,23 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
+                RustToPyValueMappingError::new_err((error_desc,))
             }
             RustPSQLDriverError::PyToRustValueConversionError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
+                PyToRustValueMappingError::new_err((error_desc,))
             }
-            RustPSQLDriverError::DatabasePoolError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
-            }
+            RustPSQLDriverError::DatabasePoolError(_) => DBPoolError::new_err((error_desc,)),
             RustPSQLDriverError::DBEnginePoolError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::DBEngineBuildError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
-            RustPSQLDriverError::DBTransactionError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
+            RustPSQLDriverError::DataBaseTransactionError(_) => {
+                DBTransactionError::new_err((error_desc,))
             }
-            RustPSQLDriverError::DBPoolConfigurationError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
+            RustPSQLDriverError::DataBasePoolConfigurationError(_) => {
+                DBPoolConfigurationError::new_err((error_desc,))
             }
         }
     }

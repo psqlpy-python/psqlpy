@@ -59,7 +59,7 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await psql_rust_driver.startup()
+            await db_pool.startup()
 
             transaction = await db_pool.transaction()
             await transaction.begin()
@@ -85,6 +85,81 @@ class Transaction:
                 )
                 dict_result: List[Dict[Any, Any]] = query_result.result()
             # This way transaction begins and commits by itself.
+        ```
+        """
+    
+    async def savepoint(self: Self, savepoint_name: str) -> None:
+        """Create new savepoint.
+
+        One `savepoint_name` can be used once.
+
+
+        If you specify the same savepoint name more than once
+        exception will be raised.
+
+        ### Parameters:
+        - `savepoint_name`: name of the savepoint.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psql_rust_driver import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+
+            await transaction.savepoint("my_savepoint")
+            await transaction.execute(...)
+            await transaction.rollback_to("my_savepoint")
+        ```
+        """
+
+    async def rollback(self: Self) -> None:
+        """Rollback all transaction.
+        
+        It can be done only one, after execution transaction marked
+        as `done`.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psql_rust_driver import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+            await transaction.execute(...)
+            await transaction.rollback()
+        ```
+        """
+    
+    async def rollback_to(self: Self, savepoint_name: str) -> None:
+        """ROLLBACK to the specified `savepoint_name`.
+        
+        ```python
+        import asyncio
+
+        from psql_rust_driver import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+
+            await transaction.savepoint("my_savepoint")
+            await transaction.execute(...)
+            await transaction.rollback_to("my_savepoint")
         ```
         """
 

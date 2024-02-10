@@ -1,6 +1,6 @@
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use pyo3::{pyclass, pymethods, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
-use std::{sync::Arc, vec};
+use pyo3::{pyclass, pymethods, types::PyString, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
+use std::{collections::HashSet, sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
@@ -17,6 +17,7 @@ pub struct RustTransaction {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
     is_done: Arc<tokio::sync::RwLock<bool>>,
+    rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
 }
 
 impl RustTransaction {
@@ -47,12 +48,12 @@ impl RustTransaction {
         let is_done_guard = is_done_arc.read().await;
 
         if !*is_started_guard {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
         if *is_done_guard {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
@@ -92,7 +93,7 @@ impl RustTransaction {
             is_started_guard.clone()
         };
         if started {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already started".into(),
             ));
         }
@@ -102,7 +103,7 @@ impl RustTransaction {
             is_done_guard.clone()
         };
         if done {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
@@ -135,7 +136,7 @@ impl RustTransaction {
             is_started_guard.clone()
         };
         if !started {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         }
@@ -145,15 +146,153 @@ impl RustTransaction {
             is_done_guard.clone()
         };
         if done {
-            return Err(RustPSQLDriverError::DBTransactionError(
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
 
         let db_client_guard = db_client_arc.read().await;
-        db_client_guard.batch_execute("COMMIT").await?;
+        db_client_guard.batch_execute("COMMIT;").await?;
         let mut is_done_write_guard = is_done_arc.write().await;
         *is_done_write_guard = true;
+
+        Ok(())
+    }
+
+    /// Create new SAVEPOINT.
+    ///
+    /// Execute SAVEPOINT <name of the savepoint> and
+    /// add it to the transaction rollback_savepoint HashSet
+    ///
+    /// # Errors:
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Specified savepoint name is exists
+    /// 4) Can not execute SAVEPOINT command
+    pub async fn inner_savepoint<'a>(
+        &'a self,
+        savepoint_name: String,
+    ) -> RustPSQLDriverPyResult<()> {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if !started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Can not commit not started transaction".into(),
+            ));
+        }
+
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        };
+
+        let is_savepoint_name_exists = {
+            let rollback_savepoint_read_guard = self.rollback_savepoint.read().await;
+            rollback_savepoint_read_guard.contains(&savepoint_name)
+        };
+
+        if is_savepoint_name_exists {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                "SAVEPOINT name {} is already taken by this transaction",
+                savepoint_name
+            )));
+        }
+
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard
+            .batch_execute(format!("SAVEPOINT {}", savepoint_name).as_str())
+            .await?;
+        let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
+        rollback_savepoint_guard.insert(savepoint_name);
+        Ok(())
+    }
+
+    pub async fn inner_rollback<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if !started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Can not commit not started transaction".into(),
+            ));
+        };
+
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        };
+
+        let db_client_arc = self.db_client.clone();
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard.batch_execute("ROLLBACK").await?;
+        let mut is_done_write_guard = is_done_arc.write().await;
+        *is_done_write_guard = true;
+        Ok(())
+    }
+
+    pub async fn inner_rollback_to<'a>(
+        &'a self,
+        rollback_name: String,
+    ) -> RustPSQLDriverPyResult<()> {
+        let is_started_arc = self.is_started.clone();
+        let started = {
+            let is_started_guard = is_started_arc.read().await;
+            is_started_guard.clone()
+        };
+        if !started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Can not commit not started transaction".into(),
+            ));
+        };
+
+        let is_done_arc = self.is_done.clone();
+        let done = {
+            let is_done_guard = is_done_arc.read().await;
+            is_done_guard.clone()
+        };
+        if done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        };
+
+        let rollback_savepoint_arc = self.rollback_savepoint.clone();
+        let is_rollback_exists = {
+            let rollback_savepoint_guard = rollback_savepoint_arc.read().await;
+            rollback_savepoint_guard.contains(&rollback_name)
+        };
+        if !is_rollback_exists {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Don't have rollback with this name".into(),
+            ));
+        }
+
+        let db_client_arc = self.db_client.clone();
+        let db_client_guard = db_client_arc.read().await;
+        db_client_guard
+            .batch_execute(format!("ROLLBACK TO SAVEPOINT {}", rollback_name).as_str())
+            .await?;
 
         Ok(())
     }
@@ -278,6 +417,72 @@ impl Transaction {
             Ok(())
         })
     }
+
+    /// Create new SAVEPOINT.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot extract string
+    /// or `inner_savepoint` returns
+    pub fn savepoint<'a>(
+        &'a self,
+        py: Python<'a>,
+        savepoint_name: &'a PyAny,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let py_string = {
+            if savepoint_name.is_instance_of::<PyString>() {
+                savepoint_name.extract::<String>()?
+            } else {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Can't convert your savepoint_name to String value".into(),
+                ));
+            }
+        };
+
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_savepoint(py_string).await?;
+
+            Ok(())
+        })
+    }
+
+    pub fn rollback<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_rollback().await?;
+
+            Ok(())
+        })
+    }
+
+    pub fn rollback_to<'a>(
+        &'a self,
+        py: Python<'a>,
+        savepoint_name: &'a PyAny,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let py_string = {
+            if savepoint_name.is_instance_of::<PyString>() {
+                savepoint_name.extract::<String>()?
+            } else {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Can't convert your savepoint_name to String value".into(),
+                ));
+            }
+        };
+
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_rollback_to(py_string).await?;
+
+            Ok(())
+        })
+    }
 }
 
 /// PSQLPool for internal use only.
@@ -374,6 +579,7 @@ impl RustPSQLPool {
             db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
             is_started: Arc::new(tokio::sync::RwLock::new(false)),
             is_done: Arc::new(tokio::sync::RwLock::new(false)),
+            rollback_savepoint: Arc::new(tokio::sync::RwLock::new(HashSet::new())),
         };
 
         Ok(Transaction {
@@ -404,7 +610,7 @@ impl RustPSQLPool {
 
         if let Some(max_db_pool_size) = max_db_pool_size {
             if max_db_pool_size < 2 {
-                return Err(RustPSQLDriverError::DBPoolConfigurationError(
+                return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
                     "Maximum database pool size must be more than 1".into(),
                 ));
             }
