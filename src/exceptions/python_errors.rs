@@ -31,6 +31,12 @@ create_exception!(
     RustPSQLDriverPyBaseError
 );
 
+create_exception!(
+    psql_rust_driver.exceptions,
+    UUIDValueConvertError,
+    RustPSQLDriverPyBaseError
+);
+
 pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add(
         "RustPSQLDriverPyBaseError",
@@ -49,6 +55,10 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()
     pymod.add(
         "DBPoolConfigurationError",
         py.get_type::<DBPoolConfigurationError>(),
+    )?;
+    pymod.add(
+        "UUIDValueConvertError",
+        py.get_type::<UUIDValueConvertError>(),
     )?;
     Ok(())
 }

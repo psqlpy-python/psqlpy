@@ -1,4 +1,9 @@
+use std::str::FromStr;
+
 use pyo3::{pyclass, pymethods, types::PyModule, PyResult, Python};
+use uuid::Uuid;
+
+use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -32,9 +37,32 @@ build_python_type!(SmallInt, i16);
 build_python_type!(Integer, i32);
 build_python_type!(BigInt, i64);
 
+#[pyclass]
+#[derive(Clone)]
+pub struct PyUUID {
+    inner: Uuid,
+}
+
+impl PyUUID {
+    pub fn inner(&self) -> Uuid {
+        self.inner
+    }
+}
+
+#[pymethods]
+impl PyUUID {
+    #[new]
+    pub fn new_uuid(uuid_value: String) -> RustPSQLDriverPyResult<Self> {
+        Ok(Self {
+            inner: Uuid::from_str(&uuid_value)?,
+        })
+    }
+}
+
 pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;
+    pymod.add_class::<PyUUID>()?;
     Ok(())
 }

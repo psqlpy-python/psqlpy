@@ -1,5 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -18,7 +18,7 @@ use tokio_postgres::{
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::{BigInt, Integer, SmallInt},
+    extra_types::{BigInt, Integer, PyUUID, SmallInt},
 };
 
 /// Additional type for types come from Python.
@@ -219,13 +219,12 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
         ));
     }
 
-    if parameter.is_instance_of::<PyString>() {
-        let python_str = parameter.extract::<String>()?;
+    if parameter.is_instance_of::<PyUUID>() {
+        return Ok(PythonDTO::PyUUID(parameter.extract::<PyUUID>()?.inner()));
+    }
 
-        match Uuid::from_str(&python_str) {
-            Ok(pyuuid) => return Ok(PythonDTO::PyUUID(pyuuid)),
-            Err(_) => return Ok(PythonDTO::PyString(python_str)),
-        }
+    if parameter.is_instance_of::<PyString>() {
+        return Ok(PythonDTO::PyString(parameter.extract::<String>()?));
     }
 
     if parameter.is_instance_of::<PyFloat>() {

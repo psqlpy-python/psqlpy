@@ -5,6 +5,7 @@ from ._internal.exceptions import (
     PyToRustValueMappingError,
     DBTransactionError,
     DBPoolConfigurationError,
+    UUIDValueConvertError,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "PyToRustValueMappingError",
     "DBTransactionError",
     "DBPoolConfigurationError",
+    "UUIDValueConvertError",
 ]

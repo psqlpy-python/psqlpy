@@ -36,3 +36,7 @@ class DBTransactionError(RustPSQLDriverPyBaseError):
 
 class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
     """Error if configuration of the database pool is unacceptable."""
+
+
+class UUIDValueConvertError(RustPSQLDriverPyBaseError):
+    """Error if it's impossible to convert py string UUID into rust UUID."""

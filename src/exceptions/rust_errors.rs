@@ -5,6 +5,8 @@ use crate::exceptions::python_errors::{
     RustPSQLDriverPyBaseError, RustToPyValueMappingError,
 };
 
+use super::python_errors::UUIDValueConvertError;
+
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
 
 #[derive(Error, Debug)]
@@ -28,6 +30,8 @@ pub enum RustPSQLDriverError {
     DBEnginePoolError(#[from] deadpool_postgres::PoolError),
     #[error("Database engine build failed: {0}")]
     DBEngineBuildError(#[from] deadpool_postgres::BuildError),
+    #[error("Value convert has failed: {0}")]
+    UUIDConvertError(#[from] uuid::Error),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -57,6 +61,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::DataBasePoolConfigurationError(_) => {
                 DBPoolConfigurationError::new_err((error_desc,))
             }
+            RustPSQLDriverError::UUIDConvertError(_) => UUIDValueConvertError::new_err(error_desc),
         }
     }
 }
