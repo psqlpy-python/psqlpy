@@ -3,7 +3,7 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "psql-rust-engine"
+name = "psql-rust-driver"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
