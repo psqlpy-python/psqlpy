@@ -675,6 +675,7 @@ dependencies = [
  "postgres-protocol",
  "pyo3",
  "pyo3-asyncio",
+ "serde_json",
  "thiserror",
  "tokio",
  "tokio-postgres",
