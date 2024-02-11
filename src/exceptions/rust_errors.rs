@@ -13,7 +13,7 @@ pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
 pub enum RustPSQLDriverError {
     #[error("Database pool error: {0}.")]
     DatabasePoolError(String),
-    #[error("Can't convert value from engine to python type: {0}")]
+    #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
     #[error("Can't convert value from python to rust type: {0}")]
     PyToRustValueConversionError(String),

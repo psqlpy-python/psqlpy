@@ -448,6 +448,16 @@ pub fn postgres_to_py<'a>(
             }
             None => return Ok(py.None().to_object(py)),
         },
+        Type::JSONB | Type::JSON => {
+            let db_json = row.try_get::<_, Option<Value>>(column_i)?;
+
+            match db_json {
+                Some(value) => return Ok(value.to_string().to_object(py)),
+                None => {
+                    return Ok(py.None().to_object(py));
+                }
+            }
+        }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             column.type_().to_string(),
         )),
