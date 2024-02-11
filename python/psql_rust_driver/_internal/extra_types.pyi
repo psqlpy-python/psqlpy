@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any, Union
 from typing_extensions import Self
 
 
@@ -45,4 +46,24 @@ class PyUUID:
         
         ### Parameters:
         - `inner_value`: str object.
+        """
+
+
+class PyJSON:
+    """Represent JSON/JSONB field in PostgreSQL and Value in Rust."""
+    
+    def __init__(
+        self: Self,
+        value: Union[
+            dict[str, Any],
+            list[dict[str, Any]],
+            list[Any],
+        ],
+    ) -> None:
+        """Create new instance of PyJSON.
+
+        It accepts structure that can be used in JSON/JSONB fields.
+
+        ### Parameters:
+        - `value`: value for the JSON/JSONB field.
         """

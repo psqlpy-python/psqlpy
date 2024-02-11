@@ -19,7 +19,7 @@ use tokio_postgres::{
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::{BigInt, Integer, PyUUID, SmallInt},
+    extra_types::{BigInt, Integer, PyJSON, PyUUID, SmallInt},
 };
 
 /// Additional type for types come from Python.
@@ -47,7 +47,7 @@ pub enum PythonDTO {
     PyDateTimeTz(DateTime<FixedOffset>),
     PyList(Vec<PythonDTO>),
     PyTuple(Vec<PythonDTO>),
-    PyDict(Value),
+    PyJson(Value),
 }
 
 impl PythonDTO {
@@ -69,7 +69,7 @@ impl PythonDTO {
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
             PythonDTO::PyIntU32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
-            PythonDTO::PyDict(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
+            PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -94,7 +94,7 @@ impl PythonDTO {
 
                 return Ok(json!(vec_serde_values));
             }
-            PythonDTO::PyDict(py_dict) => Ok(py_dict.clone()),
+            PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert data all your dict elements into Rust type".into(),
             )),
@@ -181,7 +181,7 @@ impl ToSql for PythonDTO {
                     return_is_null_true = true;
                 }
             }
-            PythonDTO::PyDict(py_dict) => {
+            PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;
             }
         }
@@ -333,7 +333,13 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
             serde_map.insert(key, value.to_serde_value()?);
         }
 
-        return Ok(PythonDTO::PyDict(Value::Object(serde_map)));
+        return Ok(PythonDTO::PyJson(Value::Object(serde_map)));
+    }
+
+    if parameter.is_instance_of::<PyJSON>() {
+        return Ok(PythonDTO::PyJson(
+            parameter.extract::<PyJSON>()?.inner().clone(),
+        ));
     }
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
