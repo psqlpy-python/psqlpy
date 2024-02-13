@@ -10,6 +10,8 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
+use super::transaction_options::IsolationLevel;
+
 /// Transaction for internal use only.
 ///
 /// It is not exposed to python.
@@ -18,6 +20,8 @@ pub struct RustTransaction {
     pub is_started: Arc<tokio::sync::RwLock<bool>>,
     pub is_done: Arc<tokio::sync::RwLock<bool>>,
     pub rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
+
+    pub isolation_level: Option<IsolationLevel>,
 }
 
 impl RustTransaction {
@@ -73,6 +77,27 @@ impl RustTransaction {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Start transaction with isolation level if specified
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot execute querystring.
+    pub async fn start_transaction<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
+        let mut querystring = "START TRANSACTION".to_string();
+
+        if let Some(level) = self.isolation_level {
+            querystring.push_str(" ISOLATION LEVEL ");
+            let level = &level.to_str_level();
+            querystring.push_str(level);
+        };
+
+        let db_client_arc = self.db_client.clone();
+        let db_client_guard = db_client_arc.read().await;
+
+        db_client_guard.batch_execute(&querystring).await?;
+
+        Ok(())
+    }
+
     /// Start the transaction.
     ///
     /// Execute `BEGIN` commands and mark transaction as `started`.
@@ -84,7 +109,6 @@ impl RustTransaction {
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
     pub async fn inner_begin<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
 
@@ -108,8 +132,7 @@ impl RustTransaction {
             ));
         }
 
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard.batch_execute("BEGIN").await?;
+        self.start_transaction().await?;
         let mut is_started_write_guard = is_started_arc.write().await;
         *is_started_write_guard = true;
 

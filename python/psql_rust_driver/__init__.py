@@ -1,4 +1,4 @@
-from ._internal import PSQLPool, QueryResult, Transaction
+from ._internal import PSQLPool, QueryResult, Transaction, IsolationLevel
 
 __all__ = [
     "PSQLPool",
@@ -7,4 +7,5 @@ __all__ = [
     "SmallInt",
     "Integer",
     "BigInt",
+    "IsolationLevel",
 ]

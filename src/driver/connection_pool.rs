@@ -11,6 +11,8 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
+use super::transaction_options::IsolationLevel;
+
 /// PSQLPool for internal use only.
 ///
 /// It is not exposed to python.
@@ -89,7 +91,10 @@ impl RustPSQLPool {
     ///
     /// # Errors:
     /// May return Err Result if cannot retrieve connection from the pool.
-    pub async fn inner_transaction<'a>(&'a self) -> RustPSQLDriverPyResult<Transaction> {
+    pub async fn inner_transaction<'a>(
+        &'a self,
+        isolation_level: Option<IsolationLevel>,
+    ) -> RustPSQLDriverPyResult<Transaction> {
         let db_pool_arc = self.db_pool.clone();
         let db_pool_guard = db_pool_arc.read().await;
 
@@ -106,6 +111,7 @@ impl RustPSQLPool {
             is_started: Arc::new(tokio::sync::RwLock::new(false)),
             is_done: Arc::new(tokio::sync::RwLock::new(false)),
             rollback_savepoint: Arc::new(tokio::sync::RwLock::new(HashSet::new())),
+            isolation_level: isolation_level,
         };
 
         Ok(Transaction {
@@ -221,13 +227,17 @@ impl PSQLPool {
     ///
     /// # Errors:
     /// May return Err Result if `inner_transaction` returns error.
-    pub fn transaction<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
+    pub fn transaction<'a>(
+        &'a self,
+        py: Python<'a>,
+        isolation_level: Option<IsolationLevel>,
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
 
         rustengine_future(py, async move {
             let psql_pool_guard = psql_pool_arc.write().await;
 
-            let transaction = psql_pool_guard.inner_transaction().await?;
+            let transaction = psql_pool_guard.inner_transaction(isolation_level).await?;
 
             Ok(transaction)
         })

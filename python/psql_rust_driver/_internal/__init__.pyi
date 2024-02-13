@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 from typing_extensions import Self
 
 from typing import Dict, Optional, Any, List
@@ -9,6 +10,15 @@ class QueryResult:
 
     def result(self: Self) -> List[Dict[Any, Any]]:
         """Return result from database as a list of dicts."""
+
+
+class IsolationLevel(Enum):
+    """Class for Isolation Level for transactions."""
+
+    ReadUncommitted = 1
+    ReadCommitted = 2
+    RepeatableRead = 3
+    Serializable = 4
 
 
 class Transaction:
@@ -39,7 +49,7 @@ class Transaction:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: List[Any],
+        parameters: List[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
         
@@ -206,12 +216,12 @@ class PSQLPool:
 
     def __init__(
         self: Self,
-        username: Optional[str],
-        password: Optional[str],
-        host: Optional[str],
-        port: Optional[int],
-        db_name: Optional[str],
-        max_db_pool_size: Optional[str],
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        db_name: Optional[str] = None,
+        max_db_pool_size: Optional[str] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
         
@@ -243,7 +253,7 @@ class PSQLPool:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: List[Any],
+        parameters: List[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
         
@@ -274,9 +284,15 @@ class PSQLPool:
         """
         ...
 
-    async def transaction(self) -> Transaction:
+    async def transaction(
+        self,
+        isolation_level: IsolationLevel | None = IsolationLevel.ReadCommitted,
+    ) -> Transaction:
         """Create new transaction.
         
         It acquires new connection from the database pool
         and make it acts as transaction.
+
+        ### Parameters:
+        - `isolation_level`: configure isolation level of the transaction.
         """
