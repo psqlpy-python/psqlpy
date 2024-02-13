@@ -117,7 +117,7 @@ async def main() -> None:
     )
 
     await transaction.begin()
-    res: list[dict[str, Any]] = await transaction.execute(
+    await transaction.execute(
         "INSERT INTO users VALUES ($1)",
         ["Some data"],
     )
@@ -128,6 +128,65 @@ async def main() -> None:
     print(res)
     # You don't need to close Database Pool by yourself,
     # rust does it instead.
+```
+
+### Transactions can be roll backed
+You must understand that rollback can be executed only once per transaction.  
+After it's execution transaction state changes to `done`.  
+If you want to use `ROLLBACK TO SAVEPOINT`, see below.
+```python
+from typing import Any
+import asyncio
+
+from rust_psql_driver import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    transaction = await db_pool.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    await transaction.execute(
+        "INSERT INTO users VALUES ($1)",
+        ["Some data"],
+    )
+    await transaction.rollback()
+```
+
+### Transaction ROLLBACK TO SAVEPOINT
+You can rollback your transaction to the specified savepoint, but before it you must create it.
+
+```python
+from typing import Any
+import asyncio
+
+from rust_psql_driver import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    transaction = await db_pool.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    # Create new savepoint
+    await transaction.savepoint("test_savepoint")
+
+    await transaction.execute(
+        "INSERT INTO users VALUES ($1)",
+        ["Some data"],
+    )
+    # Rollback to specified SAVEPOINT.
+    await transaction.rollback_to("test_savepoint")
 ```
 
 ## Extra Types
