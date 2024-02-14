@@ -189,6 +189,32 @@ async def main() -> None:
     await transaction.rollback_to("test_savepoint")
 ```
 
+### Transaction RELEASE SAVEPOINT
+It's possible to release savepoint
+
+```python
+from typing import Any
+import asyncio
+
+from rust_psql_driver import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    transaction = await db_pool.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    # Create new savepoint
+    await transaction.savepoint("test_savepoint")
+    # Release savepoint
+    await transaction.release_savepoint("test_savepoint")
+```
+
 ## Extra Types
 Sometimes it's impossible to identify which type user tries to pass as a argument. But Rust is a strongly typed programming language so we have to help.
 
