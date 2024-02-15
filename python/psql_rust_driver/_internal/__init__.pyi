@@ -206,6 +206,57 @@ class Transaction:
             await transaction.release_savepoint
         ```
         """
+    
+
+class Connection:
+    """Connection from Database Connection Pool.
+    
+    It can be created only from connection pool.
+    """
+    
+    async def execute(
+        self: Self,
+        querystring: str,
+        parameters: List[Any] | None = None,
+    ) -> QueryResult:
+        """Execute the query.
+        
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psql_rust_driver import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            connection = await db_pool.connection()
+            query_result: QueryResult = await connection.execute(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
+            dict_result: List[Dict[Any, Any]] = query_result.result()
+        ```
+        """
+    
+    async def transaction(
+        self,
+        isolation_level: IsolationLevel | None = IsolationLevel.ReadCommitted,
+    ) -> Transaction:
+        """Create new transaction.
+
+        ### Parameters:
+        - `isolation_level`: configure isolation level of the transaction.
+        """
 
 
 class PSQLPool:
@@ -284,15 +335,8 @@ class PSQLPool:
         """
         ...
 
-    async def transaction(
-        self,
-        isolation_level: IsolationLevel | None = IsolationLevel.ReadCommitted,
-    ) -> Transaction:
-        """Create new transaction.
+    async def connection(self: Self) -> Connection:
+        """Create new connection.
         
-        It acquires new connection from the database pool
-        and make it acts as transaction.
-
-        ### Parameters:
-        - `isolation_level`: configure isolation level of the transaction.
+        It acquires new connection from the database pool.
         """

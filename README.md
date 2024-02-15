@@ -52,6 +52,7 @@ async def main() -> None:
     # rust does it instead.
 
 ```
+Please take into account that each new execute gets new connection from connection pool. 
 
 ## Query parameters
 You can pass parameters into queries.  
@@ -65,7 +66,37 @@ Any placeholder must be marked with `$< num>`.
     )
 ```
 
-Support all types from Python is in development, but there are support for all basic types. More you can find here: ... 
+## Connection
+You can work with connection instead of DatabasePool.
+```python
+from typing import Any
+import asyncio
+
+from rust_psql_driver import PSQLPool
+
+
+db_pool = PSQLPool(
+    username="postgres",
+    password="pg_password",
+    host="localhost",
+    port=5432,
+    db_name="postgres",
+    max_db_pool_size=2,
+)
+
+async def main() -> None:
+    await db_pool.startup()
+
+    connection = await db_pool.connection()
+
+    res: list[dict[str, Any]] = await connection.execute(
+        "SELECT * FROM users",
+    )
+
+    print(res)
+    # You don't need to close connection by yourself,
+    # rust does it instead.
+```
 
 ## Transactions
 Of course it's possible to use transactions with this driver.  
@@ -85,7 +116,8 @@ db_pool = PSQLPool()
 async def main() -> None:
     await db_pool.startup()
 
-    transaction = await db_pool.transaction(
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -112,7 +144,8 @@ db_pool = PSQLPool()
 async def main() -> None:
     await db_pool.startup()
 
-    transaction = await db_pool.transaction(
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -146,7 +179,8 @@ db_pool = PSQLPool()
 async def main() -> None:
     await db_pool.startup()
 
-    transaction = await db_pool.transaction(
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -173,7 +207,8 @@ db_pool = PSQLPool()
 async def main() -> None:
     await db_pool.startup()
 
-    transaction = await db_pool.transaction(
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -204,7 +239,8 @@ db_pool = PSQLPool()
 async def main() -> None:
     await db_pool.startup()
 
-    transaction = await db_pool.transaction(
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 

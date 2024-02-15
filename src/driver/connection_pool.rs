@@ -11,7 +11,10 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::transaction_options::IsolationLevel;
+use super::{
+    connection::{Connection, RustConnection},
+    transaction_options::IsolationLevel,
+};
 
 /// PSQLPool for internal use only.
 ///
@@ -49,6 +52,27 @@ impl RustPSQLPool {
 }
 
 impl RustPSQLPool {
+    pub async fn inner_connection<'a>(&'a self) -> RustPSQLDriverPyResult<Connection> {
+        let db_pool_arc = self.db_pool.clone();
+
+        let db_pool_guard = db_pool_arc.read().await;
+
+        let db_pool_manager = db_pool_guard
+            .as_ref()
+            .ok_or(RustPSQLDriverError::DatabasePoolError(
+                "Database pool is not initialized".into(),
+            ))?
+            .get()
+            .await?;
+
+        let inner_connection = RustConnection {
+            db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
+        };
+
+        Ok(Connection(Arc::new(tokio::sync::RwLock::new(
+            inner_connection,
+        ))))
+    }
     /// Execute querystring with parameters.
     ///
     /// Prepare statement and cache it, then execute.
@@ -223,23 +247,16 @@ impl PSQLPool {
         })
     }
 
-    /// Return python transaction.
+    /// Return single connection.
     ///
     /// # Errors:
-    /// May return Err Result if `inner_transaction` returns error.
-    pub fn transaction<'a>(
-        &'a self,
-        py: Python<'a>,
-        isolation_level: Option<IsolationLevel>,
-    ) -> RustPSQLDriverPyResult<&'a PyAny> {
+    /// May return Err Result if `inner_connection` returns error.
+    pub fn connection<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
 
         rustengine_future(py, async move {
             let psql_pool_guard = psql_pool_arc.write().await;
-
-            let transaction = psql_pool_guard.inner_transaction(isolation_level).await?;
-
-            Ok(transaction)
+            Ok(psql_pool_guard.inner_connection().await?)
         })
     }
 

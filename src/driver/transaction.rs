@@ -67,8 +67,7 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement: tokio_postgres::Statement =
-            db_client_guard.prepare_cached(&querystring).await?;
+        let statement = db_client_guard.prepare_cached(&querystring).await?;
 
         let result = db_client_guard
             .query(&statement, &vec_parameters.into_boxed_slice())
