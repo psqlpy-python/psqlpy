@@ -9,11 +9,11 @@ You can install package with `pip` or `poetry`.
 
 poetry:
 ```bash
-> poetry add psql-rust-driver
+> poetry add psqlpy
 ```
 pip:
 ```bash
-> pip install psql-rust-driver
+> pip install psqlpy
 ```
 
 Or you can build it by yourself. To do it, install stable rust and [maturin](https://github.com/PyO3/maturin).
