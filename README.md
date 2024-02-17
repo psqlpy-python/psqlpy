@@ -1,4 +1,4 @@
-# Async PostgreSQL driver for Python written in Rust.
+# PSQLPy - Async PostgreSQL driver for Python written in Rust.
 
 Driver for PostgreSQL written fully in Rust and exposed to Python.  
 *Normal documentation is in development.*
@@ -28,7 +28,7 @@ Create new instance of PSQLPool, startup it and start querying.
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool
+from psqlpy import PSQLPool
 
 
 db_pool = PSQLPool(
@@ -72,7 +72,7 @@ You can work with connection instead of DatabasePool.
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool
+from psqlpy import PSQLPool
 
 
 db_pool = PSQLPool(
@@ -108,7 +108,7 @@ By default async context manager only begins and commits transaction automatical
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -136,7 +136,7 @@ async def main() -> None:
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -171,7 +171,7 @@ If you want to use `ROLLBACK TO SAVEPOINT`, see below.
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -199,7 +199,7 @@ You can rollback your transaction to the specified savepoint, but before it you 
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -233,7 +233,7 @@ It's possible to release savepoint
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -264,7 +264,7 @@ Cursors can be created only in transaction. In addition, cursor supports async i
 from typing import Any
 import asyncio
 
-from rust_psql_driver import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel
 
 
 db_pool = PSQLPool()
@@ -307,7 +307,7 @@ from typing import Any
 import asyncio
 import uuid
 
-from rust_psql_driver import PSQLPool
+from psqlpy import PSQLPool
 
 from psqlpy.extra_types import (
     SmallInt,
