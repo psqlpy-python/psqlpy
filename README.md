@@ -222,6 +222,8 @@ async def main() -> None:
     )
     # Rollback to specified SAVEPOINT.
     await transaction.rollback_to("test_savepoint")
+
+    await transaction.commit()
 ```
 
 ### Transaction RELEASE SAVEPOINT
@@ -249,6 +251,44 @@ async def main() -> None:
     await transaction.savepoint("test_savepoint")
     # Release savepoint
     await transaction.release_savepoint("test_savepoint")
+
+    await transaction.commit()
+```
+
+## Cursors
+Library supports PostgreSQL cursors.
+
+Cursors can be created only in transaction. In addition, cursor supports async iteration.
+
+```python
+from typing import Any
+import asyncio
+
+from rust_psql_driver import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    connection = await db_pool.connection()
+    transaction = await connection.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    # Create new savepoint
+    cursor = await transaction.cursor(
+        querystring="SELECT * FROM users WHERE username = $1",
+        parameters=["SomeUserName"],
+        fetch_number=100,
+    )
+
+    async for fetched_result in cursor:
+        print(fetched_result.result())
+    
+    await transaction.commit()
 ```
 
 ## Extra Types
