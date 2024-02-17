@@ -10,7 +10,7 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::transaction_options::IsolationLevel;
+use super::{cursor::Cursor, transaction_options::IsolationLevel};
 
 /// Transaction for internal use only.
 ///
@@ -22,6 +22,7 @@ pub struct RustTransaction {
     pub rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
 
     pub isolation_level: Option<IsolationLevel>,
+    pub cursor_num: usize,
 }
 
 impl RustTransaction {
@@ -393,6 +394,34 @@ impl RustTransaction {
 
         Ok(())
     }
+
+    pub async fn inner_cursor<'a>(
+        &'a mut self,
+        querystring: String,
+        parameters: Vec<PythonDTO>,
+        fetch_number: usize,
+    ) -> RustPSQLDriverPyResult<Cursor> {
+        let db_client_arc = self.db_client.clone();
+        let db_client_arc2 = self.db_client.clone();
+        let db_client_guard = db_client_arc.read().await;
+
+        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
+        for param in parameters.iter() {
+            vec_parameters.push(param);
+        }
+
+        let cursor_name = format!("cur{}", self.cursor_num);
+        db_client_guard
+            .execute(
+                &format!("DECLARE {} CURSOR FOR {querystring}", cursor_name),
+                &vec_parameters.into_boxed_slice(),
+            )
+            .await?;
+
+        self.cursor_num = self.cursor_num + 1;
+
+        Ok(Cursor::new(db_client_arc2, cursor_name, fetch_number))
+    }
 }
 
 #[pyclass()]
@@ -617,6 +646,27 @@ impl Transaction {
             transaction_guard.inner_release_savepoint(py_string).await?;
 
             Ok(())
+        })
+    }
+
+    pub fn cursor<'a>(
+        &'a self,
+        py: Python<'a>,
+        querystring: String,
+        parameters: Option<&'a PyAny>,
+        fetch_number: Option<usize>,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?
+        }
+
+        rustengine_future(py, async move {
+            let mut transaction_guard = transaction_arc.write().await;
+            Ok(transaction_guard
+                .inner_cursor(querystring, params, fetch_number.unwrap_or(10))
+                .await?)
         })
     }
 }

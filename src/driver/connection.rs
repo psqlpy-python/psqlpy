@@ -62,6 +62,7 @@ impl RustConnection {
             is_done: Arc::new(tokio::sync::RwLock::new(false)),
             rollback_savepoint: Arc::new(tokio::sync::RwLock::new(HashSet::new())),
             isolation_level: isolation_level,
+            cursor_num: Default::default(),
         };
 
         Transaction {

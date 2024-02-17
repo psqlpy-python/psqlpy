@@ -21,6 +21,34 @@ class IsolationLevel(Enum):
     Serializable = 4
 
 
+class Cursor:
+    """Represent opened cursor in a transaction.
+    
+    It can be used as an asynchronous iterator.
+    """
+
+    async def fetch(
+        self: Self,
+        fetch_number: int | None = None,
+    ) -> QueryResult:
+        """Fetch next <fetch_number> rows.
+        
+        By default fetches 10 next rows.
+
+        ### Parameters:
+        - `fetch_number`: how many rows need to fetch.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+    
+    def __aiter__(self: Self) -> Self:
+        ...
+    
+    async def __anext__(self: Self) -> QueryResult:
+        ...
+
+
 class Transaction:
     """Single connection for executing queries.
 
@@ -207,6 +235,50 @@ class Transaction:
         ```
         """
     
+    async def cursor(
+        self: Self,
+        querystring: str,
+        parameters: List[Any] | None = None,
+        fetch_number: int | None = None,
+    ) -> Cursor:
+        """Create new cursor object.
+
+        Cursor can be used as an asynchronous iterator.
+        
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `fetch_number`: how many rows need to fetch.
+
+        ### Returns:
+        new initialized cursor.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psql_rust_driver import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            connection = await db_pool.connection()
+            transaction = await connection.transaction()
+
+            cursor = await transaction.cursor(
+                querystring="SELECT * FROM users WHERE username = $1",
+                parameters=["Some_Username"],
+                fetch_number=5,
+            )
+
+            async for fetched_result in cursor:
+                dict_result: List[Dict[Any, Any]] = fetched_result.result()
+                ... # do something with this result.
+        ```
+        """
+    
 
 class Connection:
     """Connection from Database Connection Pool.
@@ -227,6 +299,9 @@ class Connection:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+
+        ### Returns:
+        query result as `QueryResult`
 
         ### Example:
         ```python
