@@ -3,7 +3,7 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "psql-rust-driver"
+name = "psqlpy"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
@@ -14,5 +14,5 @@ dynamic = ["version"]
 
 [tool.maturin]
 python-source = "python"
-module-name = "psql_rust_driver._internal"
+module-name = "psqlpy._internal"
 features = ["pyo3/extension-module"]

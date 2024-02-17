@@ -12,7 +12,7 @@ use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
 #[pymodule]
 #[pyo3(name = "_internal")]
-fn psql_rust_engine(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+fn psqlpy(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::PSQLPool>()?;
     pymod.add_class::<driver::transaction::Transaction>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;

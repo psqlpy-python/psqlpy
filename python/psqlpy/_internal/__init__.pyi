@@ -92,7 +92,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -113,7 +113,7 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await psql_rust_driver.startup()
+            await psqlpy.startup()
 
             transaction = await db_pool.transaction()
             async with transaction:
@@ -142,7 +142,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -167,7 +167,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -193,7 +193,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -221,7 +221,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -257,7 +257,7 @@ class Transaction:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -307,7 +307,7 @@ class Connection:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
@@ -394,13 +394,13 @@ class PSQLPool:
         ```python
         import asyncio
 
-        from psql_rust_driver import PSQLPool, QueryResult
+        from psqlpy import PSQLPool, QueryResult
 
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await psql_rust_driver.startup()
-            query_result: QueryResult = await psql_rust_driver.execute(
+            await psqlpy.startup()
+            query_result: QueryResult = await psqlpy.execute(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
             )

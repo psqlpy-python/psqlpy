@@ -1,38 +1,34 @@
 use pyo3::{create_exception, types::PyModule, PyResult, Python};
 
 create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     RustPSQLDriverPyBaseError,
     pyo3::exceptions::PyException
 );
+create_exception!(psqlpy.exceptions, DBPoolError, RustPSQLDriverPyBaseError);
 create_exception!(
-    psql_rust_driver.exceptions,
-    DBPoolError,
-    RustPSQLDriverPyBaseError
-);
-create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     RustToPyValueMappingError,
     RustPSQLDriverPyBaseError
 );
 create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     PyToRustValueMappingError,
     RustPSQLDriverPyBaseError
 );
 create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     DBTransactionError,
     RustPSQLDriverPyBaseError
 );
 create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     DBPoolConfigurationError,
     RustPSQLDriverPyBaseError
 );
 
 create_exception!(
-    psql_rust_driver.exceptions,
+    psqlpy.exceptions,
     UUIDValueConvertError,
     RustPSQLDriverPyBaseError
 );

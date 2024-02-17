@@ -309,7 +309,7 @@ import uuid
 
 from rust_psql_driver import PSQLPool
 
-from psql_rust_driver.extra_types import (
+from psqlpy.extra_types import (
     SmallInt,
     Integer,
     BigInt,
