@@ -5,10 +5,24 @@ build-backend = "maturin"
 [project]
 name = "psqlpy"
 requires-python = ">=3.8"
+keywords = [
+    "postgresql",
+    "psql",
+    "async-driver",
+    "psql-driver",
+    "postgresql-driver",
+    "python-driver",
+]
 classifiers = [
+    "Typing :: Typed",
+    "Topic :: Database",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft",
+    "Operating System :: POSIX :: Linux",
+    "Intended Audience :: Developers",
+    "Topic :: Database :: Front-Ends",
 ]
 dynamic = ["version"]
 
@@ -16,3 +30,12 @@ dynamic = ["version"]
 python-source = "python"
 module-name = "psqlpy._internal"
 features = ["pyo3/extension-module"]
+
+[tool.poetry]
+name = "psqlpy"
+version = "0.1.2"
+description = "Async PostgreSQL driver for Python written in Rust"
+authors = ["Kiselev Aleksandr <askisele00@gmail.com>"]
+homepage = "https://github.com/qaspen-python/psqlpy"
+repository = "https://github.com/qaspen-python/psqlpy"
+documentation = "https://github.com/qaspen-python/psqlpy/blob/main/README.md"
