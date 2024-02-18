@@ -12,6 +12,7 @@ pub struct Cursor {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     cursor_name: String,
     fetch_number: usize,
+    closed: Arc<tokio::sync::RwLock<bool>>,
 }
 
 impl Cursor {
@@ -24,6 +25,7 @@ impl Cursor {
             db_client,
             cursor_name,
             fetch_number,
+            closed: Arc::new(tokio::sync::RwLock::new(false)),
         };
     }
 }
@@ -81,5 +83,40 @@ impl Cursor {
         });
 
         Ok(Some(future?.into()))
+    }
+
+    /// Close cursor.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute CLOSE command
+    pub fn close<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
+        let db_client_arc = self.db_client.clone();
+        let cursor_name = self.cursor_name.clone();
+        let closed = self.closed.clone();
+
+        rustengine_future(py, async move {
+            let is_closed = {
+                let closed_read = closed.write().await;
+                *closed_read
+            };
+            if is_closed {
+                return Err(
+                    crate::exceptions::rust_errors::RustPSQLDriverError::DBCursorError(
+                        "Cursor is already closed".into(),
+                    ),
+                );
+            }
+
+            let db_client_guard = db_client_arc.read().await;
+
+            db_client_guard
+                .batch_execute(format!("CLOSE {cursor_name}").as_str())
+                .await?;
+
+            let mut closed_write = closed.write().await;
+            *closed_write = true;
+
+            Ok(())
+        })
     }
 }

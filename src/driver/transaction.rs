@@ -427,6 +427,7 @@ impl RustTransaction {
         querystring: String,
         parameters: Vec<PythonDTO>,
         fetch_number: usize,
+        scroll: Option<bool>,
     ) -> RustPSQLDriverPyResult<Cursor> {
         let db_client_arc = self.db_client.clone();
         let db_client_arc2 = self.db_client.clone();
@@ -437,12 +438,22 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
+        let mut cursor_init_query = "DECLARE".to_string();
+        cursor_init_query.push_str(format!(" cur{}", self.cursor_num).as_str());
+
+        if let Some(scroll) = scroll {
+            if scroll == true {
+                cursor_init_query.push_str(" SCROLL");
+            } else {
+                cursor_init_query.push_str(" NO SCROLL");
+            }
+        }
+
+        cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
+
         let cursor_name = format!("cur{}", self.cursor_num);
         db_client_guard
-            .execute(
-                &format!("DECLARE {} CURSOR FOR {querystring}", cursor_name),
-                &vec_parameters.into_boxed_slice(),
-            )
+            .execute(&cursor_init_query, &vec_parameters.into_boxed_slice())
             .await?;
 
         self.cursor_num = self.cursor_num + 1;
@@ -682,6 +693,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<&'a PyAny>,
         fetch_number: Option<usize>,
+        scroll: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
@@ -692,7 +704,7 @@ impl Transaction {
         rustengine_future(py, async move {
             let mut transaction_guard = transaction_arc.write().await;
             Ok(transaction_guard
-                .inner_cursor(querystring, params, fetch_number.unwrap_or(10))
+                .inner_cursor(querystring, params, fetch_number.unwrap_or(10), scroll)
                 .await?)
         })
     }

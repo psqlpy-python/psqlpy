@@ -3,7 +3,7 @@
 Driver for PostgreSQL written fully in Rust and exposed to Python.  
 *Normal documentation is in development.*
 
-## Installation
+# Installation
 
 You can install package with `pip` or `poetry`.
 
@@ -53,7 +53,7 @@ async def main() -> None:
 ```
 Please take into account that each new execute gets new connection from connection pool. 
 
-## Query parameters
+# Query parameters
 You can pass parameters into queries.  
 Parameters can be passed in any `execute` method as the second parameter, it must be a list.  
 Any placeholder must be marked with `$< num>`.
@@ -65,7 +65,7 @@ Any placeholder must be marked with `$< num>`.
     )
 ```
 
-## Connection
+# Connection
 You can work with connection instead of DatabasePool.
 ```python
 from typing import Any
@@ -96,7 +96,7 @@ async def main() -> None:
     # rust does it instead.
 ```
 
-## Transactions
+# Transactions
 Of course it's possible to use transactions with this driver.  
 It's as easy as possible and sometimes it copies common functionality from PsycoPG and AsyncPG.
 
@@ -254,10 +254,17 @@ async def main() -> None:
     await transaction.commit()
 ```
 
-## Cursors
+# Cursors
 Library supports PostgreSQL cursors.
 
 Cursors can be created only in transaction. In addition, cursor supports async iteration.
+
+### Cursor parameters
+In process of cursor creation you can specify some configuration parameters.
+- `querystring`: query for the cursor. Required.
+- `parameters`: parameters for the query. Not Required.
+- `fetch_number`: number of records per fetch if cursor is used as an async iterator. If you are using `.fetch()` method you can pass different fetch number. Not required. Default - 10.
+- `scroll`: set `SCROLL` if True or `NO SCROLL` if False. Not required. By default - `None`.
 
 ```python
 from typing import Any
@@ -283,8 +290,15 @@ async def main() -> None:
         fetch_number=100,
     )
 
+    # You can manually fetch results from cursor
+    results: list[dict[str, Any]] = await cursor.fetch(fetch_number=8)
+
+    # Or you can use it as an async iterator.
     async for fetched_result in cursor:
         print(fetched_result.result())
+    
+    # If you want to close cursor, please do it manually.
+    await cursor.close()
     
     await transaction.commit()
 ```

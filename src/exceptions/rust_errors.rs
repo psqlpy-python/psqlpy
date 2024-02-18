@@ -5,7 +5,7 @@ use crate::exceptions::python_errors::{
     RustPSQLDriverPyBaseError, RustToPyValueMappingError,
 };
 
-use super::python_errors::UUIDValueConvertError;
+use super::python_errors::{CursorError, UUIDValueConvertError};
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
 
@@ -21,6 +21,8 @@ pub enum RustPSQLDriverError {
     DataBaseTransactionError(String),
     #[error("Configuration database pool error: {0}")]
     DataBasePoolConfigurationError(String),
+    #[error("Cursor error: {0}")]
+    DBCursorError(String),
 
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
@@ -62,6 +64,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
                 DBPoolConfigurationError::new_err((error_desc,))
             }
             RustPSQLDriverError::UUIDConvertError(_) => UUIDValueConvertError::new_err(error_desc),
+            RustPSQLDriverError::DBCursorError(_) => CursorError::new_err(error_desc),
         }
     }
 }

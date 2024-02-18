@@ -6,6 +6,7 @@ from ._internal.exceptions import (
     DBTransactionError,
     DBPoolConfigurationError,
     UUIDValueConvertError,
+    CursorError,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "DBTransactionError",
     "DBPoolConfigurationError",
     "UUIDValueConvertError",
+    "CursorError",
 ]

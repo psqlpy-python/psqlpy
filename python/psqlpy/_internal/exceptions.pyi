@@ -40,3 +40,7 @@ class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
 
 class UUIDValueConvertError(RustPSQLDriverPyBaseError):
     """Error if it's impossible to convert py string UUID into rust UUID."""
+
+
+class CursorError(RustPSQLDriverPyBaseError):
+    """Error if something goes wrong with the cursor."""

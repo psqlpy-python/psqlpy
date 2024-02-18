@@ -33,6 +33,8 @@ create_exception!(
     RustPSQLDriverPyBaseError
 );
 
+create_exception!(psqlpy.exceptions, CursorError, RustPSQLDriverPyBaseError);
+
 pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add(
         "RustPSQLDriverPyBaseError",
@@ -56,5 +58,6 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()
         "UUIDValueConvertError",
         py.get_type::<UUIDValueConvertError>(),
     )?;
+    pymod.add("CursorError", py.get_type::<CursorError>())?;
     Ok(())
 }

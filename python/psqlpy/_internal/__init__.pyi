@@ -49,6 +49,12 @@ class Cursor:
         result as `QueryResult`.
         """
     
+    async def close(self: Self) -> None:
+        """Close the cursor.
+
+        Execute CLOSE command for the cursor.
+        """
+    
     def __aiter__(self: Self) -> Self:
         ...
     
@@ -247,6 +253,7 @@ class Transaction:
         querystring: str,
         parameters: List[Any] | None = None,
         fetch_number: int | None = None,
+        scroll: bool | None = None,
     ) -> Cursor:
         """Create new cursor object.
 
@@ -256,6 +263,7 @@ class Transaction:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
+        - `scroll`: SCROLL or NO SCROLL cursor.
 
         ### Returns:
         new initialized cursor.
