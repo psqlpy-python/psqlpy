@@ -26,6 +26,7 @@ classifiers = [
 ]
 authors = [{ email = "askiselev00@gmail.com" }, { name = "Kiselev Aleksandr" }]
 maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]
+description = "Async PostgreSQL driver for Python written in Rust"
 dynamic = ["version"]
 
 [tool.maturin]
