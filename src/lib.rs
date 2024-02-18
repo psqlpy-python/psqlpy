@@ -14,6 +14,7 @@ use pyo3::{pymodule, types::PyModule, PyResult, Python};
 #[pyo3(name = "_internal")]
 fn psqlpy(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::PSQLPool>()?;
+    pymod.add_class::<driver::connection::Connection>()?;
     pymod.add_class::<driver::transaction::Transaction>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
     pymod.add_class::<driver::transaction_options::IsolationLevel>()?;

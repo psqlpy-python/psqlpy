@@ -120,11 +120,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
-        isolation_level=IsolationLevel.Serializable,
-    )
-
-    async with transaction:
+    async with connection.transaction() as transaction:
         res: list[dict[str, Any]] = await transaction.execute(
             "SELECT * FROM users",
         )
@@ -147,7 +143,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
+    transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -181,7 +177,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
+    transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -208,7 +204,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
+    transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -241,7 +237,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
+    transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 
@@ -278,7 +274,7 @@ async def main() -> None:
     await db_pool.startup()
 
     connection = await db_pool.connection()
-    transaction = await connection.transaction(
+    transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
     )
 

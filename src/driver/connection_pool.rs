@@ -10,7 +10,7 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::connection::{Connection, RustConnection};
+use super::connection::Connection;
 
 /// PSQLPool for internal use only.
 ///
@@ -48,6 +48,10 @@ impl RustPSQLPool {
 }
 
 impl RustPSQLPool {
+    /// Return new single connection.
+    ///
+    /// # Errors:
+    /// May return Err Result if cannot get new connection from the pool.
     pub async fn inner_connection<'a>(&'a self) -> RustPSQLDriverPyResult<Connection> {
         let db_pool_arc = self.db_pool.clone();
 
@@ -61,13 +65,9 @@ impl RustPSQLPool {
             .get()
             .await?;
 
-        let inner_connection = RustConnection {
+        Ok(Connection {
             db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
-        };
-
-        Ok(Connection(Arc::new(tokio::sync::RwLock::new(
-            inner_connection,
-        ))))
+        })
     }
     /// Execute querystring with parameters.
     ///

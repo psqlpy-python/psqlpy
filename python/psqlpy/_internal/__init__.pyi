@@ -338,7 +338,7 @@ class Connection:
         ```
         """
     
-    async def transaction(
+    def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
         read_variant: ReadVariant | None = None,

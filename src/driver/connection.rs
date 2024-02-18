@@ -15,47 +15,44 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant},
 };
 
-pub struct RustConnection {
+#[pyclass]
+pub struct Connection {
     pub db_client: Arc<tokio::sync::RwLock<Object>>,
 }
 
-impl RustConnection {
-    /// Execute querystring with parameters.
-    ///
-    /// Method doesn't acquire lock on database connection.
-    /// It prepares and caches querystring in the inner Object object.
-    ///
-    /// Then execute the query.
-    ///
-    /// # Errors:
-    /// May return Err Result if:
-    /// 1) Can not create/retrieve prepared statement
-    /// 2) Can not execute statement
-    pub async fn inner_execute<'a>(
+#[pymethods]
+impl Connection {
+    pub fn execute<'a>(
         &'a self,
+        py: Python<'a>,
         querystring: String,
-        parameters: Vec<PythonDTO>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        parameters: Option<&'a PyAny>,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
         let db_client_arc = self.db_client.clone();
 
-        let db_client_guard = db_client_arc.read().await;
-
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in parameters.iter() {
-            vec_parameters.push(param);
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?
         }
 
-        let statement: tokio_postgres::Statement =
-            db_client_guard.prepare_cached(&querystring).await?;
+        rustengine_future(py, async move {
+            let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
+            for param in params.iter() {
+                vec_parameters.push(param);
+            }
+            let db_client_guard = db_client_arc.read().await;
+            let statement: tokio_postgres::Statement =
+                db_client_guard.prepare_cached(&querystring).await?;
 
-        let result = db_client_guard
-            .query(&statement, &vec_parameters.into_boxed_slice())
-            .await?;
+            let result = db_client_guard
+                .query(&statement, &vec_parameters.into_boxed_slice())
+                .await?;
 
-        Ok(PSQLDriverPyQueryResult::new(result))
+            Ok(PSQLDriverPyQueryResult::new(result))
+        })
     }
 
-    pub fn inner_transaction<'a>(
+    pub fn transaction<'a>(
         &'a self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
@@ -73,53 +70,5 @@ impl RustConnection {
         Transaction {
             transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
         }
-    }
-}
-
-#[pyclass]
-pub struct Connection(pub Arc<tokio::sync::RwLock<RustConnection>>);
-
-#[pymethods]
-impl Connection {
-    /// Execute querystring with parameters.
-    ///
-    /// It converts incoming parameters to rust readable
-    /// and then execute the query with them.
-    ///
-    /// # Errors:
-    ///
-    /// May return Err Result if:
-    /// 1) Cannot convert python parameters
-    /// 2) Cannot execute querystring.
-    pub fn execute<'a>(
-        &'a self,
-        py: Python<'a>,
-        querystring: String,
-        parameters: Option<&'a PyAny>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let connection_arc = self.0.clone();
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?
-        }
-
-        rustengine_future(py, async move {
-            let connection_guard = connection_arc.read().await;
-            Ok(connection_guard.inner_execute(querystring, params).await?)
-        })
-    }
-
-    pub fn transaction<'a>(
-        &'a self,
-        py: Python<'a>,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let connection_arc = self.0.clone();
-
-        rustengine_future(py, async move {
-            let connection_guard = connection_arc.read().await;
-            Ok(connection_guard.inner_transaction(isolation_level, read_variant))
-        })
     }
 }
