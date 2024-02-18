@@ -3,10 +3,10 @@ use pyo3::pyclass;
 #[pyclass]
 #[derive(Clone, Copy)]
 pub enum IsolationLevel {
-    ReadUncommitted = 1,
-    ReadCommitted = 2,
-    RepeatableRead = 3,
-    Serializable = 4,
+    ReadUncommitted,
+    ReadCommitted,
+    RepeatableRead,
+    Serializable,
 }
 
 impl IsolationLevel {
@@ -17,6 +17,23 @@ impl IsolationLevel {
             IsolationLevel::ReadCommitted => "READ COMMITTED".into(),
             IsolationLevel::RepeatableRead => "REPEATABLE READ".into(),
             IsolationLevel::Serializable => "SERIALIZABLE".into(),
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Copy)]
+pub enum ReadVariant {
+    ReadOnly,
+    ReadWrite,
+}
+
+impl ReadVariant {
+    /// Return Read variant as String literal.
+    pub fn to_str_option(&self) -> String {
+        match self {
+            ReadVariant::ReadOnly => "READ ONLY".into(),
+            ReadVariant::ReadWrite => "READ WRITE".into(),
         }
     }
 }

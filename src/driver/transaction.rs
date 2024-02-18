@@ -10,22 +10,46 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::{cursor::Cursor, transaction_options::IsolationLevel};
+use super::{
+    cursor::Cursor,
+    transaction_options::{IsolationLevel, ReadVariant},
+};
 
 /// Transaction for internal use only.
 ///
 /// It is not exposed to python.
 pub struct RustTransaction {
-    pub db_client: Arc<tokio::sync::RwLock<Object>>,
-    pub is_started: Arc<tokio::sync::RwLock<bool>>,
-    pub is_done: Arc<tokio::sync::RwLock<bool>>,
-    pub rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
+    db_client: Arc<tokio::sync::RwLock<Object>>,
+    is_started: Arc<tokio::sync::RwLock<bool>>,
+    is_done: Arc<tokio::sync::RwLock<bool>>,
+    rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
 
-    pub isolation_level: Option<IsolationLevel>,
-    pub cursor_num: usize,
+    isolation_level: Option<IsolationLevel>,
+    read_variant: Option<ReadVariant>,
+    cursor_num: usize,
 }
 
 impl RustTransaction {
+    pub fn new(
+        db_client: Arc<tokio::sync::RwLock<Object>>,
+        is_started: Arc<tokio::sync::RwLock<bool>>,
+        is_done: Arc<tokio::sync::RwLock<bool>>,
+        rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        cursor_num: usize,
+    ) -> Self {
+        Self {
+            db_client,
+            is_started,
+            is_done,
+            rollback_savepoint,
+            isolation_level,
+            read_variant,
+            cursor_num,
+        }
+    }
+
     /// Execute querystring with parameters.
     ///
     /// Method doesn't acquire lock on any structure fields.
@@ -85,10 +109,13 @@ impl RustTransaction {
         let mut querystring = "START TRANSACTION".to_string();
 
         if let Some(level) = self.isolation_level {
-            querystring.push_str(" ISOLATION LEVEL ");
             let level = &level.to_str_level();
-            querystring.push_str(level);
+            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
         };
+
+        if let Some(read_var) = self.read_variant {
+            querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str())
+        }
 
         let db_client_arc = self.db_client.clone();
         let db_client_guard = db_client_arc.read().await;

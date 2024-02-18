@@ -1,20 +1,16 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, PyAny, Python};
-use std::{collections::HashSet, sync::Arc, vec};
+use std::{sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
     common::rustengine_future,
-    driver::transaction::{RustTransaction, Transaction},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::{
-    connection::{Connection, RustConnection},
-    transaction_options::IsolationLevel,
-};
+use super::connection::{Connection, RustConnection};
 
 /// PSQLPool for internal use only.
 ///
@@ -109,39 +105,6 @@ impl RustPSQLPool {
             )
             .await?;
         Ok(PSQLDriverPyQueryResult::new(result))
-    }
-
-    /// Create new inner transaction and return it.
-    ///
-    /// # Errors:
-    /// May return Err Result if cannot retrieve connection from the pool.
-    pub async fn inner_transaction<'a>(
-        &'a self,
-        isolation_level: Option<IsolationLevel>,
-    ) -> RustPSQLDriverPyResult<Transaction> {
-        let db_pool_arc = self.db_pool.clone();
-        let db_pool_guard = db_pool_arc.read().await;
-
-        let db_pool_manager = db_pool_guard
-            .as_ref()
-            .ok_or(RustPSQLDriverError::DatabasePoolError(
-                "Database pool is not initialized".into(),
-            ))?
-            .get()
-            .await?;
-
-        let inner_transaction = RustTransaction {
-            db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
-            is_started: Arc::new(tokio::sync::RwLock::new(false)),
-            is_done: Arc::new(tokio::sync::RwLock::new(false)),
-            rollback_savepoint: Arc::new(tokio::sync::RwLock::new(HashSet::new())),
-            isolation_level: isolation_level,
-            cursor_num: Default::default(),
-        };
-
-        Ok(Transaction {
-            transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
-        })
     }
 
     /// Create new Database pool.

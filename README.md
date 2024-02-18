@@ -26,7 +26,6 @@ Usage is as easy as possible.
 Create new instance of PSQLPool, startup it and start querying.
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool
 
@@ -70,7 +69,6 @@ Any placeholder must be marked with `$< num>`.
 You can work with connection instead of DatabasePool.
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool
 
@@ -102,11 +100,16 @@ async def main() -> None:
 Of course it's possible to use transactions with this driver.  
 It's as easy as possible and sometimes it copies common functionality from PsycoPG and AsyncPG.
 
+### Transaction parameters
+In process of transaction creation it is possible to specify some arguments to configure transaction.
+
+- `isolation_level`: level of the isolation. By default - `None`.
+- `read_variant`: read option. By default - `None`.
+
 ### You can use transactions as async context managers
 By default async context manager only begins and commits transaction automatically.
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -134,7 +137,6 @@ async def main() -> None:
 ### Or you can control transaction fully on your own.
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -169,7 +171,6 @@ After it's execution transaction state changes to `done`.
 If you want to use `ROLLBACK TO SAVEPOINT`, see below.
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -197,7 +198,6 @@ You can rollback your transaction to the specified savepoint, but before it you 
 
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -231,7 +231,6 @@ It's possible to release savepoint
 
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -262,7 +261,6 @@ Cursors can be created only in transaction. In addition, cursor supports async i
 
 ```python
 from typing import Any
-import asyncio
 
 from psqlpy import PSQLPool, IsolationLevel
 
@@ -304,7 +302,7 @@ Sometimes it's impossible to identify which type user tries to pass as a argumen
 
 ```python
 from typing import Any
-import asyncio
+
 import uuid
 
 from psqlpy import PSQLPool

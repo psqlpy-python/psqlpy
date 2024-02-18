@@ -21,6 +21,13 @@ class IsolationLevel(Enum):
     Serializable = 4
 
 
+class ReadVariant(Enum):
+    """Class for Read Variant for transaction."""
+
+    ReadOnly = 1
+    ReadWrite = 2
+
+
 class Cursor:
     """Represent opened cursor in a transaction.
     
@@ -325,12 +332,14 @@ class Connection:
     
     async def transaction(
         self,
-        isolation_level: IsolationLevel | None = IsolationLevel.ReadCommitted,
+        isolation_level: IsolationLevel | None = None,
+        read_variant: ReadVariant | None = None,
     ) -> Transaction:
         """Create new transaction.
 
         ### Parameters:
         - `isolation_level`: configure isolation level of the transaction.
+        - `read_variant`: configure read variant of the transaction.
         """
 
 

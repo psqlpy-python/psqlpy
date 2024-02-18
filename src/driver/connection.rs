@@ -12,7 +12,7 @@ use crate::{
 
 use super::{
     transaction::{RustTransaction, Transaction},
-    transaction_options::IsolationLevel,
+    transaction_options::{IsolationLevel, ReadVariant},
 };
 
 pub struct RustConnection {
@@ -55,15 +55,20 @@ impl RustConnection {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
-    pub fn inner_transaction<'a>(&'a self, isolation_level: Option<IsolationLevel>) -> Transaction {
-        let inner_transaction = RustTransaction {
-            db_client: self.db_client.clone(),
-            is_started: Arc::new(tokio::sync::RwLock::new(false)),
-            is_done: Arc::new(tokio::sync::RwLock::new(false)),
-            rollback_savepoint: Arc::new(tokio::sync::RwLock::new(HashSet::new())),
-            isolation_level: isolation_level,
-            cursor_num: Default::default(),
-        };
+    pub fn inner_transaction<'a>(
+        &'a self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+    ) -> Transaction {
+        let inner_transaction = RustTransaction::new(
+            self.db_client.clone(),
+            Arc::new(tokio::sync::RwLock::new(false)),
+            Arc::new(tokio::sync::RwLock::new(false)),
+            Arc::new(tokio::sync::RwLock::new(HashSet::new())),
+            isolation_level,
+            read_variant,
+            Default::default(),
+        );
 
         Transaction {
             transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
@@ -108,12 +113,13 @@ impl Connection {
         &'a self,
         py: Python<'a>,
         isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let connection_arc = self.0.clone();
 
         rustengine_future(py, async move {
             let connection_guard = connection_arc.read().await;
-            Ok(connection_guard.inner_transaction(isolation_level))
+            Ok(connection_guard.inner_transaction(isolation_level, read_variant))
         })
     }
 }
