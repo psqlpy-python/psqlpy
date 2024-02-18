@@ -3,7 +3,7 @@
 Driver for PostgreSQL written fully in Rust and exposed to Python.  
 *Normal documentation is in development.*
 
-# Installation
+## Installation
 
 You can install package with `pip` or `poetry`.
 
@@ -53,7 +53,7 @@ async def main() -> None:
 ```
 Please take into account that each new execute gets new connection from connection pool. 
 
-# Query parameters
+## Query parameters
 You can pass parameters into queries.  
 Parameters can be passed in any `execute` method as the second parameter, it must be a list.  
 Any placeholder must be marked with `$< num>`.
@@ -65,7 +65,7 @@ Any placeholder must be marked with `$< num>`.
     )
 ```
 
-# Connection
+## Connection
 You can work with connection instead of DatabasePool.
 ```python
 from typing import Any
@@ -96,7 +96,7 @@ async def main() -> None:
     # rust does it instead.
 ```
 
-# Transactions
+## Transactions
 Of course it's possible to use transactions with this driver.  
 It's as easy as possible and sometimes it copies common functionality from PsycoPG and AsyncPG.
 
@@ -165,7 +165,7 @@ async def main() -> None:
     # rust does it instead.
 ```
 
-### Transactions can be roll backed
+### Transactions can be rolled back
 You must understand that rollback can be executed only once per transaction.  
 After it's execution transaction state changes to `done`.  
 If you want to use `ROLLBACK TO SAVEPOINT`, see below.
@@ -254,7 +254,7 @@ async def main() -> None:
     await transaction.commit()
 ```
 
-# Cursors
+## Cursors
 Library supports PostgreSQL cursors.
 
 Cursors can be created only in transaction. In addition, cursor supports async iteration.
