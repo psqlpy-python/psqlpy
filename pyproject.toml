@@ -24,6 +24,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Database :: Front-Ends",
 ]
+authors = [{ email = "askiselev00@gmail.com" }, { name = "Kiselev Aleksandr" }]
+maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]
 dynamic = ["version"]
 
 [tool.maturin]
@@ -31,11 +33,7 @@ python-source = "python"
 module-name = "psqlpy._internal"
 features = ["pyo3/extension-module"]
 
-[tool.poetry]
-name = "psqlpy"
-version = "0.1.2"
-description = "Async PostgreSQL driver for Python written in Rust"
-authors = ["Kiselev Aleksandr <askisele00@gmail.com>"]
+[project.urls]
 homepage = "https://github.com/qaspen-python/psqlpy"
 repository = "https://github.com/qaspen-python/psqlpy"
 documentation = "https://github.com/qaspen-python/psqlpy/blob/main/README.md"
