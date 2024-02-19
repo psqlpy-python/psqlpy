@@ -28,7 +28,7 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python or set new key-value pair
     /// in python dict.
-    pub fn result<'a>(&self, py: Python<'a>) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let mut result: Vec<&PyDict> = vec![];
         for row in &self.inner {
             let python_dict = PyDict::new(py);

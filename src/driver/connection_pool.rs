@@ -52,7 +52,7 @@ impl RustPSQLPool {
     ///
     /// # Errors:
     /// May return Err Result if cannot get new connection from the pool.
-    pub async fn inner_connection<'a>(&'a self) -> RustPSQLDriverPyResult<Connection> {
+    pub async fn inner_connection(&self) -> RustPSQLDriverPyResult<Connection> {
         let db_pool_arc = self.db_pool.clone();
 
         let db_pool_guard = db_pool_arc.read().await;
@@ -76,8 +76,8 @@ impl RustPSQLPool {
     /// # Errors:
     /// May return Err Result if cannot retrieve new connection
     /// or prepare statement or execute statement.
-    pub async fn inner_execute<'a>(
-        &'a self,
+    pub async fn inner_execute(
+        &self,
         querystring: String,
         parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
@@ -112,14 +112,14 @@ impl RustPSQLPool {
     /// # Errors:
     /// May return Err Result if Database pool is already initialized,
     /// max_db_pool_size is less than 2 or it's impossible to build db pool.
-    pub async fn inner_startup<'a>(&'a self) -> RustPSQLDriverPyResult<()> {
+    pub async fn inner_startup(&self) -> RustPSQLDriverPyResult<()> {
         let db_pool_arc = self.db_pool.clone();
         let password = self.password.clone();
         let username = self.username.clone();
         let db_host = self.host.clone();
         let db_port = self.port;
         let db_name = self.db_name.clone();
-        let max_db_pool_size = self.max_db_pool_size.clone();
+        let max_db_pool_size = self.max_db_pool_size;
 
         let mut db_pool_guard = db_pool_arc.write().await;
         if db_pool_guard.is_some() {
@@ -220,7 +220,7 @@ impl PSQLPool {
 
         rustengine_future(py, async move {
             let psql_pool_guard = psql_pool_arc.write().await;
-            Ok(psql_pool_guard.inner_connection().await?)
+            psql_pool_guard.inner_connection().await
         })
     }
 
@@ -244,7 +244,7 @@ impl PSQLPool {
         rustengine_future(py, async move {
             let engine_guard = engine_arc.read().await;
 
-            Ok(engine_guard.inner_execute(querystring, params).await?)
+            engine_guard.inner_execute(querystring, params).await
         })
     }
 }

@@ -21,12 +21,12 @@ impl Cursor {
         cursor_name: String,
         fetch_number: usize,
     ) -> Self {
-        return Cursor {
+        Cursor {
             db_client,
             cursor_name,
             fetch_number,
             closed: Arc::new(tokio::sync::RwLock::new(false)),
-        };
+        }
     }
 }
 
@@ -41,7 +41,7 @@ impl Cursor {
         let cursor_name = self.cursor_name.clone();
         let fetch_number = match fetch_number {
             Some(usize) => usize,
-            None => self.fetch_number.clone(),
+            None => self.fetch_number,
         };
 
         rustengine_future(py, async move {
@@ -64,7 +64,7 @@ impl Cursor {
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let db_client_arc = self.db_client.clone();
         let cursor_name = self.cursor_name.clone();
-        let fetch_number = self.fetch_number.clone();
+        let fetch_number = self.fetch_number;
 
         let future = rustengine_future(py, async move {
             let db_client_guard = db_client_arc.read().await;
@@ -75,7 +75,7 @@ impl Cursor {
                 )
                 .await?;
 
-            if result.len() == 0 {
+            if result.is_empty() {
                 return Err(PyStopAsyncIteration::new_err("Error").into());
             };
 

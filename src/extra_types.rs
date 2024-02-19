@@ -75,10 +75,10 @@ impl PyJSON {
 #[pymethods]
 impl PyJSON {
     #[new]
-    pub fn new_uuid<'a>(value: &'a PyAny) -> RustPSQLDriverPyResult<Self> {
-        return Ok(Self {
+    pub fn new_uuid(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+        Ok(Self {
             inner: build_serde_value(value)?,
-        });
+        })
     }
 }
 

@@ -52,8 +52,8 @@ impl Connection {
         })
     }
 
-    pub fn transaction<'a>(
-        &'a self,
+    pub fn transaction(
+        &self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
     ) -> Transaction {

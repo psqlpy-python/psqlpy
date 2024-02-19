@@ -92,7 +92,7 @@ impl PythonDTO {
                     vec_serde_values.push(py_object.to_serde_value()?);
                 }
 
-                return Ok(json!(vec_serde_values));
+                Ok(json!(vec_serde_values))
             }
             PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
@@ -146,7 +146,7 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyBool(boolean) => types::bool_to_sql(*boolean, out),
             PythonDTO::PyUUID(pyuuid) => {
-                <Uuid as ToSql>::to_sql(&pyuuid, ty, out)?;
+                <Uuid as ToSql>::to_sql(pyuuid, ty, out)?;
             }
             PythonDTO::PyString(string) => {
                 <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
@@ -186,9 +186,9 @@ impl ToSql for PythonDTO {
             }
         }
         if return_is_null_true {
-            return Ok(tokio_postgres::types::IsNull::Yes);
+            Ok(tokio_postgres::types::IsNull::Yes)
         } else {
-            return Ok(tokio_postgres::types::IsNull::No);
+            Ok(tokio_postgres::types::IsNull::No)
         }
     }
 
@@ -206,7 +206,7 @@ impl ToSql for PythonDTO {
 /// # Errors:
 ///
 /// May return Err Result if can't convert python object.
-pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
+pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
 
     if parameters.is_instance_of::<PyList>()
@@ -218,7 +218,7 @@ pub fn convert_parameters<'a>(parameters: &'a PyAny) -> RustPSQLDriverPyResult<V
             result_vec.push(py_to_rust(parameter)?);
         }
     }
-    return Ok(result_vec);
+    Ok(result_vec)
 }
 
 /// Convert single python parameter to `PythonDTO` enum.
@@ -242,17 +242,13 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
 
     if parameter.is_instance_of::<PyDateTime>() {
         let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
-
-        match timestamp_tz {
-            Ok(pydatetime_tz) => return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz)),
-            Err(_) => {}
+        if let Ok(pydatetime_tz) = timestamp_tz {
+            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
         }
 
         let timestamp_no_tz = parameter.extract::<NaiveDateTime>();
-
-        match timestamp_no_tz {
-            Ok(pydatetime_no_tz) => return Ok(PythonDTO::PyDateTime(pydatetime_no_tz)),
-            Err(_) => {}
+        if let Ok(pydatetime_no_tz) = timestamp_no_tz {
+            return Ok(PythonDTO::PyDateTime(pydatetime_no_tz));
         }
 
         return Err(RustPSQLDriverError::PyToRustValueConversionError(
@@ -354,8 +350,8 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
 ///
 /// May return Err Result if cannot convert postgres
 /// type into rust one.
-pub fn postgres_to_py<'a>(
-    py: Python<'a>,
+pub fn postgres_to_py(
+    py: Python<'_>,
     row: &Row,
     column: &Column,
     column_i: usize,
@@ -365,7 +361,7 @@ pub fn postgres_to_py<'a>(
         // Convert BYTEA type into Vector<u8>, then into PyBytes
         Type::BYTEA => match row.try_get::<_, Option<Vec<u8>>>(column_i)? {
             Some(rest_bytes) => Ok(PyBytes::new(py, &rest_bytes).to_object(py)),
-            None => return Ok(py.None()),
+            None => Ok(py.None()),
         },
         // ---------- String Types ----------
         // Convert TEXT and VARCHAR type into String, then into str
@@ -405,7 +401,7 @@ pub fn postgres_to_py<'a>(
                 Some(rust_uuid) => {
                     return Ok(PyString::new(py, &rust_uuid.to_string()).to_object(py))
                 }
-                None => return Ok(py.None()),
+                None => Ok(py.None()),
             }
         }
         // ---------- Array Text Types ----------
@@ -452,16 +448,14 @@ pub fn postgres_to_py<'a>(
                 )
                 .to_object(py))
             }
-            None => return Ok(py.None().to_object(py)),
+            None => Ok(py.None().to_object(py)),
         },
         Type::JSONB | Type::JSON => {
             let db_json = row.try_get::<_, Option<Value>>(column_i)?;
 
             match db_json {
-                Some(value) => return Ok(value.to_string().to_object(py)),
-                None => {
-                    return Ok(py.None().to_object(py));
-                }
+                Some(value) => Ok(value.to_string().to_object(py)),
+                None => Ok(py.None().to_object(py)),
             }
         }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
@@ -470,7 +464,7 @@ pub fn postgres_to_py<'a>(
     }
 }
 
-pub fn build_serde_value<'a>(value: &'a PyAny) -> RustPSQLDriverPyResult<Value> {
+pub fn build_serde_value(value: &PyAny) -> RustPSQLDriverPyResult<Value> {
     if value.is_instance_of::<PyList>() {
         let mut result_vec: Vec<Value> = vec![];
 
@@ -484,17 +478,17 @@ pub fn build_serde_value<'a>(value: &'a PyAny) -> RustPSQLDriverPyResult<Value> 
                 let serde_value = build_serde_value(inner)?;
                 result_vec.push(serde_value);
             } else {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-                    "PyJSON/PyJSONB supports only list of lists or list of dicts."
-                )));
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "PyJSON/PyJSONB supports only list of lists or list of dicts.".to_string(),
+                ));
             }
         }
-        return Ok(json!(result_vec));
+        Ok(json!(result_vec))
     } else if value.is_instance_of::<PyDict>() {
         return py_to_rust(value)?.to_serde_value();
     } else {
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "PyJSON must be list value."
-        )));
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "PyJSON must be list value.".to_string(),
+        ));
     }
 }
