@@ -219,9 +219,9 @@ impl Cursor {
         })
     }
 
-    /// Fetch relative row from cursor.
+    /// Fetch forward all from cursor.
     ///
-    /// Execute FETCH RELATIVE<absolute_number>.
+    /// Execute FORWARD ALL.
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
@@ -234,6 +234,54 @@ impl Cursor {
             let result = db_client_guard
                 .query(
                     format!("FETCH FORWARD ALL FROM {cursor_name}").as_str(),
+                    &[],
+                )
+                .await?;
+            Ok(PSQLDriverPyQueryResult::new(result))
+        })
+    }
+
+    /// Fetch backward from cursor.
+    ///
+    /// Execute BACKWARD <backward_count>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub fn fetch_backward<'a>(
+        &'a self,
+        py: Python<'a>,
+        backward_count: i64,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let db_client_arc = self.db_client.clone();
+        let cursor_name = self.cursor_name.clone();
+
+        rustengine_future(py, async move {
+            let db_client_guard = db_client_arc.read().await;
+            let result = db_client_guard
+                .query(
+                    format!("FETCH BACKWARD {backward_count} FROM {cursor_name}").as_str(),
+                    &[],
+                )
+                .await?;
+            Ok(PSQLDriverPyQueryResult::new(result))
+        })
+    }
+
+    /// Fetch backward from cursor.
+    ///
+    /// Execute BACKWARD <backward_count>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub fn fetch_backward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
+        let db_client_arc = self.db_client.clone();
+        let cursor_name = self.cursor_name.clone();
+
+        rustengine_future(py, async move {
+            let db_client_guard = db_client_arc.read().await;
+            let result = db_client_guard
+                .query(
+                    format!("FETCH BACKWARD ALL FROM {cursor_name}").as_str(),
                     &[],
                 )
                 .await?;

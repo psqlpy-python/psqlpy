@@ -127,6 +127,29 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
+    
+    async def fetch_backward(
+        self: Self,
+        backward_count: int,
+    ) -> QueryResult:
+        """Fetch backward rows.
+        
+        Execute FETCH BACKWARD <backward_count>.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+
+    async def fetch_backward_all(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch backward all rows.
+        
+        Execute FETCH BACKWARD ALL.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
 
     async def close(self: Self) -> None:
         """Close the cursor.

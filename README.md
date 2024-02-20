@@ -309,6 +309,8 @@ Available cursor operations:
 - FETCH ABSOLUTE - `cursor.fetch_absolute(absolute_number=)`
 - FETCH RELATIVE - `cursor.fetch_relative(relative_number=)`
 - FETCH FORWARD ALL - `cursor.fetch_forward_all()`
+- FETCH BACKWARD backward_count - `cursor.fetch_backward(backward_count=)`
+- FETCH BACKWARD ALL - `cursor.fetch_backward_all()`
 
 ## Extra Types
 Sometimes it's impossible to identify which type user tries to pass as a argument. But Rust is a strongly typed programming language so we have to help.
