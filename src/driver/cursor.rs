@@ -32,6 +32,35 @@ impl Cursor {
 
 #[pymethods]
 impl Cursor {
+    #[must_use]
+    pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
+        let db_client_arc = self.db_client.clone();
+        let cursor_name = self.cursor_name.clone();
+        let fetch_number = self.fetch_number;
+
+        let future = rustengine_future(py, async move {
+            let db_client_guard = db_client_arc.read().await;
+            let result = db_client_guard
+                .query(
+                    format!("FETCH {fetch_number} FROM {cursor_name}").as_str(),
+                    &[],
+                )
+                .await?;
+
+            if result.is_empty() {
+                return Err(PyStopAsyncIteration::new_err("Error").into());
+            };
+
+            Ok(PSQLDriverPyQueryResult::new(result))
+        });
+
+        Ok(Some(future?.into()))
+    }
+
     /// Fetch data from cursor.
     ///
     /// It's possible to specify fetch number.
@@ -190,33 +219,26 @@ impl Cursor {
         })
     }
 
-    #[must_use]
-    pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
+    /// Fetch relative row from cursor.
+    ///
+    /// Execute FETCH RELATIVE<absolute_number>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub fn fetch_forward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let db_client_arc = self.db_client.clone();
         let cursor_name = self.cursor_name.clone();
-        let fetch_number = self.fetch_number;
 
-        let future = rustengine_future(py, async move {
+        rustengine_future(py, async move {
             let db_client_guard = db_client_arc.read().await;
             let result = db_client_guard
                 .query(
-                    format!("FETCH {fetch_number} FROM {cursor_name}").as_str(),
+                    format!("FETCH FORWARD ALL FROM {cursor_name}").as_str(),
                     &[],
                 )
                 .await?;
-
-            if result.is_empty() {
-                return Err(PyStopAsyncIteration::new_err("Error").into());
-            };
-
             Ok(PSQLDriverPyQueryResult::new(result))
-        });
-
-        Ok(Some(future?.into()))
+        })
     }
 
     /// Close cursor.

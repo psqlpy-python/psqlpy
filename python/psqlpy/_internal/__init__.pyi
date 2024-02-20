@@ -116,6 +116,7 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
+    
     async def fetch_relative(
         self: Self,
         relative_number: int,
@@ -123,6 +124,17 @@ class Cursor:
         """Fetch absolute rows.
         
         Execute FETCH RELATIVE <relative_number>.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+
+    async def fetch_forward_all(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch forward all rows.
+        
+        Execute FETCH FORWARD ALL.
 
         ### Returns:
         result as `QueryResult`.
