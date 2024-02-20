@@ -49,6 +49,28 @@ class Cursor:
         result as `QueryResult`.
         """
     
+    async def fetch_next(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch next row.
+        
+        Execute FETCH NEXT
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+    
+    async def fetch_prior(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch previous row.
+        
+        Execute FETCH PRIOR
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+    
     async def close(self: Self) -> None:
         """Close the cursor.
 
