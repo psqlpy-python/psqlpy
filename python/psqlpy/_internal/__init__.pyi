@@ -76,7 +76,7 @@ class Cursor:
     ) -> QueryResult:
         """Fetch first row.
         
-        Execute FETCH FIRST.
+        Execute FETCH FIRST
 
         ### Returns:
         result as `QueryResult`.
@@ -87,24 +87,12 @@ class Cursor:
     ) -> QueryResult:
         """Fetch last row.
         
-        Execute FETCH LAST.
+        Execute FETCH LAST
 
         ### Returns:
         result as `QueryResult`.
         """
     
-    async def fetch_absolute(
-        self: Self,
-        absolute_number: int,
-    ) -> QueryResult:
-        """Fetch absolute rows.
-        
-        Execute FETCH ABSOLUTE <absolute_number>.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-
     async def fetch_absolute(
         self: Self,
         absolute_number: int,

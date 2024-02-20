@@ -299,6 +299,17 @@ async def main() -> None:
     await transaction.commit()
 ```
 
+### Cursor operations
+Available cursor operations:
+- FETCH count - `cursor.fetch(fetch_number=...)`
+- FETCH NEXT - `cursor.fetch_next()`
+- FETCH PRIOR - `cursor.fetch_prior()`
+- FETCH FIRST - `cursor.fetch_first()`
+- FETCH LAST - `cursor.fetch_last()`
+- FETCH ABSOLUTE - `cursor.fetch_absolute(absolute_number=)`
+- FETCH RELATIVE - `cursor.fetch_relative(relative_number=)`
+- FETCH FORWARD ALL - `cursor.fetch_forward_all()`
+
 ## Extra Types
 Sometimes it's impossible to identify which type user tries to pass as a argument. But Rust is a strongly typed programming language so we have to help.
 
