@@ -301,7 +301,7 @@ async def main() -> None:
 
 ### Cursor operations
 Available cursor operations:
-- FETCH count - `cursor.fetch(fetch_number=...)`
+- FETCH count - `cursor.fetch(fetch_number=)`
 - FETCH NEXT - `cursor.fetch_next()`
 - FETCH PRIOR - `cursor.fetch_prior()`
 - FETCH FIRST - `cursor.fetch_first()`
