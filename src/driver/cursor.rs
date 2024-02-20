@@ -138,9 +138,9 @@ impl Cursor {
         })
     }
 
-    /// Fetch last row from cursor.
+    /// Fetch absolute row from cursor.
     ///
-    /// Execute FETCH LAST (same as ABSOLUTE -1)
+    /// Execute FETCH ABSOLUTE<absolute_number>.
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
