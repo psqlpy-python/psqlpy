@@ -105,6 +105,29 @@ class Cursor:
         result as `QueryResult`.
         """
 
+    async def fetch_absolute(
+        self: Self,
+        absolute_number: int,
+    ) -> QueryResult:
+        """Fetch absolute rows.
+        
+        Execute FETCH ABSOLUTE <absolute_number>.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+    async def fetch_relative(
+        self: Self,
+        relative_number: int,
+    ) -> QueryResult:
+        """Fetch absolute rows.
+        
+        Execute FETCH RELATIVE <relative_number>.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+
     async def close(self: Self) -> None:
         """Close the cursor.
 
