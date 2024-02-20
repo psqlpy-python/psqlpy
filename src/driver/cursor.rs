@@ -32,6 +32,12 @@ impl Cursor {
 
 #[pymethods]
 impl Cursor {
+    /// Fetch data from cursor.
+    ///
+    /// It's possible to specify fetch number.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
     pub fn fetch<'a>(
         &'a self,
         py: Python<'a>,
