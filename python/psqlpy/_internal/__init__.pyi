@@ -48,7 +48,7 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-    
+
     async def fetch_next(
         self: Self,
     ) -> QueryResult:
@@ -59,7 +59,7 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-    
+
     async def fetch_prior(
         self: Self,
     ) -> QueryResult:
@@ -70,16 +70,50 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
+
+    async def fetch_first(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch first row.
+        
+        Execute FETCH FIRST.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+
+    async def fetch_last(
+        self: Self,
+    ) -> QueryResult:
+        """Fetch last row.
+        
+        Execute FETCH LAST.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
     
+    async def fetch_absolute(
+        self: Self,
+        absolute_number: int,
+    ) -> QueryResult:
+        """Fetch absolute rows.
+        
+        Execute FETCH ABSOLUTE <absolute_number>.
+
+        ### Returns:
+        result as `QueryResult`.
+        """
+
     async def close(self: Self) -> None:
         """Close the cursor.
 
         Execute CLOSE command for the cursor.
         """
-    
+
     def __aiter__(self: Self) -> Self:
         ...
-    
+
     async def __anext__(self: Self) -> QueryResult:
         ...
 
