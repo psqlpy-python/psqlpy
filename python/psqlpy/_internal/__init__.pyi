@@ -493,7 +493,8 @@ class PSQLPool:
                 [100],
             )
             dict_result: List[Dict[Any, Any]] = query_result.result()
-            # you don't need to close the pool, it will be dropped on Rust side.
+            # you don't need to close the pool,
+            # it will be dropped on Rust side.
         ```
         """
     async def connection(self: Self) -> Connection:
