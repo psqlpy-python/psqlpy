@@ -1,4 +1,11 @@
-from ._internal import IsolationLevel, PSQLPool, QueryResult, ReadVariant, Transaction
+from ._internal import (
+    Connection,
+    IsolationLevel,
+    PSQLPool,
+    QueryResult,
+    ReadVariant,
+    Transaction,
+)
 
 __all__ = [
     "PSQLPool",
@@ -6,4 +13,5 @@ __all__ = [
     "Transaction",
     "IsolationLevel",
     "ReadVariant",
+    "Connection",
 ]
