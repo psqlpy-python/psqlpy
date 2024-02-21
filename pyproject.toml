@@ -101,7 +101,7 @@ ignore = [
 ]
 exclude = [".venv/"]
 mccabe = { max-complexity = 10 }
-line-length = 88
+line-length = 79
 
 [tool.ruff.per-file-ignores]
 "python/psqlpy/*" = ["PYI021"]

@@ -1,0 +1,19 @@
+import pytest
+
+from psqlpy import PSQLPool, QueryResult
+
+
+@pytest.mark.anyio
+async def test_connection_execute(
+    psql_pool: PSQLPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test that single connection can execute queries."""
+    connection = await psql_pool.connection()
+
+    conn_result = await connection.execute(
+        querystring=f"SELECT * FROM {table_name}",
+    )
+    assert isinstance(conn_result, QueryResult)
+    assert len(conn_result.result()) == number_database_records
