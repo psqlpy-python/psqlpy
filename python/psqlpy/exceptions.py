@@ -1,12 +1,12 @@
 from ._internal.exceptions import (
-    RustPSQLDriverPyBaseError,
-    DBPoolError,
-    RustToPyValueMappingError,
-    PyToRustValueMappingError,
-    DBTransactionError,
-    DBPoolConfigurationError,
-    UUIDValueConvertError,
     CursorError,
+    DBPoolConfigurationError,
+    DBPoolError,
+    DBTransactionError,
+    PyToRustValueMappingError,
+    RustPSQLDriverPyBaseError,
+    RustToPyValueMappingError,
+    UUIDValueConvertError,
 )
 
 __all__ = [

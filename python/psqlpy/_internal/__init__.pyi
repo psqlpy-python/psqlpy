@@ -1,16 +1,13 @@
-from __future__ import annotations
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from typing_extensions import Self
-
-from typing import Dict, Optional, Any, List
-
 
 class QueryResult:
     """Result."""
 
     def result(self: Self) -> List[Dict[Any, Any]]:
         """Return result from database as a list of dicts."""
-
 
 class IsolationLevel(Enum):
     """Class for Isolation Level for transactions."""
@@ -20,17 +17,15 @@ class IsolationLevel(Enum):
     RepeatableRead = 3
     Serializable = 4
 
-
 class ReadVariant(Enum):
     """Class for Read Variant for transaction."""
 
     ReadOnly = 1
     ReadWrite = 2
 
-
 class Cursor:
     """Represent opened cursor in a transaction.
-    
+
     It can be used as an asynchronous iterator.
     """
 
@@ -39,7 +34,7 @@ class Cursor:
         fetch_number: int | None = None,
     ) -> QueryResult:
         """Fetch next <fetch_number> rows.
-        
+
         By default fetches 10 next rows.
 
         ### Parameters:
@@ -48,121 +43,106 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_next(
         self: Self,
     ) -> QueryResult:
         """Fetch next row.
-        
+
         Execute FETCH NEXT
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_prior(
         self: Self,
     ) -> QueryResult:
         """Fetch previous row.
-        
+
         Execute FETCH PRIOR
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_first(
         self: Self,
     ) -> QueryResult:
         """Fetch first row.
-        
+
         Execute FETCH FIRST
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_last(
         self: Self,
     ) -> QueryResult:
         """Fetch last row.
-        
+
         Execute FETCH LAST
 
         ### Returns:
         result as `QueryResult`.
         """
-    
     async def fetch_absolute(
         self: Self,
         absolute_number: int,
     ) -> QueryResult:
         """Fetch absolute rows.
-        
+
         Execute FETCH ABSOLUTE <absolute_number>.
 
         ### Returns:
         result as `QueryResult`.
         """
-    
     async def fetch_relative(
         self: Self,
         relative_number: int,
     ) -> QueryResult:
         """Fetch absolute rows.
-        
+
         Execute FETCH RELATIVE <relative_number>.
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_forward_all(
         self: Self,
     ) -> QueryResult:
         """Fetch forward all rows.
-        
+
         Execute FETCH FORWARD ALL.
 
         ### Returns:
         result as `QueryResult`.
         """
-    
     async def fetch_backward(
         self: Self,
         backward_count: int,
     ) -> QueryResult:
         """Fetch backward rows.
-        
+
         Execute FETCH BACKWARD <backward_count>.
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_backward_all(
         self: Self,
     ) -> QueryResult:
         """Fetch backward all rows.
-        
+
         Execute FETCH BACKWARD ALL.
 
         ### Returns:
         result as `QueryResult`.
         """
-
     async def close(self: Self) -> None:
         """Close the cursor.
 
         Execute CLOSE command for the cursor.
         """
-
-    def __aiter__(self: Self) -> Self:
-        ...
-
-    async def __anext__(self: Self) -> QueryResult:
-        ...
-
+    def __aiter__(self: Self) -> Self: ...
+    async def __anext__(self: Self) -> QueryResult: ...
 
 class Transaction:
     """Single connection for executing queries.
@@ -175,27 +155,25 @@ class Transaction:
 
     async def begin(self: Self) -> None:
         """Start the transaction.
-        
+
         Execute `BEGIN`.
 
         `begin()` can be called only once per transaction.
         """
-
     async def commit(self: Self) -> None:
         """Commit the transaction.
-        
+
         Execute `COMMIT`.
 
         `commit()` can be called only once per transaction.
         """
-
     async def execute(
         self: Self,
         querystring: str,
         parameters: List[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
-        
+
         Querystring can contain `$<number>` parameters
         for converting them in the driver side.
 
@@ -223,7 +201,7 @@ class Transaction:
             dict_result: List[Dict[Any, Any]] = query_result.result()
             # You must call commit manually
             await transaction.commit()
-        
+
         # Or you can transaction as a async context manager
 
         async def main() -> None:
@@ -240,7 +218,6 @@ class Transaction:
             # This way transaction begins and commits by itself.
         ```
         """
-    
     async def savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
@@ -271,10 +248,9 @@ class Transaction:
             await transaction.rollback_to("my_savepoint")
         ```
         """
-
     async def rollback(self: Self) -> None:
         """Rollback all queries in the transaction.
-        
+
         It can be done only one, after execution transaction marked
         as `done`.
 
@@ -294,7 +270,6 @@ class Transaction:
             await transaction.rollback()
         ```
         """
-    
     async def rollback_to(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
@@ -303,7 +278,7 @@ class Transaction:
 
         ### Parameters:
         - `savepoint_name`: name of the SAVEPOINT.
-        
+
         ### Example:
         ```python
         import asyncio
@@ -322,7 +297,6 @@ class Transaction:
             await transaction.rollback_to("my_savepoint")
         ```
         """
-
     async def release_savepoint(self: Self, savepoint_name: str) -> None:
         """Execute ROLLBACK TO SAVEPOINT.
 
@@ -349,7 +323,6 @@ class Transaction:
             await transaction.release_savepoint
         ```
         """
-    
     async def cursor(
         self: Self,
         querystring: str,
@@ -360,7 +333,7 @@ class Transaction:
         """Create new cursor object.
 
         Cursor can be used as an asynchronous iterator.
-        
+
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
@@ -395,21 +368,20 @@ class Transaction:
                 ... # do something with this result.
         ```
         """
-    
 
 class Connection:
     """Connection from Database Connection Pool.
-    
+
     It can be created only from connection pool.
     """
-    
+
     async def execute(
         self: Self,
         querystring: str,
         parameters: List[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
-        
+
         Querystring can contain `$<number>` parameters
         for converting them in the driver side.
 
@@ -439,7 +411,6 @@ class Connection:
             dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
         """
-    
     def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
@@ -452,10 +423,9 @@ class Connection:
         - `read_variant`: configure read variant of the transaction.
         """
 
-
 class PSQLPool:
     """Connection pool for executing queries.
-    
+
     This is the main entrypoint in the library.
     """
 
@@ -469,7 +439,7 @@ class PSQLPool:
         max_db_pool_size: Optional[str] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
-        
+
         It connects to the database and create pool.
 
         You cannot set the minimum size for the connection
@@ -488,20 +458,18 @@ class PSQLPool:
         - `db_name`: name of the database in postgres
         - `max_db_pool_size`: maximum size of the connection pool
         """
-
     async def startup(self: Self) -> None:
         """Startup the connection pool.
-        
+
         You must call it before start making queries.
         """
-    
     async def execute(
         self: Self,
         querystring: str,
         parameters: List[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
-        
+
         Querystring can contain `$<number>` parameters
         for converting them in the driver side.
 
@@ -527,10 +495,8 @@ class PSQLPool:
             # you don't need to close the pool, it will be dropped on Rust side.
         ```
         """
-        ...
-
     async def connection(self: Self) -> Connection:
         """Create new connection.
-        
+
         It acquires new connection from the database pool.
         """

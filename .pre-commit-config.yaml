@@ -1,0 +1,80 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.1.0
+    hooks:
+      - id: trailing-whitespace
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        name: python isort
+        pass_filenames: false
+        always_run: true
+        args: ["python"]
+  - repo: https://github.com/psf/black
+    rev: 23.9.1
+    hooks:
+      - id: black
+        name: python black
+        pass_filenames: false
+        always_run: true
+        args: ["python"]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.1
+    hooks:
+      - id: mypy
+        name: python mypy
+        always_run: true
+        pass_filenames: false
+        args: ["python"]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.0.291
+    hooks:
+      - id: ruff
+        name: ruff
+        pass_filenames: false
+        always_run: true
+        args: ["python", "--fix"]
+  - repo: local
+    hooks:
+      - id: fmt
+        types:
+          - rust
+        name: rust fmt
+        language: system
+        entry: cargo
+        pass_filenames: false
+        args:
+          - fmt
+          - --
+          - --config
+          - use_try_shorthand=true,imports_granularity=Crate
+
+      - id: clippy
+        types:
+          - rust
+        name: rust clippy
+        language: system
+        pass_filenames: false
+        entry: cargo
+        args:
+          - clippy
+          - -p
+          - psqlpy
+          - --
+          - -W
+          - clippy::all
+          - -W
+          - clippy::pedantic
+          - -D
+          - warnings
+
+      - id: check
+        types:
+          - rust
+        name: rust cargo check
+        language: system
+        entry: cargo
+        pass_filenames: false
+        args:
+          - check

@@ -1,4 +1,4 @@
-from ._internal.extra_types import SmallInt, Integer, BigInt, PyUUID, PyJSON
+from ._internal.extra_types import BigInt, Integer, PyJSON, PyUUID, SmallInt
 
 __all__ = [
     "SmallInt",

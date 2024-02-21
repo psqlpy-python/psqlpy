@@ -1,9 +1,4 @@
-import os
-from typing import AsyncGenerator
-
 import pytest
-
-from psqlpy import PSQLPool
 
 
 @pytest.fixture(scope="session")

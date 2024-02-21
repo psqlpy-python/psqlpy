@@ -1,4 +1,4 @@
-from ._internal import PSQLPool, QueryResult, Transaction, IsolationLevel, ReadVariant
+from ._internal import IsolationLevel, PSQLPool, QueryResult, ReadVariant, Transaction
 
 __all__ = [
     "PSQLPool",

@@ -38,3 +38,83 @@ features = ["pyo3/extension-module"]
 homepage = "https://github.com/qaspen-python/psqlpy"
 repository = "https://github.com/qaspen-python/psqlpy"
 documentation = "https://github.com/qaspen-python/psqlpy/blob/main/README.md"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+strict = true
+mypy_path = "python"
+ignore_missing_imports = true
+allow_subclassing_any = true
+allow_untyped_calls = true
+pretty = true
+show_error_codes = true
+implicit_reexport = true
+allow_untyped_decorators = true
+warn_return_any = false
+warn_unused_ignores = false
+
+[tool.ruff]
+# List of enabled rulsets.
+# See https://docs.astral.sh/ruff/rules/ for more information.
+select = [
+    "E",   # Error
+    "F",   # Pyflakes
+    "W",   # Pycodestyle
+    "C90", # McCabe complexity
+    "N",   # pep8-naming
+    "D",   # Pydocstyle
+    "ANN", # Pytype annotations
+    "S",   # Bandit
+    "B",   # Bugbear
+    "COM", # Commas
+    "C4",  # Comprehensions
+    "ISC", # Implicit string concat
+    "PIE", # Unnecessary code
+    "T20", # Catch prints
+    "PYI", # validate pyi files
+    "Q",   # Checks for quotes
+    "RSE", # Checks raise statements
+    "RET", # Checks return statements
+    "SLF", # Self checks
+    "SIM", # Simplificator
+    "PTH", # Pathlib checks
+    "ERA", # Checks for commented out code
+    "PL",  # PyLint checks
+    "RUF", # Specific to Ruff checks
+]
+ignore = [
+    "D105",    # Missing docstring in magic method
+    "D107",    # Missing docstring in __init__
+    "D211",    # No blank lines allowed before class docstring
+    "D212",    # Multi-line docstring summary should start at the first line
+    "D401",    # First line should be in imperative mood
+    "D104",    # Missing docstring in public package
+    "D100",    # Missing docstring in public module
+    "ANN102",  # Missing type annotation for self in method
+    "ANN101",  # Missing type annotation for argument
+    "ANN401",  # typing.Any are disallowed in `**kwargs
+    "PLR0913", # Too many arguments for function call
+    "D106",    # Missing docstring in public nested class
+]
+exclude = [".venv/"]
+mccabe = { max-complexity = 10 }
+line-length = 88
+
+[tool.ruff.per-file-ignores]
+"python/psqlpy/*" = ["PYI021"]
+"python/tests/*" = [
+    "S101", # Use of assert detected
+    "S608", # Possible SQL injection vector through string-based query construction
+    "D103", # Missing docstring in public function
+    "S311", # Standard pseudo-random generators are not suitable for security/cryptographic purposes
+]
+
+[tool.ruff.pydocstyle]
+convention = "pep257"
+ignore-decorators = ["typing.overload"]
+
+# [tool.ruff.pylint]
+# allow-magic-value-types = ["int", "str", "float", "tuple"]
