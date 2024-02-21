@@ -1,7 +1,7 @@
 # PSQLPy - Async PostgreSQL driver for Python written in Rust.
 
 Driver for PostgreSQL written fully in Rust and exposed to Python.  
-Project is under active development and **we cannot confirm that it's ready for production**. Anyway, We will be grateful for the bugs found and open issues. Stay tuned.  
+The project is under active development and **we cannot confirm that it's ready for production**. Anyway, We will be grateful for the bugs found and open issues. Stay tuned.  
 *Normal documentation is in development.*
 
 ## Installation
