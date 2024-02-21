@@ -52,16 +52,6 @@ jobs:
         args: -p psqlpy --all-features -- -W clippy::all -W clippy::pedantic -D warnings
   pytest:
     name: ${{matrix.job.os}}-${{matrix.py_version}}
-    services:
-      scylla:
-        image: scylladb/scylla:5.2
-        options: >-
-          --health-cmd="cqlsh -e 'select * from system.local' "
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=60
-        ports:
-          - 9042:9042
     strategy:
       matrix:
         py_version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
