@@ -25,7 +25,7 @@ use crate::{
 /// Additional type for types come from Python.
 ///
 /// It's necessary because we need to pass this
-/// enum into `to_sql` method of ToSql trait from
+/// enum into `to_sql` method of `ToSql` trait from
 /// `postgres` crate.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PythonDTO {
@@ -51,7 +51,7 @@ pub enum PythonDTO {
 }
 
 impl PythonDTO {
-    /// Return type of the Array for PostgreSQL.
+    /// Return type of the Array for `PostgreSQL`.
     ///
     /// Since every Array must have concrete type,
     /// we must say exactly what type of array we try to pass into
@@ -64,11 +64,12 @@ impl PythonDTO {
             PythonDTO::PyUUID(_) => Ok(tokio_postgres::types::Type::UUID_ARRAY),
             PythonDTO::PyString(_) => Ok(tokio_postgres::types::Type::TEXT_ARRAY),
             PythonDTO::PyIntI16(_) => Ok(tokio_postgres::types::Type::INT2_ARRAY),
-            PythonDTO::PyIntI32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
+            PythonDTO::PyIntI32(_) | PythonDTO::PyIntU32(_) => {
+                Ok(tokio_postgres::types::Type::INT4_ARRAY)
+            }
             PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
-            PythonDTO::PyIntU32(_) => Ok(tokio_postgres::types::Type::INT4_ARRAY),
             PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
@@ -76,6 +77,10 @@ impl PythonDTO {
         }
     }
 
+    /// Convert enum into serde `Value`.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot convert python type into rust.
     pub fn to_serde_value(&self) -> RustPSQLDriverPyResult<Value> {
         match self {
             PythonDTO::PyNone => Ok(Value::Null),
@@ -88,7 +93,7 @@ impl PythonDTO {
             PythonDTO::PyList(pylist) => {
                 let mut vec_serde_values: Vec<Value> = vec![];
 
-                for py_object in pylist.iter() {
+                for py_object in pylist {
                     vec_serde_values.push(py_object.to_serde_value()?);
                 }
 
@@ -96,15 +101,15 @@ impl PythonDTO {
             }
             PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "Cannot convert data all your dict elements into Rust type".into(),
+                "Cannot convert your type into Rust type".into(),
             )),
         }
     }
 }
 
-/// Implement ToSql trait.
+/// Implement `ToSql` trait.
 ///
-/// It allows us to pass PythonDTO enum as parameter
+/// It allows us to pass `PythonDTO` enum as parameter
 /// directly into `.execute()` method in
 /// `DatabasePool`, `Connection` and `Transaction`.
 impl ToSql for PythonDTO {
@@ -120,7 +125,7 @@ impl ToSql for PythonDTO {
 
     /// Convert our `PythonDTO` enum into bytes.
     ///
-    /// We convert every inner type of PythonDTO enum variant
+    /// We convert every inner type of `PythonDTO` enum variant
     /// into bytes and write them into bytes buffer.
     ///
     /// # Errors
@@ -172,7 +177,7 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
-                for inner in py_iterable.iter() {
+                for inner in py_iterable {
                     items.push(inner);
                 }
                 if items.len() > 1 {
@@ -203,7 +208,7 @@ impl ToSql for PythonDTO {
 /// We parse every parameter from python object and return
 /// Vector of out `PythonDTO`.
 ///
-/// # Errors:
+/// # Errors
 ///
 /// May return Err Result if can't convert python object.
 pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
@@ -214,7 +219,7 @@ pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<Pyth
         || parameters.is_instance_of::<PySet>()
     {
         let params = parameters.extract::<Vec<&PyAny>>()?;
-        for parameter in params.iter() {
+        for parameter in params {
             result_vec.push(py_to_rust(parameter)?);
         }
     }
@@ -339,14 +344,13 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     }
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-        "Can not covert you type {} into inner one",
-        parameter,
+        "Can not covert you type {parameter} into inner one",
     )))
 }
 
 /// Convert type from postgres to python type.
 ///
-/// # Errors:
+/// # Errors
 ///
 /// May return Err Result if cannot convert postgres
 /// type into rust one.
@@ -464,13 +468,17 @@ pub fn postgres_to_py(
     }
 }
 
+/// Convert python List of Dict type in serde `Value`.
+///
+/// # Errors
+/// May return error if cannot convert Python type into Rust one.
 pub fn build_serde_value(value: &PyAny) -> RustPSQLDriverPyResult<Value> {
     if value.is_instance_of::<PyList>() {
         let mut result_vec: Vec<Value> = vec![];
 
         let params: Vec<&PyAny> = value.extract::<Vec<&PyAny>>()?;
 
-        for inner in params.iter() {
+        for inner in &params {
             if inner.is_instance_of::<PyDict>() {
                 let python_dto = py_to_rust(inner)?;
                 result_vec.push(python_dto.to_serde_value()?);

@@ -41,7 +41,9 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
         let error_desc = error.to_string();
         match error {
             RustPSQLDriverError::PyError(err) => err,
-            RustPSQLDriverError::DBEngineError(_) => {
+            RustPSQLDriverError::DBEngineError(_)
+            | RustPSQLDriverError::DBEnginePoolError(_)
+            | RustPSQLDriverError::DBEngineBuildError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
@@ -51,12 +53,6 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
                 PyToRustValueMappingError::new_err((error_desc,))
             }
             RustPSQLDriverError::DatabasePoolError(_) => DBPoolError::new_err((error_desc,)),
-            RustPSQLDriverError::DBEnginePoolError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
-            }
-            RustPSQLDriverError::DBEngineBuildError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
-            }
             RustPSQLDriverError::DataBaseTransactionError(_) => {
                 DBTransactionError::new_err((error_desc,))
             }

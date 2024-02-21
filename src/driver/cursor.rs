@@ -37,6 +37,12 @@ impl Cursor {
         slf
     }
 
+    /// Return next result from the SQL statement.
+    ///
+    /// Execute FETCH <number> FROM <cursor name>
+    ///
+    /// # Errors
+    /// May return Err Result if can't execute querystring.
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let db_client_arc = self.db_client.clone();
         let cursor_name = self.cursor_name.clone();

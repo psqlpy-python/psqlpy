@@ -12,7 +12,7 @@ use crate::{
 
 use super::connection::Connection;
 
-/// PSQLPool for internal use only.
+/// `PSQLPool` for internal use only.
 ///
 /// It is not exposed to python.
 pub struct RustPSQLPool {
@@ -27,6 +27,7 @@ pub struct RustPSQLPool {
 
 impl RustPSQLPool {
     /// Create new `RustPSQLPool`.
+    #[must_use]
     pub fn new(
         username: Option<String>,
         password: Option<String>,
@@ -50,7 +51,7 @@ impl RustPSQLPool {
 impl RustPSQLPool {
     /// Return new single connection.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn inner_connection(&self) -> RustPSQLDriverPyResult<Connection> {
         let db_pool_arc = self.db_pool.clone();
@@ -73,7 +74,7 @@ impl RustPSQLPool {
     ///
     /// Prepare statement and cache it, then execute.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot retrieve new connection
     /// or prepare statement or execute statement.
     pub async fn inner_execute(
@@ -94,7 +95,7 @@ impl RustPSQLPool {
             .await?;
 
         let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in parameters.iter() {
+        for param in &parameters {
             vec_parameters.push(param);
         }
 
@@ -109,9 +110,9 @@ impl RustPSQLPool {
 
     /// Create new Database pool.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if Database pool is already initialized,
-    /// max_db_pool_size is less than 2 or it's impossible to build db pool.
+    /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
     pub async fn inner_startup(&self) -> RustPSQLDriverPyResult<()> {
         let db_pool_arc = self.db_pool.clone();
         let password = self.password.clone();
@@ -177,6 +178,7 @@ pub struct PSQLPool {
 #[pymethods]
 impl PSQLPool {
     #[new]
+    #[must_use]
     pub fn new(
         username: Option<String>,
         password: Option<String>,
@@ -200,7 +202,7 @@ impl PSQLPool {
 
     /// Startup Database Pool.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if `inner_startup` returns error.
     pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
@@ -213,7 +215,7 @@ impl PSQLPool {
 
     /// Return single connection.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if `inner_connection` returns error.
     pub fn connection<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
@@ -226,7 +228,7 @@ impl PSQLPool {
 
     /// Execute querystring with parameters.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot convert parameters
     /// or `inner_execute` returns Err.
     pub fn execute<'a>(
@@ -238,7 +240,7 @@ impl PSQLPool {
         let engine_arc = self.rust_psql_pool.clone();
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?
+            params = convert_parameters(parameters)?;
         }
 
         rustengine_future(py, async move {

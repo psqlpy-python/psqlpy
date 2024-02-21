@@ -15,6 +15,7 @@ macro_rules! build_python_type {
         }
 
         impl $st_name {
+            #[must_use]
             pub fn retrieve_value(&self) -> $rust_type {
                 self.inner_value
             }
@@ -23,10 +24,12 @@ macro_rules! build_python_type {
         #[pymethods]
         impl $st_name {
             #[new]
+            #[must_use]
             pub fn new_class(inner_value: $rust_type) -> Self {
                 Self { inner_value }
             }
 
+            #[must_use]
             pub fn __str__(&self) -> String {
                 format!("{}, {}", stringify!($st_name), self.inner_value)
             }
@@ -45,6 +48,7 @@ pub struct PyUUID {
 }
 
 impl PyUUID {
+    #[must_use]
     pub fn inner(&self) -> Uuid {
         self.inner
     }
@@ -52,10 +56,16 @@ impl PyUUID {
 
 #[pymethods]
 impl PyUUID {
+    /// Create new uuid from Python str.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot convert python string
+    /// into rust Uuid.
     #[new]
-    pub fn new_uuid(uuid_value: String) -> RustPSQLDriverPyResult<Self> {
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_uuid(uuid_value: &str) -> RustPSQLDriverPyResult<Self> {
         Ok(Self {
-            inner: Uuid::from_str(&uuid_value)?,
+            inner: Uuid::from_str(uuid_value)?,
         })
     }
 }
@@ -67,6 +77,7 @@ pub struct PyJSON {
 }
 
 impl PyJSON {
+    #[must_use]
     pub fn inner(&self) -> &Value {
         &self.inner
     }
@@ -75,13 +86,16 @@ impl PyJSON {
 #[pymethods]
 impl PyJSON {
     #[new]
-    pub fn new_uuid(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_json(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
         Ok(Self {
             inner: build_serde_value(value)?,
         })
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::missing_errors_doc)]
 pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;

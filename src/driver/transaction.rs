@@ -18,6 +18,7 @@ use super::{
 /// Transaction for internal use only.
 ///
 /// It is not exposed to python.
+#[allow(clippy::module_name_repetitions)]
 pub struct RustTransaction {
     db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
@@ -57,7 +58,7 @@ impl RustTransaction {
     ///
     /// Then execute the query.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if:
     /// 1) Transaction is not started
     /// 2) Transaction is done already
@@ -88,7 +89,7 @@ impl RustTransaction {
         }
 
         let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in parameters.iter() {
+        for param in &parameters {
             vec_parameters.push(param);
         }
 
@@ -103,7 +104,7 @@ impl RustTransaction {
 
     /// Start transaction with isolation level if specified
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot execute querystring.
     pub async fn start_transaction(&self) -> RustPSQLDriverPyResult<()> {
         let mut querystring = "START TRANSACTION".to_string();
@@ -114,7 +115,7 @@ impl RustTransaction {
         };
 
         if let Some(read_var) = self.read_variant {
-            querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str())
+            querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
         }
 
         let db_client_arc = self.db_client.clone();
@@ -129,7 +130,7 @@ impl RustTransaction {
     ///
     /// Execute `BEGIN` commands and mark transaction as `started`.
     ///
-    /// # Errors:
+    /// # Errors
     ///
     /// May return Err Result if:
     /// 1) Transaction is already started.
@@ -170,7 +171,7 @@ impl RustTransaction {
     ///
     /// Execute `COMMIT` command and mark transaction as `done`.
     ///
-    /// # Errors:
+    /// # Errors
     ///
     /// May return Err Result if:
     /// 1) Transaction is not started
@@ -212,9 +213,9 @@ impl RustTransaction {
     /// Create new SAVEPOINT.
     ///
     /// Execute SAVEPOINT <name of the savepoint> and
-    /// add it to the transaction rollback_savepoint HashSet
+    /// add it to the transaction `rollback_savepoint` `HashSet`
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if:
     /// 1) Transaction is not started
     /// 2) Transaction is done
@@ -252,14 +253,13 @@ impl RustTransaction {
 
         if is_savepoint_name_exists {
             return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
-                "SAVEPOINT name {} is already taken by this transaction",
-                savepoint_name
+                "SAVEPOINT name {savepoint_name} is already taken by this transaction",
             )));
         }
 
         let db_client_guard = db_client_arc.read().await;
         db_client_guard
-            .batch_execute(format!("SAVEPOINT {}", savepoint_name).as_str())
+            .batch_execute(format!("SAVEPOINT {savepoint_name}").as_str())
             .await?;
         let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
         rollback_savepoint_guard.insert(savepoint_name);
@@ -270,7 +270,7 @@ impl RustTransaction {
     ///
     /// Run ROLLBACK command and mark the transaction as done.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if:
     /// 1) Transaction is not started
     /// 2) Transaction is done
@@ -311,7 +311,7 @@ impl RustTransaction {
     ///
     /// Execute ROLLBACK TO SAVEPOINT <name of the savepoint>.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if:
     /// 1) Transaction is not started
     /// 2) Transaction is done
@@ -354,7 +354,7 @@ impl RustTransaction {
         let db_client_arc = self.db_client.clone();
         let db_client_guard = db_client_arc.read().await;
         db_client_guard
-            .batch_execute(format!("ROLLBACK TO SAVEPOINT {}", rollback_name).as_str())
+            .batch_execute(format!("ROLLBACK TO SAVEPOINT {rollback_name}").as_str())
             .await?;
 
         Ok(())
@@ -364,7 +364,7 @@ impl RustTransaction {
     ///
     /// Run RELEASE SAVEPOINT command.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if:
     /// 1) Transaction is not started
     /// 2) Transaction is done
@@ -410,12 +410,18 @@ impl RustTransaction {
         let db_client_arc = self.db_client.clone();
         let db_client_guard = db_client_arc.read().await;
         db_client_guard
-            .batch_execute(format!("RELEASE SAVEPOINT {}", rollback_name).as_str())
+            .batch_execute(format!("RELEASE SAVEPOINT {rollback_name}").as_str())
             .await?;
 
         Ok(())
     }
 
+    /// Create new cursor, init it and return new Cursor struct.
+    ///
+    /// Execute DECLARE statement with cursor name and querystring.
+    ///
+    /// # Errors
+    /// May return Err Result if can't execute query.
     pub async fn inner_cursor(
         &mut self,
         querystring: String,
@@ -428,7 +434,7 @@ impl RustTransaction {
         let db_client_guard = db_client_arc.read().await;
 
         let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in parameters.iter() {
+        for param in &parameters {
             vec_parameters.push(param);
         }
 
@@ -468,6 +474,12 @@ impl Transaction {
         slf
     }
 
+    /// Return new instance of transaction.
+    ///
+    /// It's necessary because python requires it.
+    ///
+    /// # Errors
+    /// May return Err Result if future returns error.
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let transaction_clone = self.transaction.clone();
         let future = rustengine_future(py, async move {
@@ -478,6 +490,8 @@ impl Transaction {
         Ok(Some(future?.into()))
     }
 
+    #[allow(clippy::missing_errors_doc)]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn __await__<'a>(
         slf: PyRefMut<'a, Self>,
         _py: Python,
@@ -485,6 +499,7 @@ impl Transaction {
         Ok(slf)
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn __aenter__<'a>(
         slf: PyRefMut<'a, Self>,
         py: Python<'a>,
@@ -500,6 +515,7 @@ impl Transaction {
         })
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn __aexit__<'a>(
         slf: PyRefMut<'a, Self>,
         py: Python<'a>,
@@ -523,7 +539,7 @@ impl Transaction {
     /// It converts incoming parameters to rust readable
     /// and then execute the query with them.
     ///
-    /// # Errors:
+    /// # Errors
     ///
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
@@ -537,7 +553,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?
+            params = convert_parameters(parameters)?;
         }
 
         rustengine_future(py, async move {
@@ -548,7 +564,7 @@ impl Transaction {
 
     /// Start the transaction.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot execute command.
     pub fn begin<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
@@ -563,7 +579,7 @@ impl Transaction {
 
     /// Commit the transaction.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot execute command.
     pub fn commit<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
@@ -578,7 +594,7 @@ impl Transaction {
 
     /// Create new SAVEPOINT.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot extract string
     /// or `inner_savepoint` returns
     pub fn savepoint<'a>(
@@ -608,7 +624,7 @@ impl Transaction {
 
     /// Rollback the whole transaction.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if `rollback` returns Error.
     pub fn rollback<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
@@ -623,7 +639,7 @@ impl Transaction {
 
     /// Rollback to the specified savepoint.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot extract string
     /// or`inner_rollback_to` returns Error.
     pub fn rollback_to<'a>(
@@ -653,7 +669,7 @@ impl Transaction {
 
     /// Rollback to the specified savepoint.
     ///
-    /// # Errors:
+    /// # Errors
     /// May return Err Result if cannot extract string
     /// or`inner_rollback_to` returns Error.
     pub fn release_savepoint<'a>(
@@ -681,6 +697,13 @@ impl Transaction {
         })
     }
 
+    /// Create new cursor.
+    ///
+    /// Call `inner_cursor` function.
+    ///
+    /// # Errors
+    /// May return Err Result if can't convert incoming parameters
+    /// or if `inner_cursor` returns error.
     pub fn cursor<'a>(
         &'a self,
         py: Python<'a>,
@@ -692,7 +715,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?
+            params = convert_parameters(parameters)?;
         }
 
         rustengine_future(py, async move {

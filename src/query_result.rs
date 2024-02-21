@@ -4,11 +4,13 @@ use tokio_postgres::Row;
 use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};
 
 #[pyclass(name = "QueryResult")]
+#[allow(clippy::module_name_repetitions)]
 pub struct PSQLDriverPyQueryResult {
     inner: Vec<Row>,
 }
 
 impl PSQLDriverPyQueryResult {
+    #[must_use]
     pub fn new(database_result: Vec<Row>) -> Self {
         PSQLDriverPyQueryResult {
             inner: database_result,
@@ -23,7 +25,7 @@ impl PSQLDriverPyQueryResult {
     /// It's a common variant how to return a result for the future
     /// processing.
     ///
-    /// # Errors:
+    /// # Errors
     ///
     /// May return Err Result if can not convert
     /// postgres type to python or set new key-value pair

@@ -11,6 +11,7 @@ pub enum IsolationLevel {
 
 impl IsolationLevel {
     /// Return isolation level as String literal.
+    #[must_use]
     pub fn to_str_level(&self) -> String {
         match self {
             IsolationLevel::ReadUncommitted => "READ UNCOMMITTED".into(),
@@ -30,6 +31,7 @@ pub enum ReadVariant {
 
 impl ReadVariant {
     /// Return Read variant as String literal.
+    #[must_use]
     pub fn to_str_option(&self) -> String {
         match self {
             ReadVariant::ReadOnly => "READ ONLY".into(),

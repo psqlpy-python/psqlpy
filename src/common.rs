@@ -7,9 +7,9 @@ use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
 /// Add new module to the parent one.
 ///
 /// You can find out more information from this issue
-/// https://github.com/PyO3/pyo3/issues/759
+/// <https://github.com/PyO3/pyo3/issues/759>
 ///
-/// # Error
+/// # Errors
 ///
 /// May return Err Result if can't build module or change modules.
 pub fn add_module(
@@ -28,6 +28,13 @@ pub fn add_module(
     Ok(())
 }
 
+/// Simple wrapper for pyo3 `pyo3_asyncio::tokio::future_into_py`.
+///
+/// It wraps incoming Future and return internal Result.
+///
+/// # Errors
+///
+/// May return Err Result if future acts incorrect.
 pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
 where
     F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,

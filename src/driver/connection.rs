@@ -22,6 +22,14 @@ pub struct Connection {
 
 #[pymethods]
 impl Connection {
+    /// Execute statement with or witout parameters.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if
+    /// 1) Cannot convert incoming parameters
+    /// 2) Cannot prepare statement
+    /// 3) Cannot execute query
     pub fn execute<'a>(
         &'a self,
         py: Python<'a>,
@@ -32,12 +40,12 @@ impl Connection {
 
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?
+            params = convert_parameters(parameters)?;
         }
 
         rustengine_future(py, async move {
             let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
-            for param in params.iter() {
+            for param in &params {
                 vec_parameters.push(param);
             }
             let db_client_guard = db_client_arc.read().await;
@@ -52,6 +60,8 @@ impl Connection {
         })
     }
 
+    /// Return new instance of transaction.
+    #[must_use]
     pub fn transaction(
         &self,
         isolation_level: Option<IsolationLevel>,
