@@ -1,6 +1,6 @@
 import pytest
 
-from psqlpy import PSQLPool, QueryResult
+from psqlpy import PSQLPool, QueryResult, Transaction
 
 
 @pytest.mark.anyio
@@ -17,3 +17,14 @@ async def test_connection_execute(
     )
     assert isinstance(conn_result, QueryResult)
     assert len(conn_result.result()) == number_database_records
+
+
+@pytest.mark.anyio
+async def test_connection_transaction(
+    psql_pool: PSQLPool,
+) -> None:
+    """Test that connection can create transactions."""
+    connection = await psql_pool.connection()
+    transaction = connection.transaction()
+
+    assert isinstance(transaction, Transaction)
