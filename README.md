@@ -1,7 +1,7 @@
 # PSQLPy - Async PostgreSQL driver for Python written in Rust.
 
-Driver for PostgreSQL written fully in Rust and exposed to Python.  
-The project is under active development and **we cannot confirm that it's ready for production**. Anyway, We will be grateful for the bugs found and open issues. Stay tuned.  
+Driver for PostgreSQL written fully in Rust and exposed to Python.
+The project is under active development and _**we cannot confirm that it's ready for production**_. Anyway, We will be grateful for the bugs found and open issues. Stay tuned.
 *Normal documentation is in development.*
 
 ## Installation
@@ -23,7 +23,7 @@ Or you can build it by yourself. To do it, install stable rust and [maturin](htt
 ```
 
 ## Usage
-Usage is as easy as possible.  
+Usage is as easy as possible.
 Create new instance of PSQLPool, startup it and start querying.
 ```python
 from typing import Any
@@ -52,11 +52,11 @@ async def main() -> None:
     # rust does it instead.
 
 ```
-Please take into account that each new execute gets new connection from connection pool. 
+Please take into account that each new execute gets new connection from connection pool.
 
 ## Query parameters
-You can pass parameters into queries.  
-Parameters can be passed in any `execute` method as the second parameter, it must be a list.  
+You can pass parameters into queries.
+Parameters can be passed in any `execute` method as the second parameter, it must be a list.
 Any placeholder must be marked with `$< num>`.
 
 ```python
@@ -98,7 +98,7 @@ async def main() -> None:
 ```
 
 ## Transactions
-Of course it's possible to use transactions with this driver.  
+Of course it's possible to use transactions with this driver.
 It's as easy as possible and sometimes it copies common functionality from PsycoPG and AsyncPG.
 
 ### Transaction parameters
@@ -153,7 +153,7 @@ async def main() -> None:
         "INSERT INTO users VALUES ($1)",
         ["Some data"],
     )
-    # You must commit the transaction by your own 
+    # You must commit the transaction by your own
     # or your changes will be vanished.
     await transaction.commit()
 
@@ -163,8 +163,8 @@ async def main() -> None:
 ```
 
 ### Transactions can be rolled back
-You must understand that rollback can be executed only once per transaction.  
-After it's execution transaction state changes to `done`.  
+You must understand that rollback can be executed only once per transaction.
+After it's execution transaction state changes to `done`.
 If you want to use `ROLLBACK TO SAVEPOINT`, see below.
 ```python
 from typing import Any
@@ -293,10 +293,10 @@ async def main() -> None:
     # Or you can use it as an async iterator.
     async for fetched_result in cursor:
         print(fetched_result.result())
-    
+
     # If you want to close cursor, please do it manually.
     await cursor.close()
-    
+
     await transaction.commit()
 ```
 
@@ -317,7 +317,7 @@ Available cursor operations:
 Sometimes it's impossible to identify which type user tries to pass as a argument. But Rust is a strongly typed programming language so we have to help.
 
 | Extra Type in Python  | Type in PostgreSQL | Type in Rust |
-| ------------- | ------------- | ------------- 
+| ------------- | ------------- | -------------
 | SmallInt  | SmallInt  | i16 |
 | Integer  | Integer  | i32 |
 | BigInt  | BigInt  | i64 |
