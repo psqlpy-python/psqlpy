@@ -18,4 +18,5 @@ __all__ = [
     "DBPoolConfigurationError",
     "UUIDValueConvertError",
     "CursorError",
+    "DBTransactionError",
 ]
