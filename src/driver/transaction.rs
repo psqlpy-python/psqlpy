@@ -404,11 +404,9 @@ impl RustTransaction {
             ));
         };
 
-        let rollback_savepoint_arc = self.rollback_savepoint.clone();
-        let is_rollback_exists = {
-            let rollback_savepoint_guard = rollback_savepoint_arc.read().await;
-            rollback_savepoint_guard.contains(&rollback_name)
-        };
+        let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
+        let is_rollback_exists = rollback_savepoint_guard.remove(&rollback_name);
+
         if !is_rollback_exists {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Don't have rollback with this name".into(),

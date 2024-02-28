@@ -1,5 +1,6 @@
 from ._internal import (
     Connection,
+    Cursor,
     IsolationLevel,
     PSQLPool,
     QueryResult,
@@ -14,4 +15,5 @@ __all__ = [
     "IsolationLevel",
     "ReadVariant",
     "Connection",
+    "Cursor",
 ]
