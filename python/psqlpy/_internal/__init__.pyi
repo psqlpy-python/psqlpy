@@ -1,3 +1,4 @@
+import types
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -153,6 +154,13 @@ class Transaction:
     `.transaction()`.
     """
 
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
     async def begin(self: Self) -> None:
         """Start the transaction.
 
@@ -492,7 +500,8 @@ class PSQLPool:
                 [100],
             )
             dict_result: List[Dict[Any, Any]] = query_result.result()
-            # you don't need to close the pool, it will be dropped on Rust side.
+            # you don't need to close the pool,
+            # it will be dropped on Rust side.
         ```
         """
     async def connection(self: Self) -> Connection:
