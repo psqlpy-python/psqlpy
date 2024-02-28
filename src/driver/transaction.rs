@@ -6,6 +6,7 @@ use tokio_postgres::types::ToSql;
 use crate::{
     common::rustengine_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    extra_types::Integer,
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
 };
@@ -28,6 +29,7 @@ pub struct RustTransaction {
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
     cursor_num: usize,
+    deferable: Option<bool>,
 }
 
 impl RustTransaction {
@@ -38,6 +40,7 @@ impl RustTransaction {
         rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
+        deferable: Option<bool>,
         cursor_num: usize,
     ) -> Self {
         Self {
@@ -48,6 +51,7 @@ impl RustTransaction {
             isolation_level,
             read_variant,
             cursor_num,
+            deferable,
         }
     }
 
@@ -102,8 +106,9 @@ impl RustTransaction {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
-    /// Start transaction with isolation level if specified
-    ///
+    /// Start transaction
+    /// Set up isolation level if specified
+    /// Set up deferable if specified
     /// # Errors
     /// May return Err Result if cannot execute querystring.
     pub async fn start_transaction(&self) -> RustPSQLDriverPyResult<()> {
@@ -116,6 +121,10 @@ impl RustTransaction {
 
         if let Some(read_var) = self.read_variant {
             querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
+        }
+
+        if let Some(_) = self.deferable {
+            querystring.push_str("SET CONSTRAINTS ALL DEFERRED");
         }
 
         let db_client_arc = self.db_client.clone();
