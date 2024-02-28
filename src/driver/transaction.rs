@@ -27,8 +27,8 @@ pub struct RustTransaction {
 
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
-    cursor_num: usize,
     deferable: Option<bool>,
+    cursor_num: usize,
 }
 
 impl RustTransaction {
