@@ -6,7 +6,6 @@ use tokio_postgres::types::ToSql;
 use crate::{
     common::rustengine_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::Integer,
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
 };
