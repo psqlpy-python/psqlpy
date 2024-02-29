@@ -465,6 +465,7 @@ class Connection:
     def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
+        deferable: bool | None = None,
         read_variant: ReadVariant | None = None,
         deferable: bool | None = None,
     ) -> Transaction:
