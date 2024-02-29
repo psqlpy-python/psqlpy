@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 import pytest
 
-from psqlpy import PSQLPool
+from psqlpy import Cursor, PSQLPool
 
 
 @pytest.fixture()
@@ -96,3 +96,18 @@ async def create_deafult_data_for_tests(
     await psql_pool.execute(
         f"DROP TABLE {table_name}",
     )
+
+
+@pytest.fixture()
+async def test_cursor(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> AsyncGenerator[Cursor, None]:
+    connection = await psql_pool.connection()
+    transaction = connection.transaction()
+    await transaction.begin()
+    cursor = await transaction.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+    )
+    yield cursor
+    await transaction.commit()
