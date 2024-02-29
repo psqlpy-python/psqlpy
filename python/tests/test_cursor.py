@@ -62,3 +62,46 @@ async def test_cursor_fetch_last(
     last_res = await test_cursor.fetch_last()
 
     assert all_res.result()[-1] == last_res.result()[0]
+
+
+@pytest.mark.anyio
+async def test_cursor_fetch_absolute(
+    test_cursor: Cursor,
+    number_database_records: int,
+) -> None:
+    """Test cursor fetch Absolute."""
+    all_res = await test_cursor.fetch(
+        fetch_number=number_database_records,
+    )
+
+    first_record = await test_cursor.fetch_absolute(
+        absolute_number=1,
+    )
+    last_record = await test_cursor.fetch_absolute(
+        absolute_number=-1,
+    )
+
+    assert all_res.result()[0] == first_record.result()[0]
+    assert all_res.result()[-1] == last_record.result()[0]
+
+
+@pytest.mark.anyio
+async def test_cursor_fetch_relative(
+    test_cursor: Cursor,
+    number_database_records: int,
+) -> None:
+    """Test cursor fetch Relative."""
+    first_absolute = await test_cursor.fetch_relative(
+        relative_number=1,
+    )
+
+    assert first_absolute.result()
+
+    await test_cursor.fetch(
+        fetch_number=number_database_records,
+    )
+    records = await test_cursor.fetch_relative(
+        relative_number=1,
+    )
+
+    assert not (records.result())
