@@ -121,8 +121,7 @@ impl RustTransaction {
         if let Some(read_var) = self.read_variant {
             querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
         }
-
-        if let Some(_) = self.deferable {
+        if self.deferable.is_some() {
             querystring.push_str("SET CONSTRAINTS ALL DEFERRED");
         }
 
