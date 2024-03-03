@@ -32,6 +32,7 @@ pub struct RustTransaction {
 }
 
 impl RustTransaction {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db_client: Arc<tokio::sync::RwLock<Object>>,
         is_started: Arc<tokio::sync::RwLock<bool>>,
