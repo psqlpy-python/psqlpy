@@ -49,8 +49,8 @@ impl RustTransaction {
             rollback_savepoint,
             isolation_level,
             read_variant,
-            cursor_num,
             deferable,
+            cursor_num,
         }
     }
 
