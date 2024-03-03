@@ -4,6 +4,17 @@ from psqlpy import Connection, PSQLPool, QueryResult
 
 
 @pytest.mark.anyio
+async def test_pool_dsn_startup() -> None:
+    """Test that connection pool can startup with dsn."""
+    pg_pool = PSQLPool(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+    )
+    await pg_pool.startup()
+
+    await pg_pool.execute("SELECT 1")
+
+
+@pytest.mark.anyio
 async def test_pool_execute(
     psql_pool: PSQLPool,
     table_name: str,

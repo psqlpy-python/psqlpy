@@ -439,6 +439,7 @@ class PSQLPool:
 
     def __init__(
         self: Self,
+        dsn: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
         host: Optional[str] = None,
@@ -459,6 +460,8 @@ class PSQLPool:
         - Create new instance of `Transaction`
 
         ### Parameters:
+        - `dsn`: full dsn connection string.
+            `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
         - `username`: username of the user in postgres
         - `password`: password of the user in postgres
         - `host`: host of postgres
