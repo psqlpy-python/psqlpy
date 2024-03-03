@@ -105,3 +105,53 @@ async def test_cursor_fetch_relative(
     )
 
     assert not (records.result())
+
+
+@pytest.mark.anyio
+async def test_cursor_fetch_forward_all(
+    test_cursor: Cursor,
+    number_database_records: int,
+) -> None:
+    """Test that cursor execute FETCH FORWARD ALL correctly."""
+    default_fetch_number = 2
+    await test_cursor.fetch(fetch_number=default_fetch_number)
+
+    rest_results = await test_cursor.fetch_forward_all()
+
+    assert (
+        len(rest_results.result())
+        == number_database_records - default_fetch_number
+    )
+
+
+@pytest.mark.anyio
+async def test_cursor_fetch_backward(
+    test_cursor: Cursor,
+) -> None:
+    """Test cursor backward fetch."""
+    must_be_empty = await test_cursor.fetch_backward(backward_count=10)
+    assert not (must_be_empty.result())
+
+    default_fetch_number = 5
+    await test_cursor.fetch(fetch_number=default_fetch_number)
+
+    expected_number_of_results = 3
+    must_not_be_empty = await test_cursor.fetch_backward(
+        backward_count=expected_number_of_results,
+    )
+    assert len(must_not_be_empty.result()) == expected_number_of_results
+
+
+@pytest.mark.anyio
+async def test_cursor_fetch_backward_all(
+    test_cursor: Cursor,
+) -> None:
+    """Test cursor `fetch_backward_all`."""
+    must_be_empty = await test_cursor.fetch_backward_all()
+    assert not (must_be_empty.result())
+
+    default_fetch_number = 5
+    await test_cursor.fetch(fetch_number=default_fetch_number)
+
+    must_not_be_empty = await test_cursor.fetch_backward_all()
+    assert len(must_not_be_empty.result()) == default_fetch_number - 1
