@@ -43,6 +43,9 @@ documentation = "https://github.com/qaspen-python/psqlpy/blob/main/README.md"
 profile = "black"
 multi_line_output = 3
 
+[tool.black]
+line-length = 79
+
 [tool.mypy]
 strict = true
 mypy_path = "python"
