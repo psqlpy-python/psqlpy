@@ -61,6 +61,32 @@ async def main() -> None:
 
 Please take into account that each new execute gets new connection from connection pool.
 
+### DSN support
+You can separate specify `host`, `port`, `username`, etc or specify everything in one `DSN`.
+**Please note that if you specify DSN any other argument doesn't take into account.**
+```py
+from typing import Any
+
+from psqlpy import PSQLPool
+
+
+db_pool = PSQLPool(
+    dsn="postgres://postgres:postgres@localhost:5432/postgres",
+    max_db_pool_size=2,
+)
+
+async def main() -> None:
+    await db_pool.startup()
+
+    res: list[dict[str, Any]] = await db_pool.execute(
+        "SELECT * FROM users",
+    )
+
+    print(res)
+    # You don't need to close Database Pool by yourself,
+    # rust does it instead.
+```
+
 ## Query parameters
 
 You can pass parameters into queries.

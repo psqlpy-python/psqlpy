@@ -1,6 +1,6 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, PyAny, Python};
-use std::{sync::Arc, vec};
+use std::{str::FromStr, sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
@@ -16,6 +16,7 @@ use super::connection::Connection;
 ///
 /// It is not exposed to python.
 pub struct RustPSQLPool {
+    dsn: Option<String>,
     username: Option<String>,
     password: Option<String>,
     host: Option<String>,
@@ -29,6 +30,7 @@ impl RustPSQLPool {
     /// Create new `RustPSQLPool`.
     #[must_use]
     pub fn new(
+        dsn: Option<String>,
         username: Option<String>,
         password: Option<String>,
         host: Option<String>,
@@ -37,6 +39,7 @@ impl RustPSQLPool {
         max_db_pool_size: Option<usize>,
     ) -> Self {
         RustPSQLPool {
+            dsn,
             username,
             password,
             host,
@@ -115,6 +118,7 @@ impl RustPSQLPool {
     /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
     pub async fn inner_startup(&self) -> RustPSQLDriverPyResult<()> {
         let db_pool_arc = self.db_pool.clone();
+        let dsn = self.dsn.clone();
         let password = self.password.clone();
         let username = self.username.clone();
         let db_host = self.host.clone();
@@ -137,22 +141,26 @@ impl RustPSQLPool {
             }
         }
 
-        let mut pg_config = tokio_postgres::Config::new();
+        let mut pg_config: tokio_postgres::Config;
+        if let Some(dsn_string) = dsn {
+            pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
+        } else {
+            pg_config = tokio_postgres::Config::new();
+            if let (Some(password), Some(username)) = (password, username) {
+                pg_config.password(&password);
+                pg_config.user(&username);
+            }
+            if let Some(db_host) = db_host {
+                pg_config.host(&db_host);
+            }
 
-        if let (Some(password), Some(username)) = (password, username) {
-            pg_config.password(&password);
-            pg_config.user(&username);
-        }
-        if let Some(db_host) = db_host {
-            pg_config.host(&db_host);
-        }
+            if let Some(db_port) = db_port {
+                pg_config.port(db_port);
+            }
 
-        if let Some(db_port) = db_port {
-            pg_config.port(db_port);
-        }
-
-        if let Some(db_name) = db_name {
-            pg_config.dbname(&db_name);
+            if let Some(db_name) = db_name {
+                pg_config.dbname(&db_name);
+            }
         }
 
         let mgr_config = ManagerConfig {
@@ -180,6 +188,7 @@ impl PSQLPool {
     #[new]
     #[must_use]
     pub fn new(
+        dsn: Option<String>,
         username: Option<String>,
         password: Option<String>,
         host: Option<String>,
@@ -189,6 +198,7 @@ impl PSQLPool {
     ) -> Self {
         PSQLPool {
             rust_psql_pool: Arc::new(tokio::sync::RwLock::new(RustPSQLPool {
+                dsn,
                 username,
                 password,
                 host,
