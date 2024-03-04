@@ -80,6 +80,31 @@ async def main() -> None:
     # rust does it instead.
 ```
 
+### Control connection recycling
+There are 3 available options to control how a connection is recycled - `Fast`, `Verified` and `Clean`.
+As connection can be closed in different situations on various sides you can select preferable behavior of how a connection is recycled.
+
+- `Fast`: Only run `is_closed()` when recycling existing connections.
+- `Verified`: Run `is_closed()` and execute a test query. This is slower, but guarantees that the database connection is ready to
+    be used. Normally, `is_closed()` should be enough to filter
+    out bad connections, but under some circumstances (i.e. hard-closed
+    network connections) it's possible that `is_closed()`
+    returns `false` while the connection is dead. You will receive an error
+    on your first query then.
+- `Clean`: Like [`Verified`] query method, but instead use the following sequence of statements which guarantees a pristine connection:
+    ```sql
+    CLOSE ALL;
+    SET SESSION AUTHORIZATION DEFAULT;
+    RESET ALL;
+    UNLISTEN *;
+    SELECT pg_advisory_unlock_all();
+    DISCARD TEMP;
+    DISCARD SEQUENCES;
+    ```
+    This is similar to calling `DISCARD ALL`. but doesn't call
+    `DEALLOCATE ALL` and `DISCARD PLAN`, so that the statement cache is not
+    rendered ineffective.
+
 ## Query parameters
 You can pass parameters into queries.
 Parameters can be passed in any `execute` method as the second parameter, it must be a list.
