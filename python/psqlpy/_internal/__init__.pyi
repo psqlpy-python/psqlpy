@@ -24,6 +24,49 @@ class ReadVariant(Enum):
     ReadOnly = 1
     ReadWrite = 2
 
+class ConnRecyclingMethod(Enum):
+    """Possible methods of how a connection is recycled.
+
+    The default is [`Fast`] which does not check the connection health or
+    perform any clean-up queries.
+
+    # Description:
+    ## Fast:
+    Only run [`is_closed()`] when recycling existing connections.
+
+    Unless you have special needs this is a safe choice.
+
+    ## Verified:
+    Run [`is_closed()`] and execute a test query.
+
+    This is slower, but guarantees that the database connection is ready to
+    be used. Normally, [`is_closed()`] should be enough to filter
+    out bad connections, but under some circumstances (i.e. hard-closed
+    network connections) it's possible that [`is_closed()`]
+    returns `false` while the connection is dead. You will receive an error
+    on your first query then.
+
+    ## Clean:
+    Like [`Verified`] query method, but instead use the following sequence
+    of statements which guarantees a pristine connection:
+    ```sql
+    CLOSE ALL;
+    SET SESSION AUTHORIZATION DEFAULT;
+    RESET ALL;
+    UNLISTEN *;
+    SELECT pg_advisory_unlock_all();
+    DISCARD TEMP;
+    DISCARD SEQUENCES;
+    ```
+    This is similar to calling `DISCARD ALL`. but doesn't call
+    `DEALLOCATE ALL` and `DISCARD PLAN`, so that the statement cache is not
+    rendered ineffective.
+    """
+
+    Fast = 1
+    Verified = 2
+    Clean = 3
+
 class Cursor:
     """Represent opened cursor in a transaction.
 
@@ -447,6 +490,7 @@ class PSQLPool:
         port: Optional[int] = None,
         db_name: Optional[str] = None,
         max_db_pool_size: Optional[str] = None,
+        conn_recycling_method: Optional[ConnRecyclingMethod] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
 
@@ -469,6 +513,7 @@ class PSQLPool:
         - `port`: port of postgres
         - `db_name`: name of the database in postgres
         - `max_db_pool_size`: maximum size of the connection pool
+        - `conn_recycling_method`: how a connection is recycled.
         """
     async def startup(self: Self) -> None:
         """Startup the connection pool.
