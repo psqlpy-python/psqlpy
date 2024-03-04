@@ -1,6 +1,6 @@
 import pytest
 
-from psqlpy import Connection, PSQLPool, QueryResult
+from psqlpy import Connection, ConnRecyclingMethod, PSQLPool, QueryResult
 
 
 @pytest.mark.anyio
@@ -39,3 +39,25 @@ async def test_pool_connection(
     """Test that PSQLPool can return single connection from the pool."""
     connection = await psql_pool.connection()
     assert isinstance(connection, Connection)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "conn_recycling_method",
+    [
+        ConnRecyclingMethod.Fast,
+        ConnRecyclingMethod.Verified,
+        ConnRecyclingMethod.Clean,
+    ],
+)
+async def test_pool_conn_recycling_method(
+    conn_recycling_method: ConnRecyclingMethod,
+) -> None:
+    pg_pool = PSQLPool(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+        conn_recycling_method=conn_recycling_method,
+    )
+
+    await pg_pool.startup()
+
+    await pg_pool.execute("SELECT 1")

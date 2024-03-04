@@ -10,7 +10,7 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::connection::Connection;
+use super::{common_options::ConnRecyclingMethod, connection::Connection};
 
 /// `PSQLPool` for internal use only.
 ///
@@ -23,12 +23,14 @@ pub struct RustPSQLPool {
     port: Option<u16>,
     db_name: Option<String>,
     max_db_pool_size: Option<usize>,
+    conn_recycling_method: Option<ConnRecyclingMethod>,
     db_pool: Arc<tokio::sync::RwLock<Option<Pool>>>,
 }
 
 impl RustPSQLPool {
     /// Create new `RustPSQLPool`.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dsn: Option<String>,
         username: Option<String>,
@@ -37,6 +39,7 @@ impl RustPSQLPool {
         port: Option<u16>,
         db_name: Option<String>,
         max_db_pool_size: Option<usize>,
+        conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> Self {
         RustPSQLPool {
             dsn,
@@ -46,6 +49,7 @@ impl RustPSQLPool {
             port,
             db_name,
             max_db_pool_size,
+            conn_recycling_method,
             db_pool: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
@@ -124,6 +128,7 @@ impl RustPSQLPool {
         let db_host = self.host.clone();
         let db_port = self.port;
         let db_name = self.db_name.clone();
+        let conn_recycling_method = self.conn_recycling_method;
         let max_db_pool_size = self.max_db_pool_size;
 
         let mut db_pool_guard = db_pool_arc.write().await;
@@ -163,9 +168,16 @@ impl RustPSQLPool {
             }
         }
 
-        let mgr_config = ManagerConfig {
-            recycling_method: RecyclingMethod::Fast,
-        };
+        let mgr_config: ManagerConfig;
+        if let Some(conn_recycling_method) = conn_recycling_method {
+            mgr_config = ManagerConfig {
+                recycling_method: conn_recycling_method.to_internal(),
+            }
+        } else {
+            mgr_config = ManagerConfig {
+                recycling_method: RecyclingMethod::Fast,
+            };
+        }
         let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
 
         let mut db_pool_builder = Pool::builder(mgr);
@@ -186,6 +198,7 @@ pub struct PSQLPool {
 #[pymethods]
 impl PSQLPool {
     #[new]
+    #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn new(
         dsn: Option<String>,
@@ -195,6 +208,7 @@ impl PSQLPool {
         port: Option<u16>,
         db_name: Option<String>,
         max_db_pool_size: Option<usize>,
+        conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> Self {
         PSQLPool {
             rust_psql_pool: Arc::new(tokio::sync::RwLock::new(RustPSQLPool {
@@ -205,6 +219,7 @@ impl PSQLPool {
                 port,
                 db_name,
                 max_db_pool_size,
+                conn_recycling_method,
                 db_pool: Arc::new(tokio::sync::RwLock::new(None)),
             })),
         }
