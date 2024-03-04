@@ -2,7 +2,6 @@
 [![PyPI](https://img.shields.io/pypi/v/psqlpy?style=for-the-badge)](https://pypi.org/project/psqlpy/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/psqlpy?style=for-the-badge)](https://pypistats.org/packages/psqlpy)
 
-
 # PSQLPy - Async PostgreSQL driver for Python written in Rust.
 
 Driver for PostgreSQL written fully in Rust and exposed to Python.
@@ -67,8 +66,10 @@ async def main() -> None:
 Please take into account that each new execute gets new connection from connection pool.
 
 ### DSN support
+
 You can separate specify `host`, `port`, `username`, etc or specify everything in one `DSN`.
 **Please note that if you specify DSN any other argument doesn't take into account.**
+
 ```py
 from typing import Any
 
@@ -93,29 +94,30 @@ async def main() -> None:
 ```
 
 ### Control connection recycling
+
 There are 3 available options to control how a connection is recycled - `Fast`, `Verified` and `Clean`.
 As connection can be closed in different situations on various sides you can select preferable behavior of how a connection is recycled.
 
 - `Fast`: Only run `is_closed()` when recycling existing connections.
 - `Verified`: Run `is_closed()` and execute a test query. This is slower, but guarantees that the database connection is ready to
-    be used. Normally, `is_closed()` should be enough to filter
-    out bad connections, but under some circumstances (i.e. hard-closed
-    network connections) it's possible that `is_closed()`
-    returns `false` while the connection is dead. You will receive an error
-    on your first query then.
+  be used. Normally, `is_closed()` should be enough to filter
+  out bad connections, but under some circumstances (i.e. hard-closed
+  network connections) it's possible that `is_closed()`
+  returns `false` while the connection is dead. You will receive an error
+  on your first query then.
 - `Clean`: Like [`Verified`] query method, but instead use the following sequence of statements which guarantees a pristine connection:
-    ```sql
-    CLOSE ALL;
-    SET SESSION AUTHORIZATION DEFAULT;
-    RESET ALL;
-    UNLISTEN *;
-    SELECT pg_advisory_unlock_all();
-    DISCARD TEMP;
-    DISCARD SEQUENCES;
-    ```
-    This is similar to calling `DISCARD ALL`. but doesn't call
-    `DEALLOCATE ALL` and `DISCARD PLAN`, so that the statement cache is not
-    rendered ineffective.
+  ```sql
+  CLOSE ALL;
+  SET SESSION AUTHORIZATION DEFAULT;
+  RESET ALL;
+  UNLISTEN *;
+  SELECT pg_advisory_unlock_all();
+  DISCARD TEMP;
+  DISCARD SEQUENCES;
+  ```
+  This is similar to calling `DISCARD ALL`. but doesn't call
+  `DEALLOCATE ALL` and `DISCARD PLAN`, so that the statement cache is not
+  rendered ineffective.
 
 ## Query parameters
 
@@ -449,3 +451,19 @@ async def main() -> None:
     # rust does it instead.
 
 ```
+
+## Benchmarks
+
+We have made some benchmark to compare `PSQLPy`, `AsyncPG`, `Psycopg3`.
+Main idea is do not compare clear drivers because there are a few situations in which you need to use only driver without any other dependencies.
+
+**So infrastructure consists of:**
+
+1. AioHTTP
+2. PostgreSQL driver (`PSQLPy`, `AsyncPG`, `Psycopg3`)
+3. PostgreSQL v15. Server is located in other part of the world, because we want to simulate network problems.
+4. Grafana (dashboards)
+5. InfluxDB
+6. JMeter (for load testing)
+
+The results are very promising! `PSQLPy` is faster than `AsyncPG` at best by 2 times, at worst by 45%. `PsycoPG` is 3.5 times slower than `PSQLPy` in the worst case, 60% in the best case.
