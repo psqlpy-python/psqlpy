@@ -1,3 +1,8 @@
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/psqlpy?style=for-the-badge)](https://pypi.org/project/psqlpy/)
+[![PyPI](https://img.shields.io/pypi/v/psqlpy?style=for-the-badge)](https://pypi.org/project/psqlpy/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/psqlpy?style=for-the-badge)](https://pypistats.org/packages/psqlpy)
+
+
 # PSQLPy - Async PostgreSQL driver for Python written in Rust.
 
 Driver for PostgreSQL written fully in Rust and exposed to Python.

@@ -18,11 +18,20 @@ classifiers = [
     "Topic :: Database",
     "Development Status :: 4 - Beta",
     "Programming Language :: Rust",
+    "Programming Language :: Python",
     "Operating System :: MacOS",
     "Operating System :: Microsoft",
     "Operating System :: POSIX :: Linux",
     "Intended Audience :: Developers",
     "Topic :: Database :: Front-Ends",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 authors = [{ email = "askiselev00@gmail.com" }, { name = "Kiselev Aleksandr" }]
 maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]
@@ -118,6 +127,3 @@ line-length = 79
 [tool.ruff.pydocstyle]
 convention = "pep257"
 ignore-decorators = ["typing.overload"]
-
-# [tool.ruff.pylint]
-# allow-magic-value-types = ["int", "str", "float", "tuple"]
