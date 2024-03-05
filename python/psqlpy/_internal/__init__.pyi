@@ -1,13 +1,13 @@
 import types
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from typing_extensions import Self
 
 class QueryResult:
     """Result."""
 
-    def result(self: Self) -> List[Dict[Any, Any]]:
+    def result(self: Self) -> list[dict[Any, Any]]:
         """Return result from database as a list of dicts."""
 
 class IsolationLevel(Enum):
@@ -221,7 +221,7 @@ class Transaction:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: List[Any] | None = None,
+        parameters: list[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
 
@@ -377,7 +377,7 @@ class Transaction:
     async def cursor(
         self: Self,
         querystring: str,
-        parameters: List[Any] | None = None,
+        parameters: list[Any] | None = None,
         fetch_number: int | None = None,
         scroll: bool | None = None,
     ) -> Cursor:
@@ -429,7 +429,7 @@ class Connection:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: List[Any] | None = None,
+        parameters: list[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
 
@@ -466,6 +466,7 @@ class Connection:
         self,
         isolation_level: IsolationLevel | None = None,
         read_variant: ReadVariant | None = None,
+        deferable: bool | None = None,
     ) -> Transaction:
         """Create new transaction.
 
@@ -522,7 +523,7 @@ class PSQLPool:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: List[Any] | None = None,
+        parameters: list[Any] | None = None,
     ) -> QueryResult:
         """Execute the query.
 

@@ -1,10 +1,49 @@
+from __future__ import annotations
+import typing
+
 import pytest
 
-from psqlpy import Cursor, PSQLPool
+from psqlpy import Cursor, IsolationLevel, PSQLPool, ReadVariant
 from psqlpy.exceptions import DBTransactionError
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
+async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
+    connection = await psql_pool.connection()
+
+    test_init_parameters: typing.Final[list[dict[str, typing.Any]]] = [
+        {"isolation_level": None, "deferable": None, "read_variant": None},
+        {
+            "isolation_level": IsolationLevel.ReadCommitted,
+            "deferable": True,
+            "read_variant": ReadVariant.ReadOnly,
+        },
+        {
+            "isolation_level": IsolationLevel.ReadUncommitted,
+            "deferable": False,
+            "read_variant": ReadVariant.ReadWrite,
+        },
+        {
+            "isolation_level": IsolationLevel.RepeatableRead,
+            "deferable": True,
+            "read_variant": ReadVariant.ReadOnly,
+        },
+        {
+            "isolation_level": IsolationLevel.Serializable,
+            "deferable": False,
+            "read_variant": ReadVariant.ReadWrite,
+        },
+    ]
+
+    for init_parameters in test_init_parameters:
+        connection.transaction(
+            isolation_level=init_parameters.get("isolation_level"),
+            deferable=init_parameters.get("deferable"),
+            read_variant=init_parameters.get("read_variant"),
+        )
+
+
+@pytest.mark.anyio()
 async def test_transaction_begin(
     psql_pool: PSQLPool,
     table_name: str,
@@ -28,7 +67,7 @@ async def test_transaction_begin(
     assert len(result.result()) == number_database_records
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_transaction_commit(
     psql_pool: PSQLPool,
     table_name: str,
@@ -62,7 +101,7 @@ async def test_transaction_commit(
     assert len(result.result())
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_transaction_savepoint(
     psql_pool: PSQLPool,
     table_name: str,
@@ -95,7 +134,7 @@ async def test_transaction_savepoint(
     await transaction.commit()
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_transaction_rollback(
     psql_pool: PSQLPool,
     table_name: str,
@@ -133,7 +172,7 @@ async def test_transaction_rollback(
     assert not (result_from_conn.result())
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_transaction_release_savepoint(
     psql_pool: PSQLPool,
 ) -> None:
@@ -156,7 +195,7 @@ async def test_transaction_release_savepoint(
     await transaction.savepoint(sp_name_1)
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_transaction_cursor(
     psql_pool: PSQLPool,
     table_name: str,
