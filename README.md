@@ -33,7 +33,7 @@ Create new instance of PSQLPool, startup it and start querying.
 ```python
 from typing import Any
 
-from psqlpy import PSQLPool
+from psqlpy import PSQLPool, QueryResult
 
 
 db_pool = PSQLPool(
@@ -48,11 +48,11 @@ db_pool = PSQLPool(
 async def main() -> None:
     await db_pool.startup()
 
-    res: list[dict[str, Any]] = await db_pool.execute(
+    res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
 
-    print(res)
+    print(res.result())
     # You don't need to close Database Pool by yourself,
     # rust does it instead.
 
@@ -65,7 +65,7 @@ You can separate specify `host`, `port`, `username`, etc or specify everything i
 ```py
 from typing import Any
 
-from psqlpy import PSQLPool
+from psqlpy import PSQLPool, QueryResult
 
 
 db_pool = PSQLPool(
@@ -76,11 +76,11 @@ db_pool = PSQLPool(
 async def main() -> None:
     await db_pool.startup()
 
-    res: list[dict[str, Any]] = await db_pool.execute(
+    res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
 
-    print(res)
+    print(res.result())
     # You don't need to close Database Pool by yourself,
     # rust does it instead.
 ```
@@ -127,7 +127,7 @@ You can work with connection instead of DatabasePool.
 ```python
 from typing import Any
 
-from psqlpy import PSQLPool
+from psqlpy import PSQLPool, QueryResult
 
 
 db_pool = PSQLPool(
@@ -144,11 +144,11 @@ async def main() -> None:
 
     connection = await db_pool.connection()
 
-    res: list[dict[str, Any]] = await connection.execute(
+    res: QueryResult = await connection.execute(
         "SELECT * FROM users",
     )
 
-    print(res)
+    print(res.result())
     # You don't need to close connection by yourself,
     # rust does it instead.
 ```
@@ -168,7 +168,7 @@ By default async context manager only begins and commits transaction automatical
 ```python
 from typing import Any
 
-from psqlpy import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel, QueryResult
 
 
 db_pool = PSQLPool()
@@ -178,11 +178,11 @@ async def main() -> None:
 
     connection = await db_pool.connection()
     async with connection.transaction() as transaction:
-        res: list[dict[str, Any]] = await transaction.execute(
+        res: QueryResult = await transaction.execute(
             "SELECT * FROM users",
         )
 
-    print(res)
+    print(res.result())
     # You don't need to close Database Pool by yourself,
     # rust does it instead.
 ```
@@ -212,8 +212,6 @@ async def main() -> None:
     # You must commit the transaction by your own
     # or your changes will be vanished.
     await transaction.commit()
-
-    print(res)
     # You don't need to close Database Pool by yourself,
     # rust does it instead.
 ```
@@ -322,7 +320,7 @@ In process of cursor creation you can specify some configuration parameters.
 ```python
 from typing import Any
 
-from psqlpy import PSQLPool, IsolationLevel
+from psqlpy import PSQLPool, IsolationLevel, QueryResult
 
 
 db_pool = PSQLPool()
@@ -344,7 +342,7 @@ async def main() -> None:
     )
 
     # You can manually fetch results from cursor
-    results: list[dict[str, Any]] = await cursor.fetch(fetch_number=8)
+    results: QueryResult = await cursor.fetch(fetch_number=8)
 
     # Or you can use it as an async iterator.
     async for fetched_result in cursor:
