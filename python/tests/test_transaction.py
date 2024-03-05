@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing
-
 import pytest
 
 from psqlpy import Cursor, IsolationLevel, PSQLPool, ReadVariant
@@ -9,55 +7,37 @@ from psqlpy.exceptions import DBTransactionError, RustPSQLDriverPyBaseError
 
 
 @pytest.mark.anyio()
+@pytest.mark.parametrize(
+    ("isolation_level", "deferrable", "read_variant"),
+    [
+        (None, None, None),
+        (IsolationLevel.ReadCommitted, True, ReadVariant.ReadOnly),
+        (IsolationLevel.ReadUncommitted, False, ReadVariant.ReadWrite),
+        (IsolationLevel.RepeatableRead, True, ReadVariant.ReadOnly),
+        (IsolationLevel.Serializable, False, ReadVariant.ReadWrite),
+    ],
+)
 async def test_transaction_init_parameters(
     psql_pool: PSQLPool,
     table_name: str,
+    isolation_level: IsolationLevel | None,
+    deferrable: bool | None,
+    read_variant: ReadVariant | None,
 ) -> None:
     connection = await psql_pool.connection()
-
-    test_init_parameters: typing.Final[list[dict[str, typing.Any]]] = [
-        {"isolation_level": None, "deferrable": None, "read_variant": None},
-        {
-            "isolation_level": IsolationLevel.ReadCommitted,
-            "deferrable": True,
-            "read_variant": ReadVariant.ReadOnly,
-        },
-        {
-            "isolation_level": IsolationLevel.ReadUncommitted,
-            "deferrable": False,
-            "read_variant": ReadVariant.ReadWrite,
-        },
-        {
-            "isolation_level": IsolationLevel.RepeatableRead,
-            "deferrable": True,
-            "read_variant": ReadVariant.ReadOnly,
-        },
-        {
-            "isolation_level": IsolationLevel.Serializable,
-            "deferrable": False,
-            "read_variant": ReadVariant.ReadWrite,
-        },
-    ]
-    for init_parameters in test_init_parameters:
-        insert_exception = None
-        async with connection.transaction(
-            isolation_level=init_parameters.get("isolation_level"),
-            deferrable=init_parameters.get("deferrable"),
-            read_variant=init_parameters.get("read_variant"),
-        ) as transaction:
-            await transaction.execute("SELECT 1")
-            try:
-                await transaction.execute(
-                    f"INSERT INTO {table_name} VALUES ($1, $2)",
-                    parameters=[100, "test_name"],
-                )
-            except RustPSQLDriverPyBaseError as exception:
-                insert_exception = exception
-
-            assert (
-                insert_exception is None
-                or init_parameters.get("read_variant") is ReadVariant.ReadOnly
+    async with connection.transaction(
+        isolation_level=isolation_level,
+        deferrable=deferrable,
+        read_variant=read_variant,
+    ) as transaction:
+        await transaction.execute("SELECT 1")
+        try:
+            await transaction.execute(
+                f"INSERT INTO {table_name} VALUES ($1, $2)",
+                parameters=[100, "test_name"],
             )
+        except RustPSQLDriverPyBaseError:
+            assert read_variant is ReadVariant.ReadOnly
 
 
 @pytest.mark.anyio()
