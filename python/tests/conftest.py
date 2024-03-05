@@ -64,7 +64,7 @@ async def psql_pool(
     postgres_password: str,
     postgres_port: int,
     postgres_dbname: str,
-) -> AsyncGenerator[PSQLPool, None]:
+) -> PSQLPool:
     pg_pool = PSQLPool(
         username=postgres_user,
         password=postgres_password,
@@ -73,11 +73,11 @@ async def psql_pool(
         db_name=postgres_dbname,
     )
     await pg_pool.startup()
-    yield pg_pool
+    return pg_pool
 
 
 @pytest.fixture(autouse=True)
-async def create_deafult_data_for_tests(
+async def _create_deafult_data_for_tests(
     psql_pool: PSQLPool,
     table_name: str,
     number_database_records: int,

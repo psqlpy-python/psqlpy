@@ -3,7 +3,7 @@ import pytest
 from psqlpy import PSQLPool, QueryResult, Transaction
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_connection_execute(
     psql_pool: PSQLPool,
     table_name: str,
@@ -19,7 +19,7 @@ async def test_connection_execute(
     assert len(conn_result.result()) == number_database_records
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 async def test_connection_transaction(
     psql_pool: PSQLPool,
 ) -> None:

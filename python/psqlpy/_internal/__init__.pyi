@@ -197,6 +197,10 @@ class Transaction:
     `.transaction()`.
     """
 
+    isolation_level: IsolationLevel | None = None
+    deferable: bool | None = None
+    read_variant: ReadVariant | None = None
+
     async def __aenter__(self: Self) -> Self: ...
     async def __aexit__(
         self: Self,
@@ -467,7 +471,6 @@ class Connection:
         isolation_level: IsolationLevel | None = None,
         deferable: bool | None = None,
         read_variant: ReadVariant | None = None,
-        deferable: bool | None = None,
     ) -> Transaction:
         """Create new transaction.
 
