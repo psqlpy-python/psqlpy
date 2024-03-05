@@ -10,7 +10,6 @@ from psqlpy.exceptions import DBTransactionError
 @pytest.mark.anyio()
 async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
     connection = await psql_pool.connection()
-    transaction = connection.transaction()
 
     test_init_parameters: typing.Final[list[dict[str, typing.Any]]] = [
         {"isolation_level": None, "deferable": None, "read_variant": None},
