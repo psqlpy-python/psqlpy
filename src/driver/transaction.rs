@@ -27,7 +27,7 @@ pub struct RustTransaction {
 
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
-    deferrable: Option<bool>,
+    deferable: Option<bool>,
     cursor_num: usize,
 }
 
@@ -40,7 +40,7 @@ impl RustTransaction {
         rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
+        deferable: Option<bool>,
         cursor_num: usize,
     ) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl RustTransaction {
             rollback_savepoint,
             isolation_level,
             read_variant,
-            deferrable,
+            deferable,
             cursor_num,
         }
     }
@@ -108,7 +108,7 @@ impl RustTransaction {
 
     /// Start transaction
     /// Set up isolation level if specified
-    /// Set up deferrable if specified
+    /// Set up deferable if specified
     ///
     /// # Errors
     /// May return Err Result if cannot execute querystring.
@@ -124,7 +124,7 @@ impl RustTransaction {
             querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
         }
 
-        if self.deferrable.is_some() {
+        if self.deferable.is_some() {
             querystring.push_str(" DEFERRABLE");
         } else {
             querystring.push_str(" NOT DEFERRABLE");

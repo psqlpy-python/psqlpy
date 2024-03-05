@@ -5,11 +5,14 @@ import typing
 import pytest
 
 from psqlpy import Cursor, IsolationLevel, PSQLPool, ReadVariant
-from psqlpy.exceptions import DBTransactionError
+from psqlpy.exceptions import DBTransactionError, RustPSQLDriverPyBaseError
 
 
 @pytest.mark.anyio()
-async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
+async def test_transaction_init_parameters(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
     connection = await psql_pool.connection()
 
     test_init_parameters: typing.Final[list[dict[str, typing.Any]]] = [
@@ -35,13 +38,26 @@ async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
             "read_variant": ReadVariant.ReadWrite,
         },
     ]
-
     for init_parameters in test_init_parameters:
-        connection.transaction(
+        insert_exception = None
+        async with connection.transaction(
             isolation_level=init_parameters.get("isolation_level"),
             deferrable=init_parameters.get("deferrable"),
             read_variant=init_parameters.get("read_variant"),
-        )
+        ) as transaction:
+            await transaction.execute("SELECT 1")
+            try:
+                await transaction.execute(
+                    f"INSERT INTO {table_name} VALUES ($1, $2)",
+                    parameters=[100, "test_name"],
+                )
+            except RustPSQLDriverPyBaseError as exception:
+                insert_exception = exception
+
+            assert (
+                insert_exception is None
+                or init_parameters.get("read_variant") is ReadVariant.ReadOnly
+            )
 
 
 @pytest.mark.anyio()
