@@ -125,7 +125,9 @@ impl RustTransaction {
         }
 
         if self.deferable.is_some() {
-            querystring.push_str("SET CONSTRAINTS ALL DEFERRED");
+            querystring.push_str("DEFERABLE");
+        } else {
+            querystring.push_str("NOT DEFERABLE");
         }
 
         let db_client_arc = self.db_client.clone();
