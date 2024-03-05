@@ -466,7 +466,7 @@ class Connection:
         self,
         isolation_level: IsolationLevel | None = None,
         read_variant: ReadVariant | None = None,
-        deferable: bool | None = None,
+        deferrable: bool | None = None,
     ) -> Transaction:
         """Create new transaction.
 

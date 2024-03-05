@@ -66,7 +66,7 @@ impl Connection {
         &self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
-        deferable: Option<bool>,
+        deferrable: Option<bool>,
     ) -> Transaction {
         let inner_transaction = RustTransaction::new(
             self.db_client.clone(),
@@ -75,7 +75,7 @@ impl Connection {
             Arc::new(tokio::sync::RwLock::new(HashSet::new())),
             isolation_level,
             read_variant,
-            deferable,
+            deferrable,
             Default::default(),
         );
 

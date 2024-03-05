@@ -13,25 +13,25 @@ async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
     connection = await psql_pool.connection()
 
     test_init_parameters: typing.Final[list[dict[str, typing.Any]]] = [
-        {"isolation_level": None, "deferable": None, "read_variant": None},
+        {"isolation_level": None, "deferrable": None, "read_variant": None},
         {
             "isolation_level": IsolationLevel.ReadCommitted,
-            "deferable": True,
+            "deferrable": True,
             "read_variant": ReadVariant.ReadOnly,
         },
         {
             "isolation_level": IsolationLevel.ReadUncommitted,
-            "deferable": False,
+            "deferrable": False,
             "read_variant": ReadVariant.ReadWrite,
         },
         {
             "isolation_level": IsolationLevel.RepeatableRead,
-            "deferable": True,
+            "deferrable": True,
             "read_variant": ReadVariant.ReadOnly,
         },
         {
             "isolation_level": IsolationLevel.Serializable,
-            "deferable": False,
+            "deferrable": False,
             "read_variant": ReadVariant.ReadWrite,
         },
     ]
@@ -39,7 +39,7 @@ async def test_transaction_init_parameters(psql_pool: PSQLPool) -> None:
     for init_parameters in test_init_parameters:
         connection.transaction(
             isolation_level=init_parameters.get("isolation_level"),
-            deferable=init_parameters.get("deferable"),
+            deferrable=init_parameters.get("deferrable"),
             read_variant=init_parameters.get("read_variant"),
         )
 

@@ -176,7 +176,7 @@ In process of transaction creation it is possible to specify some arguments to c
 
 - `isolation_level`: level of the isolation. By default - `None`.
 - `read_variant`: read option. By default - `None`.
-- `deferable`: deferable option. By default - `None`.
+- `deferrable`: deferrable option. By default - `None`.
 
 ### You can use transactions as async context managers
 
