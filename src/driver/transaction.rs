@@ -123,12 +123,11 @@ impl RustTransaction {
         if let Some(read_var) = self.read_variant {
             querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
         }
-
-        if self.deferable.is_some() {
-            querystring.push_str(" DEFERRABLE");
-        } else {
-            querystring.push_str(" NOT DEFERRABLE");
-        }
+        querystring.push_str(match self.deferable {
+            Some(true) => " DEFERRABLE",
+            Some(false) => " NOT DEFERRABLE",
+            None => "",
+        });
 
         let db_client_arc = self.db_client.clone();
         let db_client_guard = db_client_arc.read().await;
