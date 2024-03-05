@@ -27,10 +27,12 @@ pub struct RustTransaction {
 
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
+    deferable: Option<bool>,
     cursor_num: usize,
 }
 
 impl RustTransaction {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db_client: Arc<tokio::sync::RwLock<Object>>,
         is_started: Arc<tokio::sync::RwLock<bool>>,
@@ -38,6 +40,7 @@ impl RustTransaction {
         rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
+        deferable: Option<bool>,
         cursor_num: usize,
     ) -> Self {
         Self {
@@ -47,6 +50,7 @@ impl RustTransaction {
             rollback_savepoint,
             isolation_level,
             read_variant,
+            deferable,
             cursor_num,
         }
     }
@@ -102,7 +106,9 @@ impl RustTransaction {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
-    /// Start transaction with isolation level if specified
+    /// Start transaction
+    /// Set up isolation level if specified
+    /// Set up deferable if specified
     ///
     /// # Errors
     /// May return Err Result if cannot execute querystring.
@@ -117,6 +123,11 @@ impl RustTransaction {
         if let Some(read_var) = self.read_variant {
             querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
         }
+        querystring.push_str(match self.deferable {
+            Some(true) => " DEFERRABLE",
+            Some(false) => " NOT DEFERRABLE",
+            None => "",
+        });
 
         let db_client_arc = self.db_client.clone();
         let db_client_guard = db_client_arc.read().await;
