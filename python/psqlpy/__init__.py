@@ -9,7 +9,6 @@ from ._internal import (
     Transaction,
 )
 
-
 __all__ = [
     "PSQLPool",
     "QueryResult",

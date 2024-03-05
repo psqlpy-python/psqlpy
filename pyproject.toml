@@ -127,9 +127,3 @@ line-length = 79
 [tool.ruff.pydocstyle]
 convention = "pep257"
 ignore-decorators = ["typing.overload"]
-
-
-[tool.ruff.isort]
-lines-after-imports = 2
-no-lines-before = ["standard-library", "local-folder"]
-known-first-party = ["psqlpy"]
