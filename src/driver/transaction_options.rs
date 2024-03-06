@@ -28,14 +28,3 @@ pub enum ReadVariant {
     ReadOnly,
     ReadWrite,
 }
-
-impl ReadVariant {
-    /// Return Read variant as String literal.
-    #[must_use]
-    pub fn to_str_option(&self) -> String {
-        match self {
-            ReadVariant::ReadOnly => "READ ONLY".into(),
-            ReadVariant::ReadWrite => "READ WRITE".into(),
-        }
-    }
-}

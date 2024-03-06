@@ -38,6 +38,8 @@ async def test_transaction_init_parameters(
             )
         except RustPSQLDriverPyBaseError:
             assert read_variant is ReadVariant.ReadOnly
+        else:
+            assert read_variant is not ReadVariant.ReadOnly
 
 
 @pytest.mark.anyio()

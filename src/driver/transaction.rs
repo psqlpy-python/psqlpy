@@ -1,5 +1,9 @@
 use deadpool_postgres::Object;
-use pyo3::{pyclass, pymethods, types::PyString, Py, PyAny, PyObject, PyRef, PyRefMut, Python};
+use pyo3::{
+    pyclass, pymethods,
+    types::{PyList, PyString},
+    Py, PyAny, PyObject, PyRef, PyRefMut, Python,
+};
 use std::{collections::HashSet, sync::Arc, vec};
 use tokio_postgres::types::ToSql;
 
@@ -106,6 +110,59 @@ impl RustTransaction {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Execute querystring with many parameters.
+    ///
+    /// Method doesn't acquire lock on any structure fields.
+    /// It prepares and caches querystring in the inner Object object.
+    ///
+    /// Then execute the query.
+    ///
+    /// # Errors
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done already
+    /// 3) Can not create/retrieve prepared statement
+    /// 4) Can not execute statement
+    pub async fn inner_execute_many(
+        &self,
+        querystring: String,
+        parameters: Vec<Vec<PythonDTO>>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let db_client_guard = db_client_arc.read().await;
+        let is_started_guard = is_started_arc.read().await;
+        let is_done_guard = is_done_arc.read().await;
+
+        if !*is_started_guard {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is not started, please call begin() on transaction".into(),
+            ));
+        }
+        if *is_done_guard {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+        for single_parameters in parameters {
+            let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
+                Vec::with_capacity(single_parameters.len());
+            for param in &single_parameters {
+                vec_parameters.push(param);
+            }
+
+            let statement = db_client_guard.prepare_cached(&querystring).await?;
+
+            db_client_guard
+                .query(&statement, &vec_parameters.into_boxed_slice())
+                .await?;
+        }
+
+        Ok(())
+    }
+
     /// Start transaction
     /// Set up isolation level if specified
     /// Set up deferable if specified
@@ -120,9 +177,12 @@ impl RustTransaction {
             querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
         };
 
-        if let Some(read_var) = self.read_variant {
-            querystring.push_str(format!(" {}", &read_var.to_str_option()).as_str());
-        }
+        querystring.push_str(match self.read_variant {
+            Some(ReadVariant::ReadOnly) => " READ ONLY",
+            Some(ReadVariant::ReadWrite) => " READ WRITE",
+            None => "",
+        });
+
         querystring.push_str(match self.deferable {
             Some(true) => " DEFERRABLE",
             Some(false) => " NOT DEFERRABLE",
@@ -568,6 +628,38 @@ impl Transaction {
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_execute(querystring, params).await
+        })
+    }
+
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub fn execute_many<'a>(
+        &'a self,
+        py: Python<'a>,
+        querystring: String,
+        parameters: Option<&'a PyList>,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
+        let mut params: Vec<Vec<PythonDTO>> = vec![];
+        if let Some(parameters) = parameters {
+            for single_parameters in parameters {
+                params.push(convert_parameters(single_parameters)?);
+            }
+        }
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard
+                .inner_execute_many(querystring, params)
+                .await
         })
     }
 
