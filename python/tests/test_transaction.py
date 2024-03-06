@@ -222,11 +222,15 @@ async def test_transaction_execute_many(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        await transaction.execute_many(
-            f"INSERT INTO {table_name} VALUES ($1, $2)",
-            insert_values,
-        )
-        assert await count_rows_in_test_table(
-            table_name,
-            transaction,
-        ) - number_database_records == len(insert_values)
+        try:
+            await transaction.execute_many(
+                f"INSERT INTO {table_name} VALUES ($1, $2)",
+                insert_values,
+            )
+        except DBTransactionError:
+            assert not insert_values
+        else:
+            assert await count_rows_in_test_table(
+                table_name,
+                transaction,
+            ) - number_database_records == len(insert_values)
