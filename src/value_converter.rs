@@ -176,7 +176,9 @@ impl ToSql for PythonDTO {
             PythonDTO::PyDateTimeTz(pydatetime_tz) => {
                 <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
             }
-            PythonDTO::PyIpAddress(_pyidaddress) => {}
+            PythonDTO::PyIpAddress(pyidaddress) => {
+                <&IpAddr as ToSql>::to_sql(&pyidaddress, ty, out)?;
+            }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
                 for inner in py_iterable {
@@ -343,6 +345,10 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
         return Ok(PythonDTO::PyJson(
             parameter.extract::<PyJSON>()?.inner().clone(),
         ));
+    }
+
+    if let Ok(id_address) = parameter.extract::<IpAddr>() {
+        return Ok(PythonDTO::PyIpAddress(id_address));
     }
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
