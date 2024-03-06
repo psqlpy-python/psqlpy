@@ -269,6 +269,57 @@ class Transaction:
             # This way transaction begins and commits by itself.
         ```
         """
+    async def execute_many(
+        self: Self,
+        querystring: str,
+        parameters: list[list[Any]] | None = None,
+    ) -> None: ...
+    """Execute query multiple times with different parameters.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of list of parameters to pass in the query.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+            await transaction.begin()
+            query_result: QueryResult = await transaction.execute_many(
+                "INSERT INTO users (name, age) VALUES ($1, $2)",
+                [["boba", 10], ["boba", 20]],
+            )
+            dict_result: List[Dict[Any, Any]] = query_result.result()
+            # You must call commit manually
+            await transaction.commit()
+
+        # Or you can transaction as a async context manager
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await psqlpy.startup()
+
+            transaction = await db_pool.transaction()
+            async with transaction:
+                query_result: QueryResult = await transaction.execute(
+                    "SELECT username FROM users WHERE id = $1",
+                    [100],
+                )
+                dict_result: List[Dict[Any, Any]] = query_result.result()
+            # This way transaction begins and commits by itself.
+        ```
+        """
     async def savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
