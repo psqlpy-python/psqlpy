@@ -593,17 +593,24 @@ impl Transaction {
         slf: PyRefMut<'a, Self>,
         py: Python<'a>,
         _exception_type: Py<PyAny>,
-        _exception: Py<PyAny>,
+        exception: &PyAny,
         _traceback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let transaction_arc = slf.transaction.clone();
         let transaction_arc2 = slf.transaction.clone();
+        let is_no_exc = exception.is_none();
+        let exc_message = format!("{exception}");
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_commit().await?;
-            Ok(Transaction {
-                transaction: transaction_arc2,
-            })
+            if is_no_exc {
+                transaction_guard.inner_commit().await?;
+                Ok(Transaction {
+                    transaction: transaction_arc2,
+                })
+            } else {
+                transaction_guard.inner_rollback().await?;
+                Err(RustPSQLDriverError::DataBaseTransactionError(exc_message))
+            }
         })
     }
 
