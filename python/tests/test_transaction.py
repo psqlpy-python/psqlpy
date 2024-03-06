@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import typing
+
 import pytest
+from tests.helpers import count_rows_in_test_table
 
 from psqlpy import Cursor, IsolationLevel, PSQLPool, ReadVariant
 from psqlpy.exceptions import DBTransactionError, RustPSQLDriverPyBaseError
 
+pytestmark = pytest.mark.anyio
 
-@pytest.mark.anyio()
+
 @pytest.mark.parametrize(
     ("isolation_level", "deferrable", "read_variant"),
     [
@@ -42,7 +46,6 @@ async def test_transaction_init_parameters(
             assert read_variant is not ReadVariant.ReadOnly
 
 
-@pytest.mark.anyio()
 async def test_transaction_begin(
     psql_pool: PSQLPool,
     table_name: str,
@@ -66,7 +69,6 @@ async def test_transaction_begin(
     assert len(result.result()) == number_database_records
 
 
-@pytest.mark.anyio()
 async def test_transaction_commit(
     psql_pool: PSQLPool,
     table_name: str,
@@ -100,7 +102,6 @@ async def test_transaction_commit(
     assert len(result.result())
 
 
-@pytest.mark.anyio()
 async def test_transaction_savepoint(
     psql_pool: PSQLPool,
     table_name: str,
@@ -133,7 +134,6 @@ async def test_transaction_savepoint(
     await transaction.commit()
 
 
-@pytest.mark.anyio()
 async def test_transaction_rollback(
     psql_pool: PSQLPool,
     table_name: str,
@@ -171,7 +171,6 @@ async def test_transaction_rollback(
     assert not (result_from_conn.result())
 
 
-@pytest.mark.anyio()
 async def test_transaction_release_savepoint(
     psql_pool: PSQLPool,
 ) -> None:
@@ -194,7 +193,6 @@ async def test_transaction_release_savepoint(
     await transaction.savepoint(sp_name_1)
 
 
-@pytest.mark.anyio()
 async def test_transaction_cursor(
     psql_pool: PSQLPool,
     table_name: str,
@@ -205,3 +203,29 @@ async def test_transaction_cursor(
         cursor = await transaction.cursor(f"SELECT * FROM {table_name}")
 
         assert isinstance(cursor, Cursor)
+
+
+@pytest.mark.parametrize(
+    ("insert_values"),
+    [
+        [[1, "name1"], [2, "name2"]],
+        [[10, "name1"], [20, "name2"], [30, "name3"]],
+        [[1, "name1"]],
+    ],
+)
+async def test_transaction_execute_many(
+    psql_pool: PSQLPool,
+    table_name: str,
+    number_database_records: int,
+    insert_values: list[list[typing.Any]],
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.transaction() as transaction:
+        await transaction.execute_many(
+            f"INSERT INTO {table_name} VALUES ($1, $2)",
+            insert_values,
+        )
+        assert await count_rows_in_test_table(
+            table_name,
+            transaction,
+        ) - number_database_records == len(insert_values)
