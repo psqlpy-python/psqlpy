@@ -1,6 +1,6 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use serde_json::{json, Map, Value};
-use std::fmt::Debug;
+use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -45,6 +45,7 @@ pub enum PythonDTO {
     PyTime(NaiveTime),
     PyDateTime(NaiveDateTime),
     PyDateTimeTz(DateTime<FixedOffset>),
+    PyIpAddress(IpAddr),
     PyList(Vec<PythonDTO>),
     PyTuple(Vec<PythonDTO>),
     PyJson(Value),
@@ -175,6 +176,7 @@ impl ToSql for PythonDTO {
             PythonDTO::PyDateTimeTz(pydatetime_tz) => {
                 <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
             }
+            PythonDTO::PyIpAddress(_pyidaddress) => {}
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
                 for inner in py_iterable {
