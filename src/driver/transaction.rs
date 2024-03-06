@@ -146,29 +146,22 @@ impl RustTransaction {
                 "Transaction is already committed or rolled back".into(),
             ));
         }
-        if parameters.len() == 0 {
+        if parameters.is_empty() {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "No parameters passed to execute_many".into(),
             ));
         }
-        let mut vec_parameters: Vec<Box<dyn ToSql + Sync>> =
-            Vec::with_capacity(parameters[0].len());
         for single_parameters in parameters {
-            for param in single_parameters {
-                vec_parameters.push(Box::new(param));
-            }
-
             let statement = db_client_guard.prepare_cached(&querystring).await?;
             db_client_guard
                 .query(
                     &statement,
-                    &*vec_parameters
+                    &single_parameters
                         .iter()
-                        .map(|p| &**p as &(dyn ToSql + Sync))
+                        .map(|p| p as &(dyn ToSql + Sync))
                         .collect::<Vec<_>>(),
                 )
                 .await?;
-            vec_parameters.clear()
         }
 
         Ok(())
