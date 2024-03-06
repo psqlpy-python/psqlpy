@@ -71,6 +71,7 @@ impl PythonDTO {
             PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
+            PythonDTO::PyIpAddress(_) => Ok(tokio_postgres::types::Type::INET_ARRAY),
             PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
@@ -416,6 +417,8 @@ pub fn postgres_to_py(
                 None => Ok(py.None()),
             }
         }
+        // ---------- IpAddress Types ----------
+        Type::INET => Ok(row.try_get::<_, Option<IpAddr>>(column_i)?.to_object(py)),
         // ---------- Array Text Types ----------
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
@@ -462,6 +465,10 @@ pub fn postgres_to_py(
             }
             None => Ok(py.None().to_object(py)),
         },
+        // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
+        Type::INET_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<IpAddr>>>(column_i)?
+            .to_object(py)),
         Type::JSONB | Type::JSON => {
             let db_json = row.try_get::<_, Option<Value>>(column_i)?;
 
