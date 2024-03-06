@@ -1,6 +1,6 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use serde_json::{json, Map, Value};
-use std::fmt::Debug;
+use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -45,6 +45,7 @@ pub enum PythonDTO {
     PyTime(NaiveTime),
     PyDateTime(NaiveDateTime),
     PyDateTimeTz(DateTime<FixedOffset>),
+    PyIpAddress(IpAddr),
     PyList(Vec<PythonDTO>),
     PyTuple(Vec<PythonDTO>),
     PyJson(Value),
@@ -70,6 +71,7 @@ impl PythonDTO {
             PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
+            PythonDTO::PyIpAddress(_) => Ok(tokio_postgres::types::Type::INET_ARRAY),
             PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
@@ -174,6 +176,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyDateTimeTz(pydatetime_tz) => {
                 <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
+            }
+            PythonDTO::PyIpAddress(pyidaddress) => {
+                <&IpAddr as ToSql>::to_sql(&pyidaddress, ty, out)?;
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
@@ -343,6 +348,10 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
         ));
     }
 
+    if let Ok(id_address) = parameter.extract::<IpAddr>() {
+        return Ok(PythonDTO::PyIpAddress(id_address));
+    }
+
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
         "Can not covert you type {parameter} into inner one",
     )))
@@ -408,6 +417,8 @@ pub fn postgres_to_py(
                 None => Ok(py.None()),
             }
         }
+        // ---------- IpAddress Types ----------
+        Type::INET => Ok(row.try_get::<_, Option<IpAddr>>(column_i)?.to_object(py)),
         // ---------- Array Text Types ----------
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(row
@@ -454,6 +465,10 @@ pub fn postgres_to_py(
             }
             None => Ok(py.None().to_object(py)),
         },
+        // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
+        Type::INET_ARRAY => Ok(row
+            .try_get::<_, Option<Vec<IpAddr>>>(column_i)?
+            .to_object(py)),
         Type::JSONB | Type::JSON => {
             let db_json = row.try_get::<_, Option<Value>>(column_i)?;
 
