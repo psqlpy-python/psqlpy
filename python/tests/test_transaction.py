@@ -211,6 +211,7 @@ async def test_transaction_cursor(
         [[1, "name1"], [2, "name2"]],
         [[10, "name1"], [20, "name2"], [30, "name3"]],
         [[1, "name1"]],
+        [],
     ],
 )
 async def test_transaction_execute_many(
