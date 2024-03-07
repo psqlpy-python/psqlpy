@@ -2,8 +2,9 @@ import pytest
 
 from psqlpy import Connection, ConnRecyclingMethod, PSQLPool, QueryResult
 
+pytestmark = pytest.mark.anyio
 
-@pytest.mark.anyio()
+
 async def test_pool_dsn_startup() -> None:
     """Test that connection pool can startup with dsn."""
     pg_pool = PSQLPool(
@@ -14,7 +15,6 @@ async def test_pool_dsn_startup() -> None:
     await pg_pool.execute("SELECT 1")
 
 
-@pytest.mark.anyio()
 async def test_pool_execute(
     psql_pool: PSQLPool,
     table_name: str,
@@ -32,7 +32,6 @@ async def test_pool_execute(
     assert len(inner_result) == number_database_records
 
 
-@pytest.mark.anyio()
 async def test_pool_connection(
     psql_pool: PSQLPool,
 ) -> None:
@@ -41,7 +40,6 @@ async def test_pool_connection(
     assert isinstance(connection, Connection)
 
 
-@pytest.mark.anyio()
 @pytest.mark.parametrize(
     "conn_recycling_method",
     [
