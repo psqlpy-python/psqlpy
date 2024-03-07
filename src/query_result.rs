@@ -72,14 +72,13 @@ impl PSQLDriverSinglePyQueryResult {
     /// postgres type to python or set new key-value pair
     /// in python dict.
     pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let python_dict = PyDict::new(py);
         if let Some(row) = self.inner.first() {
-            let python_dict = PyDict::new(py);
             for (column_idx, column) in row.columns().iter().enumerate() {
                 let python_type = postgres_to_py(py, row, column, column_idx)?;
                 python_dict.set_item(column.name().to_object(py), python_type)?;
             }
-            return Ok(python_dict.to_object(py));
         }
-        return Ok(PyDict::new(py).to_object(py));
+        Ok(python_dict.to_object(py))
     }
 }
