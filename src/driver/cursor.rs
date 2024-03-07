@@ -58,7 +58,10 @@ impl Cursor {
                 .await?;
 
             if result.is_empty() {
-                return Err(PyStopAsyncIteration::new_err("Error").into());
+                return Err(PyStopAsyncIteration::new_err(
+                    "Iteration is over, no more results in cursor",
+                )
+                .into());
             };
 
             Ok(PSQLDriverPyQueryResult::new(result))

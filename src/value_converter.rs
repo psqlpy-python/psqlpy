@@ -483,7 +483,7 @@ pub fn postgres_to_py(
     }
 }
 
-/// Convert python List of Dict type in serde `Value`.
+/// Convert python List of Dict type or just Dict in serde `Value`.
 ///
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
