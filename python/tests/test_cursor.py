@@ -2,8 +2,9 @@ import pytest
 
 from psqlpy import Cursor
 
+pytestmark = pytest.mark.anyio
 
-@pytest.mark.anyio()
+
 async def test_cursor_fetch(
     number_database_records: int,
     test_cursor: Cursor,
@@ -13,7 +14,6 @@ async def test_cursor_fetch(
     assert len(result.result()) == number_database_records // 2
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_next(
     test_cursor: Cursor,
 ) -> None:
@@ -22,7 +22,6 @@ async def test_cursor_fetch_next(
     assert len(result.result()) == 1
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_prior(
     test_cursor: Cursor,
 ) -> None:
@@ -35,7 +34,6 @@ async def test_cursor_fetch_prior(
     assert len(result.result()) == 1
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_first(
     test_cursor: Cursor,
 ) -> None:
@@ -49,7 +47,6 @@ async def test_cursor_fetch_first(
     assert fetch_first.result() == first.result()
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_last(
     test_cursor: Cursor,
     number_database_records: int,
@@ -64,7 +61,6 @@ async def test_cursor_fetch_last(
     assert all_res.result()[-1] == last_res.result()[0]
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_absolute(
     test_cursor: Cursor,
     number_database_records: int,
@@ -85,7 +81,6 @@ async def test_cursor_fetch_absolute(
     assert all_res.result()[-1] == last_record.result()[0]
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_relative(
     test_cursor: Cursor,
     number_database_records: int,
@@ -107,7 +102,6 @@ async def test_cursor_fetch_relative(
     assert not (records.result())
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_forward_all(
     test_cursor: Cursor,
     number_database_records: int,
@@ -124,7 +118,6 @@ async def test_cursor_fetch_forward_all(
     )
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_backward(
     test_cursor: Cursor,
 ) -> None:
@@ -142,7 +135,6 @@ async def test_cursor_fetch_backward(
     assert len(must_not_be_empty.result()) == expected_number_of_results
 
 
-@pytest.mark.anyio()
 async def test_cursor_fetch_backward_all(
     test_cursor: Cursor,
 ) -> None:

@@ -264,6 +264,63 @@ async def main() -> None:
     await transaction.rollback()
 ```
 
+### Transaction execute many
+
+You can execute one statement with multiple pararmeters.
+The query will be executed with all parameters or will not be executed at all.
+
+```python
+from typing import Any
+
+from psqlpy import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    connection = await db_pool.connection()
+    transaction = connection.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    await transaction.execute_many(
+        "INSERT INTO users VALUES ($1)",
+        [["first-data"], ["second-data"], ["third-data"]],
+    )
+    await transaction.commit()
+```
+
+### Transaction fetch row
+
+You can fetch first row.
+
+```python
+from typing import Any
+
+from psqlpy import PSQLPool, IsolationLevel
+
+
+db_pool = PSQLPool()
+
+async def main() -> None:
+    await db_pool.startup()
+
+    connection = await db_pool.connection()
+    transaction = connection.transaction(
+        isolation_level=IsolationLevel.Serializable,
+    )
+
+    await transaction.begin()
+    first_row = await transaction.fetch_row(
+        "SELECT * FROM users WHERE user_id = $1",
+        ["user-id"],
+    )
+    first_row_result = first_row.result()  # This will be a dict.
+```
+
 ### Transaction ROLLBACK TO SAVEPOINT
 
 You can rollback your transaction to the specified savepoint, but before it you must create it.
