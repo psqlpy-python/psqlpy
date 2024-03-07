@@ -61,10 +61,9 @@ impl PSQLDriverSinglePyQueryResult {
 
 #[pymethods]
 impl PSQLDriverSinglePyQueryResult {
-    /// Return result as a Python list of dicts.
+    /// Return result as a Python dict.
     ///
-    /// It's a common variant how to return a result for the future
-    /// processing.
+    /// This result is used to return single row.
     ///
     /// # Errors
     ///
