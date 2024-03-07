@@ -234,3 +234,19 @@ async def test_transaction_execute_many(
                 table_name,
                 transaction,
             ) - number_database_records == len(insert_values)
+
+
+async def test_transaction_fetch_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.transaction() as transaction:
+        database_single_query_result: typing.Final = (
+            await transaction.fetch_row(
+                f"SELECT * FROM  {table_name}",
+                [],
+            )
+        )
+        result = database_single_query_result.result()
+        assert isinstance(result, dict)

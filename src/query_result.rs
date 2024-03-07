@@ -43,3 +43,43 @@ impl PSQLDriverPyQueryResult {
         Ok(result.to_object(py))
     }
 }
+
+#[pyclass(name = "SingleQueryResult")]
+#[allow(clippy::module_name_repetitions)]
+pub struct PSQLDriverSinglePyQueryResult {
+    inner: Vec<Row>,
+}
+
+impl PSQLDriverSinglePyQueryResult {
+    #[must_use]
+    pub fn new(database_row: Vec<Row>) -> Self {
+        PSQLDriverSinglePyQueryResult {
+            inner: database_row,
+        }
+    }
+}
+
+#[pymethods]
+impl PSQLDriverSinglePyQueryResult {
+    /// Return result as a Python list of dicts.
+    ///
+    /// It's a common variant how to return a result for the future
+    /// processing.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if can not convert
+    /// postgres type to python or set new key-value pair
+    /// in python dict.
+    pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        if let Some(row) = self.inner.first() {
+            let python_dict = PyDict::new(py);
+            for (column_idx, column) in row.columns().iter().enumerate() {
+                let python_type = postgres_to_py(py, row, column, column_idx)?;
+                python_dict.set_item(column.name().to_object(py), python_type)?;
+            }
+            return Ok(python_dict.to_object(py));
+        }
+        return Ok(PyDict::new(py).to_object(py));
+    }
+}

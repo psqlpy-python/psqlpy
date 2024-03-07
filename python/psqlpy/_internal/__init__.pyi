@@ -10,6 +10,12 @@ class QueryResult:
     def result(self: Self) -> list[dict[Any, Any]]:
         """Return result from database as a list of dicts."""
 
+class SingleQueryResult:
+    """Single result."""
+
+    def result(self: Self) -> dict[Any, Any]:
+        """Return result from database as a dict."""
+
 class IsolationLevel(Enum):
     """Class for Isolation Level for transactions."""
 
@@ -317,6 +323,57 @@ class Transaction:
                     [100],
                 )
                 dict_result: List[Dict[Any, Any]] = query_result.result()
+            # This way transaction begins and commits by itself.
+        ```
+        """
+    async def fetch_row(
+        self: Self,
+        querystring: str,
+        parameters: list[Any] | None = None,
+    ) -> SingleQueryResult:
+        """Execute the query and return first row.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+            await transaction.begin()
+            query_result: SingleQueryResult = await transaction.execute(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
+            dict_result: Dict[Any, Any] = query_result.result()
+            # You must call commit manually
+            await transaction.commit()
+
+        # Or you can transaction as a async context manager
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await psqlpy.startup()
+
+            transaction = await db_pool.transaction()
+            async with transaction:
+                query_result: SingleQueryResult = await transaction.execute(
+                    "SELECT username FROM users WHERE id = $1",
+                    [100],
+                )
+                dict_result: Dict[Any, Any] = query_result.result()
             # This way transaction begins and commits by itself.
         ```
         """
