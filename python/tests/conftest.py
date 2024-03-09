@@ -3,8 +3,24 @@ import random
 from typing import AsyncGenerator
 
 import pytest
+from pydantic import BaseModel
 
 from psqlpy import Cursor, PSQLPool
+
+
+class DefaultPydanticModel(BaseModel):
+    """Validation model for test data based on Pydantic."""
+
+    id: int
+    name: str
+
+
+class DefaultPythonModelClass:
+    """Validation model for test data based on default Python class."""
+
+    def __init__(self, id: int, name: str) -> None:
+        self.id = id
+        self.name = name
 
 
 @pytest.fixture()
