@@ -1,20 +1,101 @@
 import types
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
 
 from typing_extensions import Self
+
+_CustomClass = TypeVar(
+    "_CustomClass",
+)
 
 class QueryResult:
     """Result."""
 
     def result(self: Self) -> list[dict[Any, Any]]:
         """Return result from database as a list of dicts."""
+    def as_class(
+        self: Self,
+        as_class: Callable[..., _CustomClass],
+    ) -> list[_CustomClass]:
+        """Convert results to passed class.
+
+        The main goal of this method is pydantic,
+        msgspec and dataclasses support.
+
+        ### Parameters:
+        - `as_class`: Any callable python class for the results.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        class ExampleOfAsClass:
+            def __init__(self, username: str) -> None:
+                self.username = username
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            query_result: QueryResult = await db_pool.execute(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
+            class_results: List[ExampleOfAsClass] = query_result.as_class(
+                as_class=ExampleOfAsClass,
+            )
+        ```
+        """
 
 class SingleQueryResult:
     """Single result."""
 
     def result(self: Self) -> dict[Any, Any]:
         """Return result from database as a dict."""
+    def as_class(
+        self: Self,
+        as_class: Callable[..., _CustomClass],
+    ) -> list[_CustomClass]:
+        """Convert results to passed class.
+
+        The main goal of this method is pydantic,
+        msgspec and dataclasses support.
+
+        ### Parameters:
+        - `as_class`: Any callable python class for the results.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        class ExampleOfAsClass:
+            def __init__(self, username: str) -> None:
+                self.username = username
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            connection = await db_pool.connection()
+            async with connection.transaction() as trans:
+                query_result: SingleQueryResult = await trans.fetch_row(
+                    "SELECT username FROM users WHERE id = $1",
+                    [100],
+                )
+
+            class_result: ExampleOfAsClass = query_result.as_class(
+                as_class=ExampleOfAsClass,
+            )
+        ```
+        """
 
 class IsolationLevel(Enum):
     """Class for Isolation Level for transactions."""
