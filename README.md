@@ -119,6 +119,40 @@ As connection can be closed in different situations on various sides you can sel
   `DEALLOCATE ALL` and `DISCARD PLAN`, so that the statement cache is not
   rendered ineffective.
 
+## Results from querying
+You have some options to get results from the query.
+`execute()` method, for example, returns `QueryResult` and this class can be converted into `list` of `dict`s - `list[dict[Any, Any]]` or into any Python class (`pydantic` model, as an example).
+
+Let's see some code:
+```python
+from typing import Any
+
+from pydantic import BaseModel
+from psqlpy import PSQLPool, QueryResult
+
+
+class ExampleModel(BaseModel):
+    id: int
+    username: str
+
+
+db_pool = PSQLPool(
+    dsn="postgres://postgres:postgres@localhost:5432/postgres",
+    max_db_pool_size=2,
+)
+
+async def main() -> None:
+    await db_pool.startup()
+
+    res: QueryResult = await db_pool.execute(
+        "SELECT * FROM users",
+    )
+
+    pydantic_res: list[ExampleModel] = res.as_class(
+        as_class=ExampleModel,
+    )
+```
+
 ## Query parameters
 
 You can pass parameters into queries.
@@ -126,7 +160,7 @@ Parameters can be passed in any `execute` method as the second parameter, it mus
 Any placeholder must be marked with `$< num>`.
 
 ```python
-    res: list[dict[str, Any]] = await db_pool.execute(
+    res: QueryResult = await db_pool.execute(
         "SELECT * FROM users WHERE user_id = $1 AND first_name = $2",
         [100, "RustDriver"],
     )
