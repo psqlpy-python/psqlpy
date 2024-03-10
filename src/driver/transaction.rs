@@ -9,9 +9,10 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 use deadpool_postgres::Object;
+use futures_util::future;
 use pyo3::{
     pyclass, pymethods,
-    types::{PyList, PyString},
+    types::{PyList, PyString, PyTuple},
     Py, PyAny, PyErr, PyObject, PyRef, PyRefMut, Python,
 };
 use std::{collections::HashSet, sync::Arc, vec};
@@ -163,6 +164,7 @@ impl RustTransaction {
 
         Ok(())
     }
+
     /// Fetch single row from query.
     ///
     /// Method doesn't acquire lock on any structure fields.
@@ -213,6 +215,29 @@ impl RustTransaction {
 
         Ok(PSQLDriverSinglePyQueryResult::new(result))
     }
+
+    /// Run many queries as pipeline.
+    ///
+    /// It can boost up querying speed.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if can't join futures or cannot execute
+    /// any of queries.
+    pub async fn inner_pipeline(
+        &self,
+        queries: Vec<(String, Vec<PythonDTO>)>,
+    ) -> RustPSQLDriverPyResult<Vec<PSQLDriverPyQueryResult>> {
+        let mut futures = vec![];
+        for (querystring, params) in queries {
+            let execute_future = self.inner_execute(querystring, params);
+            futures.push(execute_future);
+        }
+
+        let b = future::try_join_all(futures).await?;
+        Ok(b)
+    }
+
     /// Start transaction
     /// Set up isolation level if specified
     /// Set up deferable if specified
@@ -745,6 +770,48 @@ impl Transaction {
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_fetch_row(querystring, params).await
+        })
+    }
+
+    /// Execute querystrings with parameters and return all results.
+    ///
+    /// Create pipeline of queries.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute any of querystring.
+    pub fn pipeline<'a>(
+        &'a self,
+        py: Python<'a>,
+        queries: Option<&'a PyList>,
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
+        let mut processed_queries: Vec<(String, Vec<PythonDTO>)> = vec![];
+        if let Some(queries) = queries {
+            for single_query in queries {
+                let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
+                    RustPSQLDriverError::PyToRustValueConversionError(format!(
+                        "Cannot cast to tuple: {err}",
+                    ))
+                })?;
+                let querystring = query_tuple.get_item(0)?.extract::<String>()?;
+                match query_tuple.get_item(1) {
+                    Ok(params) => {
+                        processed_queries.push((querystring, convert_parameters(params)?));
+                    }
+                    Err(_) => {
+                        processed_queries.push((querystring, vec![]));
+                    }
+                }
+            }
+        }
+
+        let transaction_arc = self.transaction.clone();
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            transaction_guard.inner_pipeline(processed_queries).await
         })
     }
 

@@ -458,6 +458,66 @@ class Transaction:
             # This way transaction begins and commits by itself.
         ```
         """
+    async def pipeline(
+        self,
+        queries: list[tuple[str, list[Any] | None]],
+    ) -> list[QueryResult]:
+        """Execute queries in pipeline.
+
+        Pipelining can improve performance in use cases in which multiple,
+        independent queries need to be executed.
+        In a traditional workflow,
+        each query is sent to the server after the previous query completes.
+        In contrast, pipelining allows the client to send all of the
+        queries to the server up front, minimizing time spent
+        by one side waiting for the other to finish sending data:
+        ```
+                            Sequential                              Pipelined
+        | Client         | Server          |    | Client         | Server          |
+        |----------------|-----------------|    |----------------|-----------------|
+        | send query 1   |                 |    | send query 1   |                 |
+        |                | process query 1 |    | send query 2   | process query 1 |
+        | receive rows 1 |                 |    | send query 3   | process query 2 |
+        | send query 2   |                 |    | receive rows 1 | process query 3 |
+        |                | process query 2 |    | receive rows 2 |                 |
+        | receive rows 2 |                 |    | receive rows 3 |                 |
+        | send query 3   |                 |
+        |                | process query 3 |
+        | receive rows 3 |                 |
+        ```
+        Read more: https://docs.rs/tokio-postgres/latest/tokio_postgres/#pipelining
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+
+            results: list[QueryResult] = await transaction.pipeline(
+                queries=[
+                    (
+                        "SELECT username FROM users WHERE id = $1",
+                        [100],
+                    ),
+                    (
+                        "SELECT some_data FROM profiles",
+                        None,
+                    ),
+                    (
+                        "INSERT INTO users (username, id) VALUES ($1, $2)",
+                        ["PSQLPy", 1],
+                    ),
+                ]
+            )
+
+        ```
+        """  # noqa: E501
     async def savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
