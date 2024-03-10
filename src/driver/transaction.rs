@@ -222,7 +222,8 @@ impl RustTransaction {
     ///
     /// # Errors
     ///
-    /// May return Err Result if
+    /// May return Err Result if can't join futures or cannot execute
+    /// any of queries.
     pub async fn inner_pipeline(
         &self,
         queries: Vec<(String, Vec<PythonDTO>)>,
