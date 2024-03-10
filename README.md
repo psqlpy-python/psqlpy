@@ -355,6 +355,61 @@ async def main() -> None:
     first_row_result = first_row.result()  # This will be a dict.
 ```
 
+### Transaction pipelining
+When you have a lot of independent queries and want to execute them concurrently, you can use `pipeline`.
+Pipelining can improve performance in use cases in which multiple,
+independent queries need to be executed.
+In a traditional workflow,
+each query is sent to the server after the previous query completes.
+In contrast, pipelining allows the client to send all of the queries to the server up front,
+minimizing time spent by one side waiting for the other to finish sending data:
+```
+           Sequential                              Pipelined
+| Client         | Server          |    | Client         | Server          |
+|----------------|-----------------|    |----------------|-----------------|
+| send query 1   |                 |    | send query 1   |                 |
+|                | process query 1 |    | send query 2   | process query 1 |
+| receive rows 1 |                 |    | send query 3   | process query 2 |
+| send query 2   |                 |    | receive rows 1 | process query 3 |
+|                | process query 2 |    | receive rows 2 |                 |
+| receive rows 2 |                 |    | receive rows 3 |                 |
+| send query 3   |                 |
+|                | process query 3 |
+| receive rows 3 |                 |
+```
+Read more: https://docs.rs/tokio-postgres/latest/tokio_postgres/#pipelining
+
+Let's see some code:
+```python
+import asyncio
+
+from psqlpy import PSQLPool, QueryResult
+
+
+async def main() -> None:
+    db_pool = PSQLPool()
+    await db_pool.startup()
+
+    transaction = await db_pool.transaction()
+
+    results: list[QueryResult] = await transaction.pipeline(
+        queries=[
+            (
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            ),
+            (
+                "SELECT some_data FROM profiles",
+                None,
+            ),
+            (
+                "INSERT INTO users (username, id) VALUES ($1, $2)",
+                ["PSQLPy", 1],
+            ),
+        ]
+    )
+```
+
 ### Transaction ROLLBACK TO SAVEPOINT
 
 You can rollback your transaction to the specified savepoint, but before it you must create it.
