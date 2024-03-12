@@ -1,10 +1,7 @@
 use pyo3::{pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
-use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    value_converter::postgres_to_py,
-};
+use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};
 
 /// Convert postgres `Row` into Python Dict.
 ///
@@ -82,15 +79,19 @@ impl PSQLDriverPyQueryResult {
 #[pyclass(name = "SingleQueryResult")]
 #[allow(clippy::module_name_repetitions)]
 pub struct PSQLDriverSinglePyQueryResult {
-    inner: Vec<Row>,
+    inner: Row,
 }
 
 impl PSQLDriverSinglePyQueryResult {
     #[must_use]
-    pub fn new(database_row: Vec<Row>) -> Self {
+    pub fn new(database_row: Row) -> Self {
         PSQLDriverSinglePyQueryResult {
             inner: database_row,
         }
+    }
+
+    pub fn get_inner(self) -> Row {
+        self.inner
     }
 }
 
@@ -106,12 +107,7 @@ impl PSQLDriverSinglePyQueryResult {
     /// postgres type to python, can not set new key-value pair
     /// in python dict or there are no result.
     pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        if let Some(row) = self.inner.first() {
-            return Ok(row_to_dict(py, row)?.to_object(py));
-        }
-        Err(RustPSQLDriverError::RustToPyValueConversionError(
-            "There are not results from the query, can't return first row.".into(),
-        ))
+        Ok(row_to_dict(py, &self.inner)?.to_object(py))
     }
 
     /// Convert result from database to any class passed from Python.
@@ -126,12 +122,7 @@ impl PSQLDriverSinglePyQueryResult {
         py: Python<'a>,
         as_class: &'a PyAny,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        if let Some(row) = self.inner.first() {
-            let pydict: &PyDict = row_to_dict(py, row)?;
-            return Ok(as_class.call((), Some(pydict))?);
-        }
-        Err(RustPSQLDriverError::RustToPyValueConversionError(
-            "There are not results from the query, can't convert first row.".into(),
-        ))
+        let pydict: &PyDict = row_to_dict(py, &self.inner)?;
+        Ok(as_class.call((), Some(pydict))?)
     }
 }

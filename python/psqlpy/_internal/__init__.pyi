@@ -160,6 +160,15 @@ class Cursor:
     It can be used as an asynchronous iterator.
     """
 
+    def __aiter__(self: Self) -> Self: ...
+    async def __anext__(self: Self) -> QueryResult: ...
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
     async def start(self: Self) -> None:
         """Start the cursor.
 
@@ -277,8 +286,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-    def __aiter__(self: Self) -> Self: ...
-    async def __anext__(self: Self) -> QueryResult: ...
 
 class Transaction:
     """Single connection for executing queries.
@@ -345,21 +352,6 @@ class Transaction:
             dict_result: List[Dict[Any, Any]] = query_result.result()
             # You must call commit manually
             await transaction.commit()
-
-        # Or you can transaction as a async context manager
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            await psqlpy.startup()
-
-            connection = await db_pool.connection()
-            async with connection.transaction() as transaction:
-                query_result: QueryResult = await transaction.execute(
-                    "SELECT username FROM users WHERE id = $1",
-                    [100],
-                )
-                dict_result: List[Dict[Any, Any]] = query_result.result()
-            # This way transaction begins and commits by itself.
         ```
         """
     async def execute_many(
@@ -397,20 +389,6 @@ class Transaction:
             dict_result: List[Dict[Any, Any]] = query_result.result()
             # You must call commit manually
             await transaction.commit()
-
-        # Or you can transaction as a async context manager
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            await psqlpy.startup()
-
-            connection = await db_pool.connection()
-            async with connection.transaction() as transaction:
-                await transaction.execute_many(
-                    "INSERT INTO users (name, age) VALUES ($1, $2)",
-                    [["boba", 10], ["boba", 20]],
-                )
-            # This way transaction begins and commits by itself.
         ```
         """
     async def fetch_row(
@@ -418,10 +396,12 @@ class Transaction:
         querystring: str,
         parameters: list[Any] | None = None,
     ) -> SingleQueryResult:
-        """Execute the query and return first row.
+        """Fetch exaclty single row from query.
 
+        Query must return exactly one row, otherwise error will be raised.
         Querystring can contain `$<number>` parameters
         for converting them in the driver side.
+
 
         ### Parameters:
         - `querystring`: querystring to execute.
@@ -448,21 +428,40 @@ class Transaction:
             dict_result: Dict[Any, Any] = query_result.result()
             # You must call commit manually
             await transaction.commit()
+        ```
+        """
+    async def fetch_val(
+        self: Self,
+        querystring: str,
+        parameters: list[Any] | None = None,
+    ) -> Any | None:
+        """Execute the query and return first value of the first row.
 
-        # Or you can transaction as a async context manager
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await psqlpy.startup()
+            await db_pool.startup()
 
             connection = await db_pool.connection()
-            async with connection.transaction() as transaction:
-                query_result: SingleQueryResult = await transaction.fetch_row(
-                    "SELECT username FROM users WHERE id = $1",
-                    [100],
-                )
-                dict_result: Dict[Any, Any] = query_result.result()
-            # This way transaction begins and commits by itself.
+            transaction = connection.transaction()
+            await transaction.begin()
+            value: Any | None = await transaction.execute(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
         ```
         """
     async def pipeline(
@@ -669,15 +668,18 @@ class Transaction:
             connection = await db_pool.connection()
             transaction = await connection.transaction()
 
-            cursor = await transaction.cursor(
+            cursor = transaction.cursor(
                 querystring="SELECT * FROM users WHERE username = $1",
                 parameters=["Some_Username"],
                 fetch_number=5,
             )
+            await cursor.start()
 
             async for fetched_result in cursor:
                 dict_result: List[Dict[Any, Any]] = fetched_result.result()
                 ... # do something with this result.
+
+            await cursor.close()
         ```
         """
 
