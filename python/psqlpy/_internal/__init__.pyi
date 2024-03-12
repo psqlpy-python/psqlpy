@@ -412,10 +412,12 @@ class Transaction:
         querystring: str,
         parameters: list[Any] | None = None,
     ) -> SingleQueryResult:
-        """Execute the query and return first row.
+        """Fetch exaclty single row from query.
 
+        Query must return exactly one row, otherwise error will be raised.
         Querystring can contain `$<number>` parameters
         for converting them in the driver side.
+
 
         ### Parameters:
         - `querystring`: querystring to execute.
@@ -441,6 +443,54 @@ class Transaction:
             dict_result: Dict[Any, Any] = query_result.result()
             # You must call commit manually
             await transaction.commit()
+
+        # Or you can transaction as a async context manager
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await psqlpy.startup()
+
+            transaction = await db_pool.transaction()
+            async with transaction:
+                query_result: SingleQueryResult = await transaction.execute(
+                    "SELECT username FROM users WHERE id = $1 LIMIT 1",
+                    [100],
+                )
+                dict_result: Dict[Any, Any] = query_result.result()
+            # This way transaction begins and commits by itself.
+        ```
+        """
+    async def fetch_val(
+        self: Self,
+        querystring: str,
+        parameters: list[Any] | None = None,
+    ) -> Any | None:
+        """Execute the query and return first value of the first row.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            await db_pool.startup()
+
+            transaction = await db_pool.transaction()
+            await transaction.begin()
+            value: Any | None = await transaction.execute(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
 
         # Or you can transaction as a async context manager
 

@@ -6,7 +6,7 @@ use crate::{
     common::rustengine_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, PythonDTO},
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO},
 };
 use deadpool_postgres::Object;
 use futures_util::future;
@@ -17,6 +17,7 @@ use pyo3::{
 };
 use std::{collections::HashSet, sync::Arc, vec};
 use tokio_postgres::types::ToSql;
+
 /// Transaction for internal use only.
 ///
 /// It is not exposed to python.
@@ -165,7 +166,7 @@ impl RustTransaction {
         Ok(())
     }
 
-    /// Fetch single row from query.
+    /// Fetch exaclty single row from query.
     ///
     /// Method doesn't acquire lock on any structure fields.
     /// It prepares and caches querystring in the inner Object object.
@@ -178,6 +179,7 @@ impl RustTransaction {
     /// 2) Transaction is done already
     /// 3) Can not create/retrieve prepared statement
     /// 4) Can not execute statement
+    /// 5) Query returns more than one row
     pub async fn inner_fetch_row(
         &self,
         querystring: String,
@@ -210,7 +212,7 @@ impl RustTransaction {
         let statement = db_client_guard.prepare_cached(&querystring).await?;
 
         let result = db_client_guard
-            .query(&statement, &vec_parameters.into_boxed_slice())
+            .query_one(&statement, &vec_parameters.into_boxed_slice())
             .await?;
 
         Ok(PSQLDriverSinglePyQueryResult::new(result))
@@ -755,6 +757,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
+    /// 3) Query returns more than one row.
     pub fn fetch_row<'a>(
         &'a self,
         py: Python<'a>,
@@ -770,6 +773,42 @@ impl Transaction {
         rustengine_future(py, async move {
             let transaction_guard = transaction_arc.read().await;
             transaction_guard.inner_fetch_row(querystring, params).await
+        })
+    }
+
+    /// Execute querystring with parameters and return first value in the first row.
+    ///
+    /// It converts incoming parameters to rust readable,
+    /// executes query with them and returns first row of response.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    /// 3) Query returns more than one row
+    pub fn fetch_val<'a>(
+        &'a self,
+        py: Python<'a>,
+        querystring: String,
+        parameters: Option<&'a PyList>,
+    ) -> RustPSQLDriverPyResult<&PyAny> {
+        let transaction_arc = self.transaction.clone();
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+
+        rustengine_future(py, async move {
+            let transaction_guard = transaction_arc.read().await;
+            let first_row = transaction_guard
+                .inner_fetch_row(querystring, params)
+                .await?
+                .get_inner();
+            Python::with_gil(|py| match first_row.columns().first() {
+                Some(first_column) => postgres_to_py(py, &first_row, first_column, 0),
+                None => Ok(py.None()),
+            })
         })
     }
 

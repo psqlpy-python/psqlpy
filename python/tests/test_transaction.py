@@ -244,9 +244,48 @@ async def test_transaction_fetch_row(
     async with connection.transaction() as transaction:
         database_single_query_result: typing.Final = (
             await transaction.fetch_row(
-                f"SELECT * FROM  {table_name}",
+                f"SELECT * FROM  {table_name} LIMIT 1",
                 [],
             )
         )
         result = database_single_query_result.result()
         assert isinstance(result, dict)
+
+
+async def test_transaction_fetch_row_more_than_one_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.transaction() as transaction:
+        with pytest.raises(RustPSQLDriverPyBaseError):
+            await transaction.fetch_row(
+                f"SELECT * FROM  {table_name}",
+                [],
+            )
+
+
+async def test_transaction_fetch_val(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.transaction() as transaction:
+        value: typing.Final = await transaction.fetch_val(
+            f"SELECT COUNT(*) FROM {table_name}",
+            [],
+        )
+        assert isinstance(value, int)
+
+
+async def test_transaction_fetch_val_more_than_one_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.transaction() as transaction:
+        with pytest.raises(RustPSQLDriverPyBaseError):
+            await transaction.fetch_row(
+                f"SELECT * FROM  {table_name}",
+                [],
+            )
