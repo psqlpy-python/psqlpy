@@ -200,7 +200,7 @@ async def test_transaction_cursor(
     """Test that transaction can create cursor."""
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        cursor = await transaction.cursor(f"SELECT * FROM {table_name}")
+        cursor = transaction.cursor(f"SELECT * FROM {table_name}")
 
         assert isinstance(cursor, Cursor)
 

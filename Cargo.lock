@@ -670,6 +670,7 @@ dependencies = [
  "chrono-tz",
  "deadpool-postgres",
  "futures-util",
+ "num-traits",
  "postgres-protocol",
  "pyo3",
  "pyo3-asyncio",

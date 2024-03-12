@@ -160,6 +160,16 @@ class Cursor:
     It can be used as an asynchronous iterator.
     """
 
+    async def start(self: Self) -> None:
+        """Start the cursor.
+
+        Execute DECLARE command for the cursor.
+        """
+    async def close(self: Self) -> None:
+        """Close the cursor.
+
+        Execute CLOSE command for the cursor.
+        """
     async def fetch(
         self: Self,
         fetch_number: int | None = None,
@@ -267,11 +277,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-    async def close(self: Self) -> None:
-        """Close the cursor.
-
-        Execute CLOSE command for the cursor.
-        """
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> QueryResult: ...
 
@@ -330,7 +335,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
             await transaction.begin()
             query_result: QueryResult = await transaction.execute(
                 "SELECT username FROM users WHERE id = $1",
@@ -346,8 +352,8 @@ class Transaction:
             db_pool = PSQLPool()
             await psqlpy.startup()
 
-            transaction = await db_pool.transaction()
-            async with transaction:
+            connection = await db_pool.connection()
+            async with connection.transaction() as transaction:
                 query_result: QueryResult = await transaction.execute(
                     "SELECT username FROM users WHERE id = $1",
                     [100],
@@ -381,7 +387,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
             await transaction.begin()
             query_result: QueryResult = await transaction.execute_many(
                 "INSERT INTO users (name, age) VALUES ($1, $2)",
@@ -397,13 +404,12 @@ class Transaction:
             db_pool = PSQLPool()
             await psqlpy.startup()
 
-            transaction = await db_pool.transaction()
-            async with transaction:
-                query_result: QueryResult = await transaction.execute(
-                    "SELECT username FROM users WHERE id = $1",
-                    [100],
+            connection = await db_pool.connection()
+            async with connection.transaction() as transaction:
+                await transaction.execute_many(
+                    "INSERT INTO users (name, age) VALUES ($1, $2)",
+                    [["boba", 10], ["boba", 20]],
                 )
-                dict_result: List[Dict[Any, Any]] = query_result.result()
             # This way transaction begins and commits by itself.
         ```
         """
@@ -432,9 +438,10 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
             await transaction.begin()
-            query_result: SingleQueryResult = await transaction.execute(
+            query_result: SingleQueryResult = await transaction.fetch_row(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
             )
@@ -448,9 +455,9 @@ class Transaction:
             db_pool = PSQLPool()
             await psqlpy.startup()
 
-            transaction = await db_pool.transaction()
-            async with transaction:
-                query_result: SingleQueryResult = await transaction.execute(
+            connection = await db_pool.connection()
+            async with connection.transaction() as transaction:
+                query_result: SingleQueryResult = await transaction.fetch_row(
                     "SELECT username FROM users WHERE id = $1",
                     [100],
                 )
@@ -497,7 +504,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
 
             results: list[QueryResult] = await transaction.pipeline(
                 queries=[
@@ -541,7 +549,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
 
             await transaction.savepoint("my_savepoint")
             await transaction.execute(...)
@@ -565,7 +574,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
             await transaction.execute(...)
             await transaction.rollback()
         ```
@@ -590,7 +600,8 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
 
             await transaction.savepoint("my_savepoint")
             await transaction.execute(...)
@@ -617,13 +628,14 @@ class Transaction:
             db_pool = PSQLPool()
             await db_pool.startup()
 
-            transaction = await db_pool.transaction()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
 
             await transaction.savepoint("my_savepoint")
             await transaction.release_savepoint
         ```
         """
-    async def cursor(
+    def cursor(
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
@@ -722,6 +734,7 @@ class Connection:
         ### Parameters:
         - `isolation_level`: configure isolation level of the transaction.
         - `read_variant`: configure read variant of the transaction.
+        - `deferrable`: configure deferrable of the transaction.
         """
 
 class PSQLPool:
@@ -792,7 +805,7 @@ class PSQLPool:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await psqlpy.startup()
+            await db_pool.startup()
             query_result: QueryResult = await psqlpy.execute(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
