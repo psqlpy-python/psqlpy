@@ -623,12 +623,13 @@ impl RustTransaction {
 
 #[pyclass()]
 pub struct Transaction {
-    transaction: Arc<tokio::sync::RwLock<RustTransaction>>,
+    transaction: Arc<RustTransaction>,
     cursor_num: usize,
 }
 
 impl Transaction {
-    pub fn new(transaction: Arc<tokio::sync::RwLock<RustTransaction>>, cursor_num: usize) -> Self {
+    #[must_use]
+    pub fn new(transaction: Arc<RustTransaction>, cursor_num: usize) -> Self {
         Transaction {
             transaction,
             cursor_num,
@@ -679,8 +680,7 @@ impl Transaction {
         let transaction_arc2 = slf.transaction.clone();
         let cursor_num = slf.cursor_num;
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_begin().await?;
+            transaction_arc.inner_begin().await?;
             Ok(Transaction {
                 transaction: transaction_arc2,
                 cursor_num,
@@ -703,15 +703,14 @@ impl Transaction {
         let cursor_num = slf.cursor_num;
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
             if is_no_exc {
-                transaction_guard.inner_commit().await?;
+                transaction_arc.inner_commit().await?;
                 Ok(Transaction {
                     transaction: transaction_arc2,
                     cursor_num,
                 })
             } else {
-                transaction_guard.inner_rollback().await?;
+                transaction_arc.inner_rollback().await?;
                 Err(RustPSQLDriverError::PyError(py_err))
             }
         })
@@ -740,8 +739,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_execute(querystring, params).await
+            transaction_arc.inner_execute(querystring, params).await
         })
     }
 
@@ -770,8 +768,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard
+            transaction_arc
                 .inner_execute_many(querystring, params)
                 .await
         })
@@ -800,8 +797,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_fetch_row(querystring, params).await
+            transaction_arc.inner_fetch_row(querystring, params).await
         })
     }
 
@@ -829,8 +825,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            let first_row = transaction_guard
+            let first_row = transaction_arc
                 .inner_fetch_row(querystring, params)
                 .await?
                 .get_inner();
@@ -878,8 +873,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_pipeline(processed_queries).await
+            transaction_arc.inner_pipeline(processed_queries).await
         })
     }
 
@@ -891,8 +885,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_begin().await?;
+            transaction_arc.inner_begin().await?;
 
             Ok(())
         })
@@ -906,8 +899,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_commit().await?;
+            transaction_arc.inner_commit().await?;
 
             Ok(())
         })
@@ -936,8 +928,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_savepoint(py_string).await?;
+            transaction_arc.inner_savepoint(py_string).await?;
 
             Ok(())
         })
@@ -951,8 +942,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_rollback().await?;
+            transaction_arc.inner_rollback().await?;
 
             Ok(())
         })
@@ -981,8 +971,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_rollback_to(py_string).await?;
+            transaction_arc.inner_rollback_to(py_string).await?;
 
             Ok(())
         })
@@ -1011,9 +1000,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_release_savepoint(py_string).await?;
-
+            transaction_arc.inner_release_savepoint(py_string).await?;
             Ok(())
         })
     }

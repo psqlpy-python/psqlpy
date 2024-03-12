@@ -78,9 +78,6 @@ impl Connection {
             deferrable,
         );
 
-        Transaction::new(
-            Arc::new(tokio::sync::RwLock::new(inner_transaction)),
-            Default::default(),
-        )
+        Transaction::new(Arc::new(inner_transaction), Default::default())
     }
 }

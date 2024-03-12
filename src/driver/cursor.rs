@@ -18,7 +18,7 @@ use super::transaction::RustTransaction;
 pub struct InnerCursor {
     querystring: String,
     parameters: Vec<PythonDTO>,
-    db_client: Arc<tokio::sync::RwLock<RustTransaction>>,
+    db_transaction: Arc<RustTransaction>,
     cursor_name: String,
     fetch_number: usize,
     scroll: Option<bool>,
@@ -27,8 +27,9 @@ pub struct InnerCursor {
 }
 
 impl InnerCursor {
+    #[must_use]
     pub fn new(
-        db_client: Arc<tokio::sync::RwLock<RustTransaction>>,
+        db_transaction: Arc<RustTransaction>,
         querystring: String,
         parameters: Vec<PythonDTO>,
         cursor_name: String,
@@ -38,7 +39,7 @@ impl InnerCursor {
         InnerCursor {
             querystring,
             parameters,
-            db_client,
+            db_transaction,
             cursor_name,
             fetch_number,
             scroll,
@@ -54,8 +55,7 @@ impl InnerCursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub async fn inner_start(&mut self) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
+        let db_transaction_arc = self.db_transaction.clone();
 
         let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
             Vec::with_capacity(self.parameters.len());
@@ -74,7 +74,7 @@ impl InnerCursor {
 
         cursor_init_query.push_str(format!(" CURSOR FOR {}", self.querystring).as_str());
 
-        db_client_guard
+        db_transaction_arc
             .inner_execute(cursor_init_query, &self.parameters)
             .await?;
 
@@ -89,8 +89,7 @@ impl InnerCursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub async fn inner_close(&mut self) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
+        let db_transaction_arc = self.db_transaction.clone();
 
         if self.closed {
             return Err(RustPSQLDriverError::DBCursorError(
@@ -98,7 +97,7 @@ impl InnerCursor {
             ));
         }
 
-        db_client_guard
+        db_transaction_arc
             .inner_execute(format!("CLOSE {}", self.cursor_name), vec![])
             .await?;
 
@@ -113,8 +112,7 @@ impl InnerCursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub async fn inner_execute(&self, querystring: String) -> RustPSQLDriverPyResult<Vec<Row>> {
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
+        let db_transaction_arc = self.db_transaction.clone();
 
         if !self.is_started {
             return Err(RustPSQLDriverError::DBCursorError(
@@ -122,7 +120,7 @@ impl InnerCursor {
             ));
         }
 
-        let result = db_client_guard
+        let result = db_transaction_arc
             .inner_execute_raw(querystring, vec![])
             .await?;
 
