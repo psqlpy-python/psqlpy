@@ -18,7 +18,7 @@ use super::transaction::RustTransaction;
 pub struct InnerCursor {
     querystring: String,
     parameters: Vec<PythonDTO>,
-    db_transaction: Arc<RustTransaction>,
+    db_transaction: Arc<tokio::sync::RwLock<RustTransaction>>,
     cursor_name: String,
     fetch_number: usize,
     scroll: Option<bool>,
@@ -29,7 +29,7 @@ pub struct InnerCursor {
 impl InnerCursor {
     #[must_use]
     pub fn new(
-        db_transaction: Arc<RustTransaction>,
+        db_transaction: Arc<tokio::sync::RwLock<RustTransaction>>,
         querystring: String,
         parameters: Vec<PythonDTO>,
         cursor_name: String,
@@ -75,6 +75,8 @@ impl InnerCursor {
         cursor_init_query.push_str(format!(" CURSOR FOR {}", self.querystring).as_str());
 
         db_transaction_arc
+            .read()
+            .await
             .inner_execute(cursor_init_query, &self.parameters)
             .await?;
 
@@ -98,6 +100,8 @@ impl InnerCursor {
         }
 
         db_transaction_arc
+            .read()
+            .await
             .inner_execute(format!("CLOSE {}", self.cursor_name), vec![])
             .await?;
 
@@ -121,6 +125,8 @@ impl InnerCursor {
         }
 
         let result = db_transaction_arc
+            .read()
+            .await
             .inner_execute_raw(querystring, vec![])
             .await?;
 
