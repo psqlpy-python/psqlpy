@@ -62,15 +62,18 @@ impl RustConnection {
     ) -> Transaction {
         let inner_transaction = RustTransaction::new(
             self.db_client.clone(),
-            Arc::new(tokio::sync::RwLock::new(false)),
-            Arc::new(tokio::sync::RwLock::new(false)),
+            false,
+            false,
             Arc::new(tokio::sync::RwLock::new(HashSet::new())),
             isolation_level,
             read_variant,
             deferrable,
         );
 
-        Transaction::new(Arc::new(inner_transaction), Default::default())
+        Transaction::new(
+            Arc::new(tokio::sync::RwLock::new(inner_transaction)),
+            Default::default(),
+        )
     }
 }
 

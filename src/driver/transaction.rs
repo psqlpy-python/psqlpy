@@ -16,6 +16,7 @@ use pyo3::{
     Py, PyAny, PyErr, PyObject, PyRef, PyRefMut, Python,
 };
 use std::{collections::HashSet, sync::Arc, vec};
+use tokio::sync::RwLock;
 use tokio_postgres::{types::ToSql, Row};
 
 /// Transaction for internal use only.
@@ -24,8 +25,8 @@ use tokio_postgres::{types::ToSql, Row};
 #[allow(clippy::module_name_repetitions)]
 pub struct RustTransaction {
     pub db_client: Arc<Object>,
-    is_started: Arc<tokio::sync::RwLock<bool>>,
-    is_done: Arc<tokio::sync::RwLock<bool>>,
+    is_started: bool,
+    is_done: bool,
     rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
 
     isolation_level: Option<IsolationLevel>,
@@ -37,8 +38,8 @@ impl RustTransaction {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db_client: Arc<Object>,
-        is_started: Arc<tokio::sync::RwLock<bool>>,
-        is_done: Arc<tokio::sync::RwLock<bool>>,
+        is_started: bool,
+        is_done: bool,
         rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
@@ -76,17 +77,12 @@ impl RustTransaction {
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
     {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-        let is_started_guard = is_started_arc.read().await;
-        let is_done_guard = is_done_arc.read().await;
-
-        if !*is_started_guard {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
-        if *is_done_guard {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -131,17 +127,12 @@ impl RustTransaction {
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
     {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-        let is_started_guard = is_started_arc.read().await;
-        let is_done_guard = is_done_arc.read().await;
-
-        if !*is_started_guard {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
-        if *is_done_guard {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -181,17 +172,12 @@ impl RustTransaction {
         querystring: String,
         parameters: Vec<Vec<PythonDTO>>,
     ) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-        let is_started_guard = is_started_arc.read().await;
-        let is_done_guard = is_done_arc.read().await;
-
-        if !*is_started_guard {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
-        if *is_done_guard {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -236,17 +222,12 @@ impl RustTransaction {
         querystring: String,
         parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-        let is_started_guard = is_started_arc.read().await;
-        let is_done_guard = is_done_arc.read().await;
-
-        if !*is_started_guard {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is not started, please call begin() on transaction".into(),
             ));
         }
-        if *is_done_guard {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -330,33 +311,21 @@ impl RustTransaction {
     /// 1) Transaction is already started.
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
-    pub async fn inner_begin(&self) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if started {
+    pub async fn inner_begin(&mut self) -> RustPSQLDriverPyResult<()> {
+        if self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already started".into(),
             ));
         }
 
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
 
         self.start_transaction().await?;
-        let mut is_started_write_guard = is_started_arc.write().await;
-        *is_started_write_guard = true;
+        self.is_started = true;
 
         Ok(())
     }
@@ -371,32 +340,20 @@ impl RustTransaction {
     /// 1) Transaction is not started
     /// 2) Transaction is done
     /// 3) Cannot execute `COMMIT` command
-    pub async fn inner_commit(&self) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if !started {
+    pub async fn inner_commit(&mut self) -> RustPSQLDriverPyResult<()> {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         }
 
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
         self.db_client.batch_execute("COMMIT;").await?;
-        let mut is_done_write_guard = is_done_arc.write().await;
-        *is_done_write_guard = true;
+        self.is_done = true;
 
         Ok(())
     }
@@ -413,24 +370,13 @@ impl RustTransaction {
     /// 3) Specified savepoint name is exists
     /// 4) Can not execute SAVEPOINT command
     pub async fn inner_savepoint(&self, savepoint_name: String) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if !started {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         }
 
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -463,32 +409,20 @@ impl RustTransaction {
     /// 1) Transaction is not started
     /// 2) Transaction is done
     /// 3) Can not execute ROLLBACK command
-    pub async fn inner_rollback(&self) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let is_done_arc = self.is_done.clone();
-
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if !started {
+    pub async fn inner_rollback(&mut self) -> RustPSQLDriverPyResult<()> {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         };
 
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         };
         self.db_client.batch_execute("ROLLBACK").await?;
-        let mut is_done_write_guard = is_done_arc.write().await;
-        *is_done_write_guard = true;
+        self.is_done = true;
         Ok(())
     }
 
@@ -503,23 +437,12 @@ impl RustTransaction {
     /// 3) Specified savepoint name doesn't exist
     /// 4) Can not execute ROLLBACK TO SAVEPOINT command
     pub async fn inner_rollback_to(&self, rollback_name: String) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if !started {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         };
-
-        let is_done_arc = self.is_done.clone();
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -556,23 +479,12 @@ impl RustTransaction {
         &self,
         rollback_name: String,
     ) -> RustPSQLDriverPyResult<()> {
-        let is_started_arc = self.is_started.clone();
-        let started = {
-            let is_started_guard = is_started_arc.read().await;
-            *is_started_guard
-        };
-        if !started {
+        if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Can not commit not started transaction".into(),
             ));
         };
-
-        let is_done_arc = self.is_done.clone();
-        let done = {
-            let is_done_guard = is_done_arc.read().await;
-            *is_done_guard
-        };
-        if done {
+        if self.is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
@@ -596,13 +508,13 @@ impl RustTransaction {
 
 #[pyclass()]
 pub struct Transaction {
-    transaction: Arc<RustTransaction>,
+    transaction: Arc<RwLock<RustTransaction>>,
     cursor_num: usize,
 }
 
 impl Transaction {
     #[must_use]
-    pub fn new(transaction: Arc<RustTransaction>, cursor_num: usize) -> Self {
+    pub fn new(transaction: Arc<RwLock<RustTransaction>>, cursor_num: usize) -> Self {
         Transaction {
             transaction,
             cursor_num,
@@ -653,7 +565,7 @@ impl Transaction {
         let transaction_arc2 = slf.transaction.clone();
         let cursor_num = slf.cursor_num;
         rustengine_future(py, async move {
-            transaction_arc.inner_begin().await?;
+            transaction_arc.write().await.inner_begin().await?;
             Ok(Transaction {
                 transaction: transaction_arc2,
                 cursor_num,
@@ -676,14 +588,15 @@ impl Transaction {
         let cursor_num = slf.cursor_num;
 
         rustengine_future(py, async move {
+            let mut trasaction_guard = transaction_arc.write().await;
             if is_no_exc {
-                transaction_arc.inner_commit().await?;
+                trasaction_guard.inner_commit().await?;
                 Ok(Transaction {
                     transaction: transaction_arc2,
                     cursor_num,
                 })
             } else {
-                transaction_arc.inner_rollback().await?;
+                trasaction_guard.inner_rollback().await?;
                 Err(RustPSQLDriverError::PyError(py_err))
             }
         })
@@ -712,7 +625,11 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            transaction_arc.inner_execute(querystring, params).await
+            transaction_arc
+                .read()
+                .await
+                .inner_execute(querystring, params)
+                .await
         })
     }
 
@@ -742,6 +659,8 @@ impl Transaction {
 
         rustengine_future(py, async move {
             transaction_arc
+                .read()
+                .await
                 .inner_execute_many(querystring, params)
                 .await
         })
@@ -770,7 +689,11 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            transaction_arc.inner_fetch_row(querystring, params).await
+            transaction_arc
+                .read()
+                .await
+                .inner_fetch_row(querystring, params)
+                .await
         })
     }
 
@@ -799,6 +722,8 @@ impl Transaction {
 
         rustengine_future(py, async move {
             let first_row = transaction_arc
+                .read()
+                .await
                 .inner_fetch_row(querystring, params)
                 .await?
                 .get_inner();
@@ -846,7 +771,11 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_pipeline(processed_queries).await
+            transaction_arc
+                .read()
+                .await
+                .inner_pipeline(processed_queries)
+                .await
         })
     }
 
@@ -858,7 +787,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_begin().await?;
+            transaction_arc.write().await.inner_begin().await?;
 
             Ok(())
         })
@@ -872,7 +801,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_commit().await?;
+            transaction_arc.write().await.inner_commit().await?;
 
             Ok(())
         })
@@ -901,7 +830,11 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_savepoint(py_string).await?;
+            transaction_arc
+                .read()
+                .await
+                .inner_savepoint(py_string)
+                .await?;
 
             Ok(())
         })
@@ -915,7 +848,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_rollback().await?;
+            transaction_arc.write().await.inner_rollback().await?;
 
             Ok(())
         })
@@ -944,7 +877,11 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_rollback_to(py_string).await?;
+            transaction_arc
+                .read()
+                .await
+                .inner_rollback_to(py_string)
+                .await?;
 
             Ok(())
         })
@@ -973,7 +910,11 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            transaction_arc.inner_release_savepoint(py_string).await?;
+            transaction_arc
+                .read()
+                .await
+                .inner_release_savepoint(py_string)
+                .await?;
             Ok(())
         })
     }
