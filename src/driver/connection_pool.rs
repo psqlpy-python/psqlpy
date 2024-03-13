@@ -15,7 +15,7 @@ use super::{
     connection::{Connection, RustConnection},
 };
 
-/// `PSQLPool` for internal use only.
+/// `PSQLPool` is for internal use only.
 ///
 /// It is not exposed to python.
 pub struct RustPSQLPool {
@@ -27,7 +27,7 @@ pub struct RustPSQLPool {
     db_name: Option<String>,
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
-    db_pool: Arc<tokio::sync::RwLock<Option<Pool>>>,
+    db_pool: Option<Pool>,
 }
 
 impl RustPSQLPool {
@@ -53,7 +53,7 @@ impl RustPSQLPool {
             db_name,
             max_db_pool_size,
             conn_recycling_method,
-            db_pool: Arc::new(tokio::sync::RwLock::new(None)),
+            db_pool: None,
         }
     }
 }
@@ -64,11 +64,8 @@ impl RustPSQLPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn inner_connection(&self) -> RustPSQLDriverPyResult<Connection> {
-        let db_pool_arc = self.db_pool.clone();
-
-        let db_pool_guard = db_pool_arc.read().await;
-
-        let db_pool_manager = db_pool_guard
+        let db_pool_manager = self
+            .db_pool
             .as_ref()
             .ok_or(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is not initialized".into(),
@@ -92,11 +89,8 @@ impl RustPSQLPool {
         querystring: String,
         parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool_arc = self.db_pool.clone();
-
-        let db_pool_guard = db_pool_arc.read().await;
-
-        let db_pool_manager = db_pool_guard
+        let db_pool_manager = self
+            .db_pool
             .as_ref()
             .ok_or(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is not initialized".into(),
@@ -123,8 +117,7 @@ impl RustPSQLPool {
     /// # Errors
     /// May return Err Result if Database pool is already initialized,
     /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
-    pub async fn inner_startup(&self) -> RustPSQLDriverPyResult<()> {
-        let db_pool_arc = self.db_pool.clone();
+    pub fn inner_startup(&mut self) -> RustPSQLDriverPyResult<()> {
         let dsn = self.dsn.clone();
         let password = self.password.clone();
         let username = self.username.clone();
@@ -134,8 +127,7 @@ impl RustPSQLPool {
         let conn_recycling_method = self.conn_recycling_method;
         let max_db_pool_size = self.max_db_pool_size;
 
-        let mut db_pool_guard = db_pool_arc.write().await;
-        if db_pool_guard.is_some() {
+        if self.db_pool.is_some() {
             return Err(RustPSQLDriverError::DatabasePoolError(
                 "Database pool is already initialized".into(),
             ));
@@ -188,7 +180,7 @@ impl RustPSQLPool {
             db_pool_builder = db_pool_builder.max_size(max_db_pool_size);
         }
 
-        *db_pool_guard = Some(db_pool_builder.build()?);
+        self.db_pool = Some(db_pool_builder.build()?);
         Ok(())
     }
 }
@@ -223,7 +215,7 @@ impl PSQLPool {
                 db_name,
                 max_db_pool_size,
                 conn_recycling_method,
-                db_pool: Arc::new(tokio::sync::RwLock::new(None)),
+                db_pool: None,
             })),
         }
     }
@@ -235,8 +227,8 @@ impl PSQLPool {
     pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
         rustengine_future(py, async move {
-            let db_pool_guard = psql_pool_arc.write().await;
-            db_pool_guard.inner_startup().await?;
+            let mut db_pool_guard = psql_pool_arc.write().await;
+            db_pool_guard.inner_startup()?;
             Ok(())
         })
     }
