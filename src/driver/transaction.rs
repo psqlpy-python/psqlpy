@@ -23,7 +23,7 @@ use tokio_postgres::{types::ToSql, Row};
 /// It is not exposed to python.
 #[allow(clippy::module_name_repetitions)]
 pub struct RustTransaction {
-    pub db_client: Arc<tokio::sync::RwLock<Object>>,
+    pub db_client: Arc<Object>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
     is_done: Arc<tokio::sync::RwLock<bool>>,
     rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
@@ -36,7 +36,7 @@ pub struct RustTransaction {
 impl RustTransaction {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        db_client: Arc<tokio::sync::RwLock<Object>>,
+        db_client: Arc<Object>,
         is_started: Arc<tokio::sync::RwLock<bool>>,
         is_done: Arc<tokio::sync::RwLock<bool>>,
         rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
@@ -76,11 +76,8 @@ impl RustTransaction {
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
     {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
-
-        let db_client_guard = db_client_arc.read().await;
         let is_started_guard = is_started_arc.read().await;
         let is_done_guard = is_done_arc.read().await;
 
@@ -101,9 +98,10 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = db_client_guard.prepare_cached(&querystring).await?;
+        let statement = self.db_client.prepare_cached(&querystring).await?;
 
-        let result = db_client_guard
+        let result = self
+            .db_client
             .query(&statement, &vec_parameters.into_boxed_slice())
             .await?;
 
@@ -133,11 +131,8 @@ impl RustTransaction {
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
     {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
-
-        let db_client_guard = db_client_arc.read().await;
         let is_started_guard = is_started_arc.read().await;
         let is_done_guard = is_done_arc.read().await;
 
@@ -158,9 +153,10 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = db_client_guard.prepare_cached(&querystring).await?;
+        let statement = self.db_client.prepare_cached(&querystring).await?;
 
-        let result = db_client_guard
+        let result = self
+            .db_client
             .query(&statement, &vec_parameters.into_boxed_slice())
             .await?;
 
@@ -185,11 +181,8 @@ impl RustTransaction {
         querystring: String,
         parameters: Vec<Vec<PythonDTO>>,
     ) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
-
-        let db_client_guard = db_client_arc.read().await;
         let is_started_guard = is_started_arc.read().await;
         let is_done_guard = is_done_arc.read().await;
 
@@ -209,8 +202,8 @@ impl RustTransaction {
             ));
         }
         for single_parameters in parameters {
-            let statement = db_client_guard.prepare_cached(&querystring).await?;
-            db_client_guard
+            let statement = self.db_client.prepare_cached(&querystring).await?;
+            self.db_client
                 .query(
                     &statement,
                     &single_parameters
@@ -243,11 +236,8 @@ impl RustTransaction {
         querystring: String,
         parameters: Vec<PythonDTO>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
-
-        let db_client_guard = db_client_arc.read().await;
         let is_started_guard = is_started_arc.read().await;
         let is_done_guard = is_done_arc.read().await;
 
@@ -267,9 +257,10 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = db_client_guard.prepare_cached(&querystring).await?;
+        let statement = self.db_client.prepare_cached(&querystring).await?;
 
-        let result = db_client_guard
+        let result = self
+            .db_client
             .query_one(&statement, &vec_parameters.into_boxed_slice())
             .await?;
 
@@ -324,10 +315,7 @@ impl RustTransaction {
             None => "",
         });
 
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
-
-        db_client_guard.batch_execute(&querystring).await?;
+        self.db_client.batch_execute(&querystring).await?;
 
         Ok(())
     }
@@ -384,7 +372,6 @@ impl RustTransaction {
     /// 2) Transaction is done
     /// 3) Cannot execute `COMMIT` command
     pub async fn inner_commit(&self) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
 
@@ -407,9 +394,7 @@ impl RustTransaction {
                 "Transaction is already committed or rolled back".into(),
             ));
         }
-
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard.batch_execute("COMMIT;").await?;
+        self.db_client.batch_execute("COMMIT;").await?;
         let mut is_done_write_guard = is_done_arc.write().await;
         *is_done_write_guard = true;
 
@@ -428,7 +413,6 @@ impl RustTransaction {
     /// 3) Specified savepoint name is exists
     /// 4) Can not execute SAVEPOINT command
     pub async fn inner_savepoint(&self, savepoint_name: String) -> RustPSQLDriverPyResult<()> {
-        let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
 
@@ -462,9 +446,7 @@ impl RustTransaction {
                 "SAVEPOINT name {savepoint_name} is already taken by this transaction",
             )));
         }
-
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard
+        self.db_client
             .batch_execute(format!("SAVEPOINT {savepoint_name}").as_str())
             .await?;
         let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
@@ -504,10 +486,7 @@ impl RustTransaction {
                 "Transaction is already committed or rolled back".into(),
             ));
         };
-
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard.batch_execute("ROLLBACK").await?;
+        self.db_client.batch_execute("ROLLBACK").await?;
         let mut is_done_write_guard = is_done_arc.write().await;
         *is_done_write_guard = true;
         Ok(())
@@ -556,10 +535,7 @@ impl RustTransaction {
                 "Don't have rollback with this name".into(),
             ));
         }
-
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard
+        self.db_client
             .batch_execute(format!("ROLLBACK TO SAVEPOINT {rollback_name}").as_str())
             .await?;
 
@@ -610,10 +586,7 @@ impl RustTransaction {
                 "Don't have rollback with this name".into(),
             ));
         }
-
-        let db_client_arc = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
-        db_client_guard
+        self.db_client
             .batch_execute(format!("RELEASE SAVEPOINT {rollback_name}").as_str())
             .await?;
 

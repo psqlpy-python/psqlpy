@@ -10,7 +10,10 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::{common_options::ConnRecyclingMethod, connection::Connection};
+use super::{
+    common_options::ConnRecyclingMethod,
+    connection::{Connection, RustConnection},
+};
 
 /// `PSQLPool` is for internal use only.
 ///
@@ -70,9 +73,9 @@ impl RustPSQLPool {
             .get()
             .await?;
 
-        Ok(Connection {
-            db_client: Arc::new(tokio::sync::RwLock::new(db_pool_manager)),
-        })
+        Ok(Connection::new(Arc::new(RustConnection::new(
+            Arc::new(db_pool_manager).clone(),
+        ))))
     }
     /// Execute querystring with parameters.
     ///
