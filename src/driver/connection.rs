@@ -76,11 +76,8 @@ impl Connection {
             isolation_level,
             read_variant,
             deferrable,
-            Default::default(),
         );
 
-        Transaction {
-            transaction: Arc::new(tokio::sync::RwLock::new(inner_transaction)),
-        }
+        Transaction::new(Arc::new(inner_transaction), Default::default())
     }
 }

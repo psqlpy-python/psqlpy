@@ -1,6 +1,8 @@
+import math
+
 import pytest
 
-from psqlpy import Cursor
+from psqlpy import Cursor, PSQLPool, QueryResult, Transaction
 
 pytestmark = pytest.mark.anyio
 
@@ -147,3 +149,25 @@ async def test_cursor_fetch_backward_all(
 
     must_not_be_empty = await test_cursor.fetch_backward_all()
     assert len(must_not_be_empty.result()) == default_fetch_number - 1
+
+
+async def test_cursor_as_async_manager(
+    psql_pool: PSQLPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test cursor async manager and async iterator."""
+    connection = await psql_pool.connection()
+    transaction: Transaction
+    cursor: Cursor
+    all_results: list[QueryResult] = []
+    expected_num_results = math.ceil(number_database_records / 3)
+    fetch_number = 3
+    async with connection.transaction() as transaction, transaction.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+        fetch_number=fetch_number,
+    ) as cursor:
+        async for result in cursor:
+            all_results.append(result)
+
+    assert len(all_results) == expected_num_results

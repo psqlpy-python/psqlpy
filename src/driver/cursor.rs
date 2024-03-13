@@ -1,37 +1,201 @@
-use deadpool_postgres::Object;
-use pyo3::{exceptions::PyStopAsyncIteration, pyclass, pymethods, PyAny, PyObject, PyRef, Python};
+use pyo3::{
+    exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, PyRef,
+    PyRefMut, Python,
+};
 use std::sync::Arc;
+use tokio_postgres::{types::ToSql, Row};
 
 use crate::{
-    common::rustengine_future, exceptions::rust_errors::RustPSQLDriverPyResult,
+    common::rustengine_future,
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
+    value_converter::PythonDTO,
 };
+
+use super::transaction::RustTransaction;
+
+#[allow(clippy::module_name_repetitions)]
+pub struct InnerCursor {
+    querystring: String,
+    parameters: Vec<PythonDTO>,
+    db_transaction: Arc<RustTransaction>,
+    cursor_name: String,
+    fetch_number: usize,
+    scroll: Option<bool>,
+    is_started: bool,
+    closed: bool,
+}
+
+impl InnerCursor {
+    #[must_use]
+    pub fn new(
+        db_transaction: Arc<RustTransaction>,
+        querystring: String,
+        parameters: Vec<PythonDTO>,
+        cursor_name: String,
+        scroll: Option<bool>,
+        fetch_number: usize,
+    ) -> Self {
+        InnerCursor {
+            querystring,
+            parameters,
+            db_transaction,
+            cursor_name,
+            fetch_number,
+            scroll,
+            is_started: false,
+            closed: false,
+        }
+    }
+
+    /// Start the cursor.
+    ///
+    /// It executes DECLARE command to create cursor in the transaction.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn inner_start(&mut self) -> RustPSQLDriverPyResult<()> {
+        let db_transaction_arc = self.db_transaction.clone();
+
+        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
+            Vec::with_capacity(self.parameters.len());
+        for param in &self.parameters {
+            vec_parameters.push(param);
+        }
+
+        let mut cursor_init_query = format!("DECLARE {}", self.cursor_name);
+        if let Some(scroll) = self.scroll {
+            if scroll {
+                cursor_init_query.push_str(" SCROLL");
+            } else {
+                cursor_init_query.push_str(" NO SCROLL");
+            }
+        }
+
+        cursor_init_query.push_str(format!(" CURSOR FOR {}", self.querystring).as_str());
+
+        db_transaction_arc
+            .inner_execute(cursor_init_query, &self.parameters)
+            .await?;
+
+        self.is_started = true;
+        Ok(())
+    }
+
+    /// Close the cursor.
+    ///
+    /// It executes CLOSE command to close cursor in the transaction.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn inner_close(&mut self) -> RustPSQLDriverPyResult<()> {
+        let db_transaction_arc = self.db_transaction.clone();
+
+        if self.closed {
+            return Err(RustPSQLDriverError::DBCursorError(
+                "Cursor is already closed".into(),
+            ));
+        }
+
+        db_transaction_arc
+            .inner_execute(format!("CLOSE {}", self.cursor_name), vec![])
+            .await?;
+
+        self.closed = true;
+        Ok(())
+    }
+
+    /// Execute querystring for cursor.
+    ///
+    /// This is the main method for executing any cursor querystring.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn inner_execute(&self, querystring: String) -> RustPSQLDriverPyResult<Vec<Row>> {
+        let db_transaction_arc = self.db_transaction.clone();
+
+        if !self.is_started {
+            return Err(RustPSQLDriverError::DBCursorError(
+                "Cursor is not opened, please call `start()`.".into(),
+            ));
+        }
+
+        let result = db_transaction_arc
+            .inner_execute_raw(querystring, vec![])
+            .await?;
+
+        Ok(result)
+    }
+}
 
 #[pyclass]
 pub struct Cursor {
-    db_client: Arc<tokio::sync::RwLock<Object>>,
-    cursor_name: String,
-    fetch_number: usize,
-    closed: Arc<tokio::sync::RwLock<bool>>,
+    inner_cursor: Arc<tokio::sync::RwLock<InnerCursor>>,
 }
 
 impl Cursor {
-    pub fn new(
-        db_client: Arc<tokio::sync::RwLock<Object>>,
-        cursor_name: String,
-        fetch_number: usize,
-    ) -> Self {
+    #[must_use]
+    pub fn new(inner_cursor: InnerCursor) -> Self {
         Cursor {
-            db_client,
-            cursor_name,
-            fetch_number,
-            closed: Arc::new(tokio::sync::RwLock::new(false)),
+            inner_cursor: Arc::new(tokio::sync::RwLock::new(inner_cursor)),
         }
     }
 }
 
 #[pymethods]
 impl Cursor {
+    #[allow(clippy::missing_errors_doc)]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn __await__<'a>(
+        slf: PyRefMut<'a, Self>,
+        _py: Python,
+    ) -> RustPSQLDriverPyResult<PyRefMut<'a, Self>> {
+        Ok(slf)
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __aenter__<'a>(
+        slf: PyRefMut<'a, Self>,
+        py: Python<'a>,
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
+        let inner_cursor_arc = slf.inner_cursor.clone();
+        let inner_cursor_arc2 = slf.inner_cursor.clone();
+        rustengine_future(py, async move {
+            let mut inner_cursor_guard = inner_cursor_arc.write().await;
+            inner_cursor_guard.inner_start().await?;
+            Ok(Cursor {
+                inner_cursor: inner_cursor_arc2,
+            })
+        })
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __aexit__<'a>(
+        slf: PyRefMut<'a, Self>,
+        py: Python<'a>,
+        _exception_type: Py<PyAny>,
+        exception: &PyAny,
+        _traceback: Py<PyAny>,
+    ) -> RustPSQLDriverPyResult<&'a PyAny> {
+        let inner_cursor_arc = slf.inner_cursor.clone();
+        let inner_cursor_arc2 = slf.inner_cursor.clone();
+        let is_no_exc = exception.is_none();
+        let py_err = PyErr::from_value(exception);
+
+        rustengine_future(py, async move {
+            let mut inner_cursor_guard = inner_cursor_arc.write().await;
+            if is_no_exc {
+                inner_cursor_guard.inner_close().await?;
+                Ok(Cursor {
+                    inner_cursor: inner_cursor_arc2,
+                })
+            } else {
+                inner_cursor_guard.inner_close().await?;
+                Err(RustPSQLDriverError::PyError(py_err))
+            }
+        })
+    }
+
     #[must_use]
     pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
@@ -44,17 +208,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if can't execute querystring.
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
-        let fetch_number = self.fetch_number;
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         let future = rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH {fetch_number} FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH {} FROM {}",
+                    inner_cursor_guard.fetch_number, inner_cursor_guard.cursor_name,
+                ))
                 .await?;
 
             if result.is_empty() {
@@ -70,6 +232,34 @@ impl Cursor {
         Ok(Some(future?.into()))
     }
 
+    /// Start the cursor.
+    ///
+    /// It executes DECLARE command to create cursor in the transaction.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub fn start<'a>(&'a mut self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
+        let inner_cursor_arc = self.inner_cursor.clone();
+
+        rustengine_future(py, async move {
+            let mut inner_cursor_guard = inner_cursor_arc.write().await;
+            inner_cursor_guard.inner_start().await
+        })
+    }
+
+    /// Close cursor.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute CLOSE command
+    pub fn close<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
+        let inner_cursor_arc = self.inner_cursor.clone();
+
+        rustengine_future(py, async move {
+            let mut inner_cursor_guard = inner_cursor_arc.write().await;
+            inner_cursor_guard.inner_close().await
+        })
+    }
+
     /// Fetch data from cursor.
     ///
     /// It's possible to specify fetch number.
@@ -81,20 +271,19 @@ impl Cursor {
         py: Python<'a>,
         fetch_number: Option<usize>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
-        let fetch_number = match fetch_number {
-            Some(usize) => usize,
-            None => self.fetch_number,
-        };
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH {fetch_number} FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let fetch_number = match fetch_number {
+                Some(usize) => usize,
+                None => inner_cursor_guard.fetch_number,
+            };
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH {fetch_number} FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -107,13 +296,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_next<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(format!("FETCH NEXT FROM {cursor_name}").as_str(), &[])
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH NEXT FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -126,13 +317,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_prior<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(format!("FETCH PRIOR FROM {cursor_name}").as_str(), &[])
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH PRIOR FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -145,13 +338,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_first<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(format!("FETCH FIRST FROM {cursor_name}").as_str(), &[])
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH FIRST FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -164,13 +359,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_last<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(format!("FETCH LAST FROM {cursor_name}").as_str(), &[])
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH LAST FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -187,16 +384,15 @@ impl Cursor {
         py: Python<'a>,
         absolute_number: i64,
     ) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH ABSOLUTE {absolute_number} FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH ABSOLUTE {absolute_number} FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -213,16 +409,15 @@ impl Cursor {
         py: Python<'a>,
         relative_number: i64,
     ) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH RELATIVE {relative_number} FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH RELATIVE {relative_number} FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -235,16 +430,15 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_forward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH FORWARD ALL FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH FORWARD ALL FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -261,16 +455,15 @@ impl Cursor {
         py: Python<'a>,
         backward_count: i64,
     ) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH BACKWARD {backward_count} FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH BACKWARD {backward_count} FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -283,53 +476,17 @@ impl Cursor {
     /// # Errors
     /// May return Err Result if cannot execute query.
     pub fn fetch_backward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
+        let inner_cursor_arc = self.inner_cursor.clone();
 
         rustengine_future(py, async move {
-            let db_client_guard = db_client_arc.read().await;
-            let result = db_client_guard
-                .query(
-                    format!("FETCH BACKWARD ALL FROM {cursor_name}").as_str(),
-                    &[],
-                )
+            let inner_cursor_guard = inner_cursor_arc.read().await;
+            let result = inner_cursor_guard
+                .inner_execute(format!(
+                    "FETCH BACKWARD ALL FROM {}",
+                    inner_cursor_guard.cursor_name
+                ))
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
-        })
-    }
-
-    /// Close cursor.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute CLOSE command
-    pub fn close<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let db_client_arc = self.db_client.clone();
-        let cursor_name = self.cursor_name.clone();
-        let closed = self.closed.clone();
-
-        rustengine_future(py, async move {
-            let is_closed = {
-                let closed_read = closed.write().await;
-                *closed_read
-            };
-            if is_closed {
-                return Err(
-                    crate::exceptions::rust_errors::RustPSQLDriverError::DBCursorError(
-                        "Cursor is already closed".into(),
-                    ),
-                );
-            }
-
-            let db_client_guard = db_client_arc.read().await;
-
-            db_client_guard
-                .batch_execute(format!("CLOSE {cursor_name}").as_str())
-                .await?;
-
-            let mut closed_write = closed.write().await;
-            *closed_write = true;
-
-            Ok(())
         })
     }
 }

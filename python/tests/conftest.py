@@ -122,8 +122,9 @@ async def test_cursor(
     connection = await psql_pool.connection()
     transaction = connection.transaction()
     await transaction.begin()
-    cursor = await transaction.cursor(
+    cursor = transaction.cursor(
         querystring=f"SELECT * FROM {table_name}",
     )
+    await cursor.start()
     yield cursor
     await transaction.commit()

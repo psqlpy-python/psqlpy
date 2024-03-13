@@ -506,7 +506,7 @@ async def main() -> None:
 
     await transaction.begin()
     # Create new savepoint
-    cursor = await transaction.cursor(
+    cursor = transaction.cursor(
         querystring="SELECT * FROM users WHERE username = $1",
         parameters=["SomeUserName"],
         fetch_number=100,
@@ -523,6 +523,32 @@ async def main() -> None:
     await cursor.close()
 
     await transaction.commit()
+```
+
+### Cursor as an async context manager
+```python
+from typing import Any
+
+from psqlpy import PSQLPool, IsolationLevel, QueryResult, Transaction, Cursor
+
+
+db_pool = PSQLPool()
+
+
+async def main() -> None:
+    await db_pool.startup()
+
+    connection = await db_pool.connection()
+    transaction: Transaction
+    cursor: Cursor
+    async with connection.transaction() as transaction:
+        async with transaction.cursor(
+            querystring="SELECT * FROM users WHERE username = $1",
+            parameters=["SomeUserName"],
+            fetch_number=100,
+        ) as cursor:
+            async for fetched_result in cursor:
+                print(fetched_result.result())
 ```
 
 ### Cursor operations

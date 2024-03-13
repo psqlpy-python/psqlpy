@@ -1,12 +1,12 @@
 use super::{
-    cursor::Cursor,
+    cursor::{Cursor, InnerCursor},
     transaction_options::{IsolationLevel, ReadVariant},
 };
 use crate::{
     common::rustengine_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO},
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO, ValueOrReferenceTo},
 };
 use deadpool_postgres::Object;
 use futures_util::future;
@@ -16,14 +16,14 @@ use pyo3::{
     Py, PyAny, PyErr, PyObject, PyRef, PyRefMut, Python,
 };
 use std::{collections::HashSet, sync::Arc, vec};
-use tokio_postgres::types::ToSql;
+use tokio_postgres::{types::ToSql, Row};
 
 /// Transaction for internal use only.
 ///
 /// It is not exposed to python.
 #[allow(clippy::module_name_repetitions)]
 pub struct RustTransaction {
-    db_client: Arc<tokio::sync::RwLock<Object>>,
+    pub db_client: Arc<tokio::sync::RwLock<Object>>,
     is_started: Arc<tokio::sync::RwLock<bool>>,
     is_done: Arc<tokio::sync::RwLock<bool>>,
     rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
@@ -31,7 +31,6 @@ pub struct RustTransaction {
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
     deferable: Option<bool>,
-    cursor_num: usize,
 }
 
 impl RustTransaction {
@@ -44,7 +43,6 @@ impl RustTransaction {
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
         deferable: Option<bool>,
-        cursor_num: usize,
     ) -> Self {
         Self {
             db_client,
@@ -54,7 +52,6 @@ impl RustTransaction {
             isolation_level,
             read_variant,
             deferable,
-            cursor_num,
         }
     }
 
@@ -71,11 +68,14 @@ impl RustTransaction {
     /// 2) Transaction is done already
     /// 3) Can not create/retrieve prepared statement
     /// 4) Can not execute statement
-    pub async fn inner_execute(
+    pub async fn inner_execute<T>(
         &self,
         querystring: String,
-        parameters: Vec<PythonDTO>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        parameters: T,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult>
+    where
+        T: ValueOrReferenceTo<Vec<PythonDTO>>,
+    {
         let db_client_arc = self.db_client.clone();
         let is_started_arc = self.is_started.clone();
         let is_done_arc = self.is_done.clone();
@@ -95,8 +95,9 @@ impl RustTransaction {
             ));
         }
 
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in &parameters {
+        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
+            Vec::with_capacity(parameters.as_ref().len());
+        for param in parameters.as_ref() {
             vec_parameters.push(param);
         }
 
@@ -107,6 +108,63 @@ impl RustTransaction {
             .await?;
 
         Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
+    /// Execute querystring with parameters.
+    ///
+    /// Method doesn't acquire lock on any structure fields.
+    /// It prepares and caches querystring in the inner Object object.
+    ///
+    /// Then execute the query.
+    ///
+    /// It returns `Vec<Row>` instead of `PSQLDriverPyQueryResult`.
+    ///
+    /// # Errors
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done already
+    /// 3) Can not create/retrieve prepared statement
+    /// 4) Can not execute statement
+    pub async fn inner_execute_raw<T>(
+        &self,
+        querystring: String,
+        parameters: T,
+    ) -> RustPSQLDriverPyResult<Vec<Row>>
+    where
+        T: ValueOrReferenceTo<Vec<PythonDTO>>,
+    {
+        let db_client_arc = self.db_client.clone();
+        let is_started_arc = self.is_started.clone();
+        let is_done_arc = self.is_done.clone();
+
+        let db_client_guard = db_client_arc.read().await;
+        let is_started_guard = is_started_arc.read().await;
+        let is_done_guard = is_done_arc.read().await;
+
+        if !*is_started_guard {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is not started, please call begin() on transaction".into(),
+            ));
+        }
+        if *is_done_guard {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+
+        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
+            Vec::with_capacity(parameters.as_ref().len());
+        for param in parameters.as_ref() {
+            vec_parameters.push(param);
+        }
+
+        let statement = db_client_guard.prepare_cached(&querystring).await?;
+
+        let result = db_client_guard
+            .query(&statement, &vec_parameters.into_boxed_slice())
+            .await?;
+
+        Ok(result)
     }
 
     /// Execute querystring with many parameters.
@@ -561,56 +619,22 @@ impl RustTransaction {
 
         Ok(())
     }
-
-    /// Create new cursor, init it and return new Cursor struct.
-    ///
-    /// Execute DECLARE statement with cursor name and querystring.
-    ///
-    /// # Errors
-    /// May return Err Result if can't execute query.
-    pub async fn inner_cursor(
-        &mut self,
-        querystring: String,
-        parameters: Vec<PythonDTO>,
-        fetch_number: usize,
-        scroll: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Cursor> {
-        let db_client_arc = self.db_client.clone();
-        let db_client_arc2 = self.db_client.clone();
-        let db_client_guard = db_client_arc.read().await;
-
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in &parameters {
-            vec_parameters.push(param);
-        }
-
-        let mut cursor_init_query = "DECLARE".to_string();
-        cursor_init_query.push_str(format!(" cur{}", self.cursor_num).as_str());
-
-        if let Some(scroll) = scroll {
-            if scroll {
-                cursor_init_query.push_str(" SCROLL");
-            } else {
-                cursor_init_query.push_str(" NO SCROLL");
-            }
-        }
-
-        cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
-
-        let cursor_name = format!("cur{}", self.cursor_num);
-        db_client_guard
-            .execute(&cursor_init_query, &vec_parameters.into_boxed_slice())
-            .await?;
-
-        self.cursor_num += 1;
-
-        Ok(Cursor::new(db_client_arc2, cursor_name, fetch_number))
-    }
 }
 
 #[pyclass()]
 pub struct Transaction {
-    pub transaction: Arc<tokio::sync::RwLock<RustTransaction>>,
+    transaction: Arc<RustTransaction>,
+    cursor_num: usize,
+}
+
+impl Transaction {
+    #[must_use]
+    pub fn new(transaction: Arc<RustTransaction>, cursor_num: usize) -> Self {
+        Transaction {
+            transaction,
+            cursor_num,
+        }
+    }
 }
 
 #[pymethods]
@@ -628,9 +652,11 @@ impl Transaction {
     /// May return Err Result if future returns error.
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let transaction_clone = self.transaction.clone();
+        let cursor_num = self.cursor_num;
         let future = rustengine_future(py, async move {
             Ok(Transaction {
                 transaction: transaction_clone,
+                cursor_num,
             })
         });
         Ok(Some(future?.into()))
@@ -652,11 +678,12 @@ impl Transaction {
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let transaction_arc = slf.transaction.clone();
         let transaction_arc2 = slf.transaction.clone();
+        let cursor_num = slf.cursor_num;
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_begin().await?;
+            transaction_arc.inner_begin().await?;
             Ok(Transaction {
                 transaction: transaction_arc2,
+                cursor_num,
             })
         })
     }
@@ -673,16 +700,17 @@ impl Transaction {
         let transaction_arc2 = slf.transaction.clone();
         let is_no_exc = exception.is_none();
         let py_err = PyErr::from_value(exception);
+        let cursor_num = slf.cursor_num;
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
             if is_no_exc {
-                transaction_guard.inner_commit().await?;
+                transaction_arc.inner_commit().await?;
                 Ok(Transaction {
                     transaction: transaction_arc2,
+                    cursor_num,
                 })
             } else {
-                transaction_guard.inner_rollback().await?;
+                transaction_arc.inner_rollback().await?;
                 Err(RustPSQLDriverError::PyError(py_err))
             }
         })
@@ -711,8 +739,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_execute(querystring, params).await
+            transaction_arc.inner_execute(querystring, params).await
         })
     }
 
@@ -741,8 +768,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard
+            transaction_arc
                 .inner_execute_many(querystring, params)
                 .await
         })
@@ -771,8 +797,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_fetch_row(querystring, params).await
+            transaction_arc.inner_fetch_row(querystring, params).await
         })
     }
 
@@ -800,8 +825,7 @@ impl Transaction {
         }
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            let first_row = transaction_guard
+            let first_row = transaction_arc
                 .inner_fetch_row(querystring, params)
                 .await?
                 .get_inner();
@@ -849,8 +873,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_pipeline(processed_queries).await
+            transaction_arc.inner_pipeline(processed_queries).await
         })
     }
 
@@ -862,8 +885,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_begin().await?;
+            transaction_arc.inner_begin().await?;
 
             Ok(())
         })
@@ -877,8 +899,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_commit().await?;
+            transaction_arc.inner_commit().await?;
 
             Ok(())
         })
@@ -907,8 +928,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_savepoint(py_string).await?;
+            transaction_arc.inner_savepoint(py_string).await?;
 
             Ok(())
         })
@@ -922,8 +942,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_rollback().await?;
+            transaction_arc.inner_rollback().await?;
 
             Ok(())
         })
@@ -952,8 +971,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_rollback_to(py_string).await?;
+            transaction_arc.inner_rollback_to(py_string).await?;
 
             Ok(())
         })
@@ -982,9 +1000,7 @@ impl Transaction {
         let transaction_arc = self.transaction.clone();
 
         rustengine_future(py, async move {
-            let transaction_guard = transaction_arc.read().await;
-            transaction_guard.inner_release_savepoint(py_string).await?;
-
+            transaction_arc.inner_release_savepoint(py_string).await?;
             Ok(())
         })
     }
@@ -998,23 +1014,23 @@ impl Transaction {
     /// or if `inner_cursor` returns error.
     pub fn cursor<'a>(
         &'a self,
-        py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
         fetch_number: Option<usize>,
         scroll: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
+    ) -> RustPSQLDriverPyResult<Cursor> {
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
         }
 
-        rustengine_future(py, async move {
-            let mut transaction_guard = transaction_arc.write().await;
-            transaction_guard
-                .inner_cursor(querystring, params, fetch_number.unwrap_or(10), scroll)
-                .await
-        })
+        Ok(Cursor::new(InnerCursor::new(
+            self.transaction.clone(),
+            querystring,
+            params,
+            format!("cur{}", self.cursor_num),
+            scroll,
+            fetch_number.unwrap_or(10),
+        )))
     }
 }
