@@ -473,7 +473,7 @@ pub fn postgres_to_py(
             let db_json = row.try_get::<_, Option<Value>>(column_i)?;
 
             match db_json {
-                Some(value) => Ok(value.to_string().to_object(py)),
+                Some(value) => Ok(build_python_from_serde_value(py, value)?),
                 None => Ok(py.None().to_object(py)),
             }
         }
@@ -502,7 +502,7 @@ pub fn build_serde_value(value: &PyAny) -> RustPSQLDriverPyResult<Value> {
                 result_vec.push(serde_value);
             } else {
                 return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "PyJSON/PyJSONB supports only list of lists or list of dicts.".to_string(),
+                    "PyJSON supports only list of lists or list of dicts.".to_string(),
                 ));
             }
         }
@@ -513,5 +513,49 @@ pub fn build_serde_value(value: &PyAny) -> RustPSQLDriverPyResult<Value> {
         return Err(RustPSQLDriverError::PyToRustValueConversionError(
             "PyJSON must be list value.".to_string(),
         ));
+    }
+}
+
+/// Convert serde `Value` into Python object.
+/// # Errors
+/// May return Err Result if cannot add new value to Python Dict.
+pub fn build_python_from_serde_value(
+    py: Python<'_>,
+    value: Value,
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    match value {
+        Value::Array(massive) => {
+            let mut result_vec: Vec<Py<PyAny>> = vec![];
+
+            for single_record in massive {
+                result_vec.push(build_python_from_serde_value(py, single_record)?);
+            }
+
+            Ok(result_vec.to_object(py))
+        }
+        Value::Object(mapping) => {
+            let py_dict = PyDict::new(py);
+
+            for (key, value) in mapping {
+                py_dict.set_item(
+                    build_python_from_serde_value(py, Value::String(key))?,
+                    build_python_from_serde_value(py, value)?,
+                )?;
+            }
+
+            Ok(py_dict.to_object(py))
+        }
+        Value::Bool(boolean) => Ok(boolean.to_object(py)),
+        Value::Number(number) => {
+            if number.is_f64() {
+                Ok(number.as_f64().to_object(py))
+            } else if number.is_i64() {
+                Ok(number.as_i64().to_object(py))
+            } else {
+                Ok(number.as_u64().to_object(py))
+            }
+        }
+        Value::String(string) => Ok(string.to_object(py)),
+        Value::Null => Ok(py.None()),
     }
 }
