@@ -784,6 +784,12 @@ class PSQLPool:
 
         You must call it before start making queries.
         """
+    async def close(self: Self) -> None:
+        """Close the connection pool.
+
+        By default it will be closed automatically,
+        but you can call it manually.
+        """
     async def execute(
         self: Self,
         querystring: str,

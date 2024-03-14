@@ -183,6 +183,23 @@ impl RustPSQLPool {
         self.db_pool = Some(db_pool_builder.build()?);
         Ok(())
     }
+
+    /// Close connection pool.
+    ///
+    /// # Errors
+    /// May return Err Result if connection pool isn't opened.
+    pub fn inner_close(&self) -> RustPSQLDriverPyResult<()> {
+        let db_pool_manager =
+            self.db_pool
+                .as_ref()
+                .ok_or(RustPSQLDriverError::DatabasePoolError(
+                    "Database pool is not initialized".into(),
+                ))?;
+
+        db_pool_manager.close();
+
+        Ok(())
+    }
 }
 
 #[pyclass()]
@@ -257,16 +274,30 @@ impl PSQLPool {
         querystring: String,
         parameters: Option<&'a PyAny>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let engine_arc = self.rust_psql_pool.clone();
+        let db_pool_arc = self.rust_psql_pool.clone();
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
         }
 
         rustengine_future(py, async move {
-            let engine_guard = engine_arc.read().await;
+            let db_pool_guard = db_pool_arc.read().await;
 
-            engine_guard.inner_execute(querystring, params).await
+            db_pool_guard.inner_execute(querystring, params).await
+        })
+    }
+
+    /// Close connection pool.
+    ///
+    /// # Errors
+    /// May return Err Result if connection pool isn't opened.
+    pub fn close<'a>(&self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
+        let db_pool_arc = self.rust_psql_pool.clone();
+
+        rustengine_future(py, async move {
+            let db_pool_guard = db_pool_arc.read().await;
+
+            db_pool_guard.inner_close()
         })
     }
 }
