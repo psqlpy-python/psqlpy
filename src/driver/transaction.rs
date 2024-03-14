@@ -971,6 +971,7 @@ impl Transaction {
         parameters: Option<&'a PyAny>,
         fetch_number: Option<usize>,
         scroll: Option<bool>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<Cursor> {
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
@@ -984,7 +985,7 @@ impl Transaction {
             format!("cur{}", self.cursor_num),
             scroll,
             fetch_number.unwrap_or(10),
-            true,
+            prepared.unwrap_or(true),
         )))
     }
 }
