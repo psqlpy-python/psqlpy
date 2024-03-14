@@ -73,6 +73,7 @@ impl RustTransaction {
         &self,
         querystring: String,
         parameters: T,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult>
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
@@ -94,12 +95,18 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = self.db_client.prepare_cached(&querystring).await?;
-
-        let result = self
-            .db_client
-            .query(&statement, &vec_parameters.into_boxed_slice())
-            .await?;
+        let result = if prepared {
+            self.db_client
+                .query(
+                    &self.db_client.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            self.db_client
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
 
         Ok(PSQLDriverPyQueryResult::new(result))
     }
@@ -123,6 +130,7 @@ impl RustTransaction {
         &self,
         querystring: String,
         parameters: T,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<Vec<Row>>
     where
         T: ValueOrReferenceTo<Vec<PythonDTO>>,
@@ -144,12 +152,18 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = self.db_client.prepare_cached(&querystring).await?;
-
-        let result = self
-            .db_client
-            .query(&statement, &vec_parameters.into_boxed_slice())
-            .await?;
+        let result = if prepared {
+            self.db_client
+                .query(
+                    &self.db_client.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            self.db_client
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
 
         Ok(result)
     }
@@ -171,6 +185,7 @@ impl RustTransaction {
         &self,
         querystring: String,
         parameters: Vec<Vec<PythonDTO>>,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<()> {
         if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
@@ -188,16 +203,27 @@ impl RustTransaction {
             ));
         }
         for single_parameters in parameters {
-            let statement = self.db_client.prepare_cached(&querystring).await?;
-            self.db_client
-                .query(
-                    &statement,
-                    &single_parameters
-                        .iter()
-                        .map(|p| p as &(dyn ToSql + Sync))
-                        .collect::<Vec<_>>(),
-                )
-                .await?;
+            if prepared {
+                self.db_client
+                    .query(
+                        &self.db_client.prepare_cached(&querystring).await?,
+                        &single_parameters
+                            .iter()
+                            .map(|p| p as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>(),
+                    )
+                    .await?;
+            } else {
+                self.db_client
+                    .query(
+                        &querystring,
+                        &single_parameters
+                            .iter()
+                            .map(|p| p as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>(),
+                    )
+                    .await?;
+            }
         }
 
         Ok(())
@@ -221,6 +247,7 @@ impl RustTransaction {
         &self,
         querystring: String,
         parameters: Vec<PythonDTO>,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
         if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
@@ -238,12 +265,18 @@ impl RustTransaction {
             vec_parameters.push(param);
         }
 
-        let statement = self.db_client.prepare_cached(&querystring).await?;
-
-        let result = self
-            .db_client
-            .query_one(&statement, &vec_parameters.into_boxed_slice())
-            .await?;
+        let result = if prepared {
+            self.db_client
+                .query_one(
+                    &self.db_client.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            self.db_client
+                .query_one(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
 
         Ok(PSQLDriverSinglePyQueryResult::new(result))
     }
@@ -259,10 +292,11 @@ impl RustTransaction {
     pub async fn inner_pipeline(
         &self,
         queries: Vec<(String, Vec<PythonDTO>)>,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<Vec<PSQLDriverPyQueryResult>> {
         let mut futures = vec![];
         for (querystring, params) in queries {
-            let execute_future = self.inner_execute(querystring, params);
+            let execute_future = self.inner_execute(querystring, params, prepared);
             futures.push(execute_future);
         }
 
@@ -617,6 +651,7 @@ impl Transaction {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
@@ -628,7 +663,7 @@ impl Transaction {
             transaction_arc
                 .read()
                 .await
-                .inner_execute(querystring, params)
+                .inner_execute(querystring, params, prepared.unwrap_or(true))
                 .await
         })
     }
@@ -648,6 +683,7 @@ impl Transaction {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyList>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<Vec<PythonDTO>> = vec![];
@@ -661,7 +697,7 @@ impl Transaction {
             transaction_arc
                 .read()
                 .await
-                .inner_execute_many(querystring, params)
+                .inner_execute_many(querystring, params, prepared.unwrap_or(true))
                 .await
         })
     }
@@ -681,6 +717,7 @@ impl Transaction {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyList>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
@@ -692,7 +729,7 @@ impl Transaction {
             transaction_arc
                 .read()
                 .await
-                .inner_fetch_row(querystring, params)
+                .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
                 .await
         })
     }
@@ -713,6 +750,7 @@ impl Transaction {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyList>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let transaction_arc = self.transaction.clone();
         let mut params: Vec<PythonDTO> = vec![];
@@ -724,7 +762,7 @@ impl Transaction {
             let first_row = transaction_arc
                 .read()
                 .await
-                .inner_fetch_row(querystring, params)
+                .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
                 .await?
                 .get_inner();
             Python::with_gil(|py| match first_row.columns().first() {
@@ -747,6 +785,7 @@ impl Transaction {
         &'a self,
         py: Python<'a>,
         queries: Option<&'a PyList>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let mut processed_queries: Vec<(String, Vec<PythonDTO>)> = vec![];
         if let Some(queries) = queries {
@@ -774,7 +813,7 @@ impl Transaction {
             transaction_arc
                 .read()
                 .await
-                .inner_pipeline(processed_queries)
+                .inner_pipeline(processed_queries, prepared.unwrap_or(true))
                 .await
         })
     }
@@ -945,6 +984,7 @@ impl Transaction {
             format!("cur{}", self.cursor_num),
             scroll,
             fetch_number.unwrap_or(10),
+            true,
         )))
     }
 }
