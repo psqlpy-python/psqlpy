@@ -22,6 +22,7 @@ pub struct InnerCursor {
     cursor_name: String,
     fetch_number: usize,
     scroll: Option<bool>,
+    prepared: bool,
     is_started: bool,
     closed: bool,
 }
@@ -35,6 +36,7 @@ impl InnerCursor {
         cursor_name: String,
         scroll: Option<bool>,
         fetch_number: usize,
+        prepared: bool,
     ) -> Self {
         InnerCursor {
             querystring,
@@ -43,6 +45,7 @@ impl InnerCursor {
             cursor_name,
             fetch_number,
             scroll,
+            prepared,
             is_started: false,
             closed: false,
         }
@@ -77,7 +80,7 @@ impl InnerCursor {
         db_transaction_arc
             .read()
             .await
-            .inner_execute(cursor_init_query, &self.parameters)
+            .inner_execute(cursor_init_query, &self.parameters, self.prepared)
             .await?;
 
         self.is_started = true;
@@ -102,7 +105,7 @@ impl InnerCursor {
         db_transaction_arc
             .read()
             .await
-            .inner_execute(format!("CLOSE {}", self.cursor_name), vec![])
+            .inner_execute(format!("CLOSE {}", self.cursor_name), vec![], false)
             .await?;
 
         self.closed = true;
@@ -115,7 +118,11 @@ impl InnerCursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn inner_execute(&self, querystring: String) -> RustPSQLDriverPyResult<Vec<Row>> {
+    pub async fn inner_execute(
+        &self,
+        querystring: String,
+        prepared: bool,
+    ) -> RustPSQLDriverPyResult<Vec<Row>> {
         let db_transaction_arc = self.db_transaction.clone();
 
         if !self.is_started {
@@ -127,7 +134,7 @@ impl InnerCursor {
         let result = db_transaction_arc
             .read()
             .await
-            .inner_execute_raw(querystring, vec![])
+            .inner_execute_raw(querystring, vec![], prepared)
             .await?;
 
         Ok(result)
@@ -219,10 +226,13 @@ impl Cursor {
         let future = rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH {} FROM {}",
-                    inner_cursor_guard.fetch_number, inner_cursor_guard.cursor_name,
-                ))
+                .inner_execute(
+                    format!(
+                        "FETCH {} FROM {}",
+                        inner_cursor_guard.fetch_number, inner_cursor_guard.cursor_name,
+                    ),
+                    false,
+                )
                 .await?;
 
             if result.is_empty() {
@@ -286,10 +296,13 @@ impl Cursor {
                 None => inner_cursor_guard.fetch_number,
             };
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH {fetch_number} FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!(
+                        "FETCH {fetch_number} FROM {}",
+                        inner_cursor_guard.cursor_name
+                    ),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -307,10 +320,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH NEXT FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH NEXT FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -328,10 +341,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH PRIOR FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH PRIOR FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -349,10 +362,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH FIRST FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH FIRST FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -370,10 +383,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH LAST FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH LAST FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -395,10 +408,13 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH ABSOLUTE {absolute_number} FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!(
+                        "FETCH ABSOLUTE {absolute_number} FROM {}",
+                        inner_cursor_guard.cursor_name
+                    ),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -420,10 +436,13 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH RELATIVE {relative_number} FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!(
+                        "FETCH RELATIVE {relative_number} FROM {}",
+                        inner_cursor_guard.cursor_name
+                    ),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -441,10 +460,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH FORWARD ALL FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH FORWARD ALL FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -466,10 +485,13 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH BACKWARD {backward_count} FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!(
+                        "FETCH BACKWARD {backward_count} FROM {}",
+                        inner_cursor_guard.cursor_name
+                    ),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })
@@ -487,10 +509,10 @@ impl Cursor {
         rustengine_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
-                .inner_execute(format!(
-                    "FETCH BACKWARD ALL FROM {}",
-                    inner_cursor_guard.cursor_name
-                ))
+                .inner_execute(
+                    format!("FETCH BACKWARD ALL FROM {}", inner_cursor_guard.cursor_name),
+                    false,
+                )
                 .await?;
             Ok(PSQLDriverPyQueryResult::new(result))
         })

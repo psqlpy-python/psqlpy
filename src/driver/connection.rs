@@ -37,17 +37,26 @@ impl RustConnection {
         &self,
         querystring: String,
         params: Vec<PythonDTO>,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client = &self.db_client;
         let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
         for param in &params {
             vec_parameters.push(param);
         }
-        let statement: tokio_postgres::Statement = db_client.prepare_cached(&querystring).await?;
 
-        let result = db_client
-            .query(&statement, &vec_parameters.into_boxed_slice())
-            .await?;
+        let result = if prepared {
+            db_client
+                .query(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
 
         Ok(PSQLDriverPyQueryResult::new(result))
     }
@@ -104,6 +113,7 @@ impl Connection {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let connection_arc = self.inner_connection.clone();
 
@@ -112,7 +122,9 @@ impl Connection {
             params = convert_parameters(parameters)?;
         }
         rustengine_future(py, async move {
-            connection_arc.inner_execute(querystring, params).await
+            connection_arc
+                .inner_execute(querystring, params, prepared.unwrap_or(true))
+                .await
         })
     }
 

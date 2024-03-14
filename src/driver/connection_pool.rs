@@ -88,6 +88,7 @@ impl RustPSQLPool {
         &self,
         querystring: String,
         parameters: Vec<PythonDTO>,
+        prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool_manager = self
             .db_pool
@@ -103,12 +104,18 @@ impl RustPSQLPool {
             vec_parameters.push(param);
         }
 
-        let result = db_pool_manager
-            .query(
-                &db_pool_manager.prepare_cached(&querystring).await?,
-                &vec_parameters.into_boxed_slice(),
-            )
-            .await?;
+        let result = if prepared {
+            db_pool_manager
+                .query(
+                    &db_pool_manager.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_pool_manager
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
@@ -273,6 +280,7 @@ impl PSQLPool {
         py: Python<'a>,
         querystring: String,
         parameters: Option<&'a PyAny>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let db_pool_arc = self.rust_psql_pool.clone();
         let mut params: Vec<PythonDTO> = vec![];
@@ -282,8 +290,9 @@ impl PSQLPool {
 
         rustengine_future(py, async move {
             let db_pool_guard = db_pool_arc.read().await;
-
-            db_pool_guard.inner_execute(querystring, params).await
+            db_pool_guard
+                .inner_execute(querystring, params, prepared.unwrap_or(true))
+                .await
         })
     }
 

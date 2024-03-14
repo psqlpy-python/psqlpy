@@ -321,6 +321,7 @@ class Transaction:
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
+        prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
 
@@ -330,6 +331,8 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Example:
         ```python
@@ -358,6 +361,7 @@ class Transaction:
         self: Self,
         querystring: str,
         parameters: list[list[Any]] | None = None,
+        prepared: bool = True,
     ) -> None: ...
     """Execute query multiple times with different parameters.
 
@@ -367,6 +371,8 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Example:
         ```python
@@ -395,6 +401,7 @@ class Transaction:
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
+        prepared: bool = True,
     ) -> SingleQueryResult:
         """Fetch exaclty single row from query.
 
@@ -406,6 +413,8 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Example:
         ```python
@@ -434,6 +443,7 @@ class Transaction:
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
+        prepared: bool = True,
     ) -> Any | None:
         """Execute the query and return first value of the first row.
 
@@ -443,6 +453,8 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Example:
         ```python
@@ -467,6 +479,7 @@ class Transaction:
     async def pipeline(
         self,
         queries: list[tuple[str, list[Any] | None]],
+        prepared: bool = True,
     ) -> list[QueryResult]:
         """Execute queries in pipeline.
 
@@ -492,6 +505,12 @@ class Transaction:
         | receive rows 3 |                 |
         ```
         Read more: https://docs.rs/tokio-postgres/latest/tokio_postgres/#pipelining
+
+        ### Parameters:
+        - `queries`: queries with parameters to execute.
+        - `prepared`: should the querystring/querystrings be prepared before the request.
+            By default any querystrings will be prepared.
+
         ### Example:
         ```python
         import asyncio
@@ -640,6 +659,7 @@ class Transaction:
         parameters: list[Any] | None = None,
         fetch_number: int | None = None,
         scroll: bool | None = None,
+        prepared: bool = True,
     ) -> Cursor:
         """Create new cursor object.
 
@@ -650,6 +670,8 @@ class Transaction:
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
         - `scroll`: SCROLL or NO SCROLL cursor.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Returns:
         new initialized cursor.
@@ -693,6 +715,7 @@ class Connection:
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
+        prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
 
@@ -702,6 +725,8 @@ class Connection:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Returns:
         query result as `QueryResult`
@@ -794,6 +819,7 @@ class PSQLPool:
         self: Self,
         querystring: str,
         parameters: list[Any] | None = None,
+        prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
 
@@ -803,6 +829,8 @@ class PSQLPool:
         ### Parameters:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
 
         ### Example:
         ```python
