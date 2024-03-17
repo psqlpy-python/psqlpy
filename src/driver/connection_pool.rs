@@ -4,16 +4,13 @@ use std::{str::FromStr, sync::Arc, vec};
 use tokio_postgres::{types::ToSql, NoTls};
 
 use crate::{
-    common::rustengine_future,
+    common::rustdriver_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
 };
 
-use super::{
-    common_options::ConnRecyclingMethod,
-    connection::{Connection, RustConnection},
-};
+use super::{common_options::ConnRecyclingMethod, connection::Connection};
 
 /// `PSQLPool` is for internal use only.
 ///
@@ -73,9 +70,7 @@ impl RustPSQLPool {
             .get()
             .await?;
 
-        Ok(Connection::new(Arc::new(RustConnection::new(
-            Arc::new(db_pool_manager).clone(),
-        ))))
+        Ok(Connection::new(Arc::new(db_pool_manager)))
     }
     /// Execute querystring with parameters.
     ///
@@ -124,7 +119,7 @@ impl RustPSQLPool {
     /// # Errors
     /// May return Err Result if Database pool is already initialized,
     /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
-    pub fn inner_startup(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub fn inner_startup(mut self) -> RustPSQLDriverPyResult<Self> {
         let dsn = self.dsn.clone();
         let password = self.password.clone();
         let username = self.username.clone();
@@ -188,7 +183,7 @@ impl RustPSQLPool {
         }
 
         self.db_pool = Some(db_pool_builder.build()?);
-        Ok(())
+        Ok(self)
     }
 
     /// Close connection pool.
@@ -211,14 +206,14 @@ impl RustPSQLPool {
 
 #[pyclass()]
 pub struct PSQLPool {
-    rust_psql_pool: Arc<tokio::sync::RwLock<RustPSQLPool>>,
+    rust_psql_pool: Arc<RustPSQLPool>,
 }
 
 #[pymethods]
 impl PSQLPool {
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[must_use]
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(
         dsn: Option<String>,
         username: Option<String>,
@@ -228,32 +223,21 @@ impl PSQLPool {
         db_name: Option<String>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
-    ) -> Self {
-        PSQLPool {
-            rust_psql_pool: Arc::new(tokio::sync::RwLock::new(RustPSQLPool {
-                dsn,
-                username,
-                password,
-                host,
-                port,
-                db_name,
-                max_db_pool_size,
-                conn_recycling_method,
-                db_pool: None,
-            })),
+    ) -> RustPSQLDriverPyResult<Self> {
+        let inner_pool = RustPSQLPool {
+            dsn,
+            username,
+            password,
+            host,
+            port,
+            db_name,
+            max_db_pool_size,
+            conn_recycling_method,
+            db_pool: None,
         }
-    }
-
-    /// Startup Database Pool.
-    ///
-    /// # Errors
-    /// May return Err Result if `inner_startup` returns error.
-    pub fn startup<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let psql_pool_arc = self.rust_psql_pool.clone();
-        rustengine_future(py, async move {
-            let mut db_pool_guard = psql_pool_arc.write().await;
-            db_pool_guard.inner_startup()?;
-            Ok(())
+        .inner_startup()?;
+        Ok(PSQLPool {
+            rust_psql_pool: Arc::new(inner_pool),
         })
     }
 
@@ -264,10 +248,7 @@ impl PSQLPool {
     pub fn connection<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let psql_pool_arc = self.rust_psql_pool.clone();
 
-        rustengine_future(py, async move {
-            let psql_pool_guard = psql_pool_arc.write().await;
-            psql_pool_guard.inner_connection().await
-        })
+        rustdriver_future(py, async move { psql_pool_arc.inner_connection().await })
     }
 
     /// Execute querystring with parameters.
@@ -288,9 +269,9 @@ impl PSQLPool {
             params = convert_parameters(parameters)?;
         }
 
-        rustengine_future(py, async move {
-            let db_pool_guard = db_pool_arc.read().await;
-            db_pool_guard
+        rustdriver_future(py, async move {
+            // let db_pool_guard = db_pool_arc.read().await;
+            db_pool_arc
                 .inner_execute(querystring, params, prepared.unwrap_or(true))
                 .await
         })
@@ -303,10 +284,10 @@ impl PSQLPool {
     pub fn close<'a>(&self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let db_pool_arc = self.rust_psql_pool.clone();
 
-        rustengine_future(py, async move {
-            let db_pool_guard = db_pool_arc.read().await;
+        rustdriver_future(py, async move {
+            // let db_pool_guard = db_pool_arc.read().await;
 
-            db_pool_guard.inner_close()
+            db_pool_arc.inner_close()
         })
     }
 }

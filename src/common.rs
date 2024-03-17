@@ -35,7 +35,7 @@ pub fn add_module(
 /// # Errors
 ///
 /// May return Err Result if future acts incorrect.
-pub fn rustengine_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
+pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<&PyAny>
 where
     F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
     T: IntoPy<PyObject>,

@@ -81,15 +81,13 @@ async def psql_pool(
     postgres_port: int,
     postgres_dbname: str,
 ) -> PSQLPool:
-    pg_pool = PSQLPool(
+    return PSQLPool(
         username=postgres_user,
         password=postgres_password,
         host=postgres_host,
         port=postgres_port,
         db_name=postgres_dbname,
     )
-    await pg_pool.startup()
-    return pg_pool
 
 
 @pytest.fixture(autouse=True)

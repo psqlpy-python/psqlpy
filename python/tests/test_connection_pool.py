@@ -11,7 +11,6 @@ async def test_pool_dsn_startup() -> None:
     pg_pool = PSQLPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
-    await pg_pool.startup()
 
     await pg_pool.execute("SELECT 1")
 
@@ -57,8 +56,6 @@ async def test_pool_conn_recycling_method(
         conn_recycling_method=conn_recycling_method,
     )
 
-    await pg_pool.startup()
-
     await pg_pool.execute("SELECT 1")
 
 
@@ -67,8 +64,6 @@ async def test_close_connection_pool() -> None:
     pg_pool = PSQLPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
-
-    await pg_pool.startup()
 
     await pg_pool.execute("SELECT 1")
 

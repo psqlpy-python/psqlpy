@@ -856,3 +856,27 @@ class PSQLPool:
 
         It acquires new connection from the database pool.
         """
+
+def create_connection_pool(
+    dsn: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    db_name: Optional[str] = None,
+    max_db_pool_size: Optional[str] = None,
+    conn_recycling_method: Optional[ConnRecyclingMethod] = None,
+) -> PSQLPool:
+    """Create new connection pool.
+
+    ### Parameters:
+    - `dsn`: full dsn connection string.
+        `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
+    - `username`: username of the user in postgres
+    - `password`: password of the user in postgres
+    - `host`: host of postgres
+    - `port`: port of postgres
+    - `db_name`: name of the database in postgres
+    - `max_db_pool_size`: maximum size of the connection pool
+    - `conn_recycling_method`: how a connection is recycled.
+    """
