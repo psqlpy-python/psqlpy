@@ -57,6 +57,21 @@ impl RustTransaction {
         }
     }
 
+    fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
+        if !self.is_started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is not started, please call begin() on transaction".into(),
+            ));
+        }
+        if self.is_done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Execute querystring with parameters.
     ///
     /// Method doesn't acquire lock on any structure fields.
@@ -76,17 +91,7 @@ impl RustTransaction {
         parameters: Vec<PythonDTO>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is not started, please call begin() on transaction".into(),
-            ));
-        }
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        }
-
+        self.check_is_transaction_ready()?;
         self.connection
             .inner_execute(querystring, parameters, prepared)
             .await
@@ -113,17 +118,7 @@ impl RustTransaction {
         parameters: Vec<PythonDTO>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<Vec<Row>> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is not started, please call begin() on transaction".into(),
-            ));
-        }
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        }
-
+        self.check_is_transaction_ready()?;
         self.connection
             .inner_execute_raw(querystring, parameters, prepared)
             .await
@@ -148,16 +143,7 @@ impl RustTransaction {
         parameters: Vec<Vec<PythonDTO>>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is not started, please call begin() on transaction".into(),
-            ));
-        }
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        }
+        self.check_is_transaction_ready()?;
         if parameters.is_empty() {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "No parameters passed to execute_many".into(),
@@ -192,17 +178,7 @@ impl RustTransaction {
         parameters: Vec<PythonDTO>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is not started, please call begin() on transaction".into(),
-            ));
-        }
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        }
-
+        self.check_is_transaction_ready()?;
         self.connection
             .inner_fetch_row(querystring, parameters, prepared)
             .await
@@ -302,17 +278,7 @@ impl RustTransaction {
     /// 2) Transaction is done
     /// 3) Cannot execute `COMMIT` command
     pub async fn inner_commit(&mut self) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Can not commit not started transaction".into(),
-            ));
-        }
-
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        }
+        self.check_is_transaction_ready()?;
         let db_client_guard = self.connection.db_client.read().await;
         db_client_guard.batch_execute("COMMIT;").await?;
         self.is_done = true;
@@ -332,17 +298,7 @@ impl RustTransaction {
     /// 3) Specified savepoint name is exists
     /// 4) Can not execute SAVEPOINT command
     pub async fn inner_savepoint(&self, savepoint_name: String) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Can not commit not started transaction".into(),
-            ));
-        }
-
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        };
+        self.check_is_transaction_ready()?;
 
         let is_savepoint_name_exists = {
             let rollback_savepoint_read_guard = self.rollback_savepoint.read().await;
@@ -373,17 +329,7 @@ impl RustTransaction {
     /// 2) Transaction is done
     /// 3) Can not execute ROLLBACK command
     pub async fn inner_rollback(&mut self) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Can not commit not started transaction".into(),
-            ));
-        };
-
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        };
+        self.check_is_transaction_ready()?;
         let db_client_guard = self.connection.db_client.read().await;
         db_client_guard.batch_execute("ROLLBACK").await?;
         self.is_done = true;
@@ -401,16 +347,7 @@ impl RustTransaction {
     /// 3) Specified savepoint name doesn't exist
     /// 4) Can not execute ROLLBACK TO SAVEPOINT command
     pub async fn inner_rollback_to(&self, rollback_name: String) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Can not commit not started transaction".into(),
-            ));
-        };
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        };
+        self.check_is_transaction_ready()?;
 
         let rollback_savepoint_arc = self.rollback_savepoint.clone();
         let is_rollback_exists = {
@@ -444,16 +381,7 @@ impl RustTransaction {
         &self,
         rollback_name: String,
     ) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Can not commit not started transaction".into(),
-            ));
-        };
-        if self.is_done {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is already committed or rolled back".into(),
-            ));
-        };
+        self.check_is_transaction_ready()?;
 
         let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
         let is_rollback_exists = rollback_savepoint_guard.remove(&rollback_name);
