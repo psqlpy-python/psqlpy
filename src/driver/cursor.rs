@@ -3,7 +3,7 @@ use pyo3::{
     PyRefMut, Python,
 };
 use std::sync::Arc;
-use tokio_postgres::{types::ToSql, Row};
+use tokio_postgres::Row;
 
 use crate::{
     common::rustdriver_future,
@@ -59,12 +59,6 @@ impl InnerCursor {
     /// May return Err Result if cannot execute query.
     pub async fn inner_start(&mut self) -> RustPSQLDriverPyResult<()> {
         let db_transaction_arc = self.db_transaction.clone();
-
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> =
-            Vec::with_capacity(self.parameters.len());
-        for param in &self.parameters {
-            vec_parameters.push(param);
-        }
 
         let mut cursor_init_query = format!("DECLARE {}", self.cursor_name);
         if let Some(scroll) = self.scroll {

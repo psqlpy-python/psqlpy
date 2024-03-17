@@ -1,13 +1,13 @@
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, PyAny, Python};
 use std::{str::FromStr, sync::Arc, vec};
-use tokio_postgres::{types::ToSql, NoTls};
+use tokio_postgres::NoTls;
 
 use crate::{
     common::rustdriver_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
-    value_converter::{convert_parameters, PythonDTO},
+    value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
 use super::{
@@ -99,10 +99,10 @@ impl RustPSQLPool {
             .get()
             .await?;
 
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in &parameters {
-            vec_parameters.push(param);
-        }
+        let vec_parameters: Vec<&QueryParameter> = parameters
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect();
 
         let result = if prepared {
             db_pool_manager

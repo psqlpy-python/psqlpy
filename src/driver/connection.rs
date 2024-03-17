@@ -1,13 +1,12 @@
 use deadpool_postgres::Object;
 use pyo3::{pyclass, pymethods, types::PyList, PyAny, Python};
 use std::{collections::HashSet, sync::Arc, vec};
-use tokio_postgres::types::ToSql;
 
 use crate::{
     common::rustdriver_future,
     exceptions::rust_errors::RustPSQLDriverPyResult,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO},
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
 use tokio_postgres::Row;
 
@@ -37,14 +36,14 @@ impl RustConnection {
     pub async fn inner_execute(
         &self,
         querystring: String,
-        params: Vec<PythonDTO>,
+        parameters: Vec<PythonDTO>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client = self.db_client.read().await;
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
-        for param in &params {
-            vec_parameters.push(param);
-        }
+        let vec_parameters: Vec<&QueryParameter> = parameters
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect();
 
         let result = if prepared {
             db_client
@@ -90,7 +89,7 @@ impl RustConnection {
                         &transaction.prepare_cached(&querystring).await?,
                         &single_parameters
                             .iter()
-                            .map(|p| p as &(dyn ToSql + Sync))
+                            .map(|p| p as &QueryParameter)
                             .collect::<Vec<_>>(),
                     )
                     .await?;
@@ -100,7 +99,7 @@ impl RustConnection {
                         &querystring,
                         &single_parameters
                             .iter()
-                            .map(|p| p as &(dyn ToSql + Sync))
+                            .map(|p| p as &QueryParameter)
                             .collect::<Vec<_>>(),
                     )
                     .await?;
@@ -132,10 +131,10 @@ impl RustConnection {
         parameters: Vec<PythonDTO>,
         prepared: bool,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in &parameters {
-            vec_parameters.push(param);
-        }
+        let vec_parameters: Vec<&QueryParameter> = parameters
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect();
         let db_client_guard = self.db_client.read().await;
 
         let result = if prepared {
@@ -176,10 +175,10 @@ impl RustConnection {
         prepared: bool,
     ) -> RustPSQLDriverPyResult<Vec<Row>> {
         let db_client_guard = self.db_client.read().await;
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(parameters.len());
-        for param in &parameters {
-            vec_parameters.push(param);
-        }
+        let vec_parameters: Vec<&QueryParameter> = parameters
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect();
 
         let result = if prepared {
             db_client_guard

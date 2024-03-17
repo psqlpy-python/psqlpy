@@ -22,6 +22,8 @@ use crate::{
     extra_types::{BigInt, Integer, PyJSON, PyUUID, SmallInt},
 };
 
+pub type QueryParameter = (dyn ToSql + Sync);
+
 /// Additional type for types come from Python.
 ///
 /// It's necessary because we need to pass this
