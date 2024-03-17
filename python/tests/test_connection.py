@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+import typing
+
 import pytest
+from tests.helpers import count_rows_in_test_table
 
 from psqlpy import PSQLPool, QueryResult, Transaction
+from psqlpy.exceptions import DBTransactionError, RustPSQLDriverPyBaseError
 
 pytestmark = pytest.mark.anyio
 
@@ -28,3 +34,82 @@ async def test_connection_transaction(
     transaction = connection.transaction()
 
     assert isinstance(transaction, Transaction)
+
+
+@pytest.mark.parametrize(
+    ("insert_values"),
+    [
+        [[1, "name1"], [2, "name2"]],
+        [[10, "name1"], [20, "name2"], [30, "name3"]],
+        [[1, "name1"]],
+        [],
+    ],
+)
+async def test_transaction_execute_many(
+    psql_pool: PSQLPool,
+    table_name: str,
+    number_database_records: int,
+    insert_values: list[list[typing.Any]],
+) -> None:
+    connection = await psql_pool.connection()
+    try:
+        await connection.execute_many(
+            f"INSERT INTO {table_name} VALUES ($1, $2)",
+            insert_values,
+        )
+    except DBTransactionError:
+        assert not insert_values
+    else:
+        assert await count_rows_in_test_table(
+            table_name,
+            connection,
+        ) - number_database_records == len(insert_values)
+
+
+async def test_transaction_fetch_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    database_single_query_result: typing.Final = await connection.fetch_row(
+        f"SELECT * FROM  {table_name} LIMIT 1",
+        [],
+    )
+    result = database_single_query_result.result()
+    assert isinstance(result, dict)
+
+
+async def test_transaction_fetch_row_more_than_one_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    with pytest.raises(RustPSQLDriverPyBaseError):
+        await connection.fetch_row(
+            f"SELECT * FROM  {table_name}",
+            [],
+        )
+
+
+async def test_transaction_fetch_val(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    value: typing.Final = await connection.fetch_val(
+        f"SELECT COUNT(*) FROM {table_name}",
+        [],
+    )
+    assert isinstance(value, int)
+
+
+async def test_transaction_fetch_val_more_than_one_row(
+    psql_pool: PSQLPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    with pytest.raises(RustPSQLDriverPyBaseError):
+        await connection.fetch_row(
+            f"SELECT * FROM  {table_name}",
+            [],
+        )

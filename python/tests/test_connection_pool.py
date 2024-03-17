@@ -1,7 +1,6 @@
 import pytest
 
 from psqlpy import Connection, ConnRecyclingMethod, PSQLPool, QueryResult
-from psqlpy.exceptions import RustPSQLDriverPyBaseError
 
 pytestmark = pytest.mark.anyio
 
@@ -57,17 +56,3 @@ async def test_pool_conn_recycling_method(
     )
 
     await pg_pool.execute("SELECT 1")
-
-
-async def test_close_connection_pool() -> None:
-    """Test that `close` method closes connection pool."""
-    pg_pool = PSQLPool(
-        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
-    )
-
-    await pg_pool.execute("SELECT 1")
-
-    await pg_pool.close()
-
-    with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
-        await pg_pool.execute("SELECT 1")

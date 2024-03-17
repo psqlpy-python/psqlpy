@@ -39,8 +39,6 @@ class QueryResult:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             query_result: QueryResult = await db_pool.execute(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
@@ -82,8 +80,6 @@ class SingleQueryResult:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             async with connection.transaction() as trans:
                 query_result: SingleQueryResult = await trans.fetch_row(
@@ -343,8 +339,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.begin()
@@ -383,8 +377,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.begin()
@@ -425,8 +417,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.begin()
@@ -465,8 +455,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.begin()
@@ -520,8 +508,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
@@ -565,8 +551,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
@@ -590,8 +574,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.execute(...)
@@ -616,8 +598,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
@@ -644,8 +624,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
@@ -685,8 +663,6 @@ class Transaction:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             transaction = await connection.transaction()
 
@@ -740,14 +716,116 @@ class Connection:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
-
             connection = await db_pool.connection()
             query_result: QueryResult = await connection.execute(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
             )
             dict_result: List[Dict[Any, Any]] = query_result.result()
+        ```
+        """
+    async def execute_many(
+        self: Self,
+        querystring: str,
+        parameters: list[list[Any]] | None = None,
+        prepared: bool = True,
+    ) -> None: ...
+    """Execute query multiple times with different parameters.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            connection = await db_pool.connection()
+            query_result: QueryResult = await connection.execute_many(
+                "INSERT INTO users (name, age) VALUES ($1, $2)",
+                [["boba", 10], ["boba", 20]],
+            )
+            dict_result: List[Dict[Any, Any]] = query_result.result()
+        ```
+        """
+    async def fetch_row(
+        self: Self,
+        querystring: str,
+        parameters: list[Any] | None = None,
+        prepared: bool = True,
+    ) -> SingleQueryResult:
+        """Fetch exaclty single row from query.
+
+        Query must return exactly one row, otherwise error will be raised.
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+
+            connection = await db_pool.connection()
+            query_result: SingleQueryResult = await connection.fetch_row(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
+            dict_result: Dict[Any, Any] = query_result.result()
+        ```
+        """
+    async def fetch_val(
+        self: Self,
+        querystring: str,
+        parameters: list[Any] | None = None,
+        prepared: bool = True,
+    ) -> Any | None:
+        """Execute the query and return first value of the first row.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            connection = await db_pool.connection()
+            value: Any = await connection.execute(  # some value or None
+                "SELECT username FROM users WHERE id = $1",
+                [100],
+            )
         ```
         """
     def transaction(
@@ -778,7 +856,7 @@ class PSQLPool:
         host: Optional[str] = None,
         port: Optional[int] = None,
         db_name: Optional[str] = None,
-        max_db_pool_size: Optional[str] = None,
+        max_db_pool_size: int = 2,
         conn_recycling_method: Optional[ConnRecyclingMethod] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
@@ -803,17 +881,6 @@ class PSQLPool:
         - `db_name`: name of the database in postgres
         - `max_db_pool_size`: maximum size of the connection pool
         - `conn_recycling_method`: how a connection is recycled.
-        """
-    async def startup(self: Self) -> None:
-        """Startup the connection pool.
-
-        You must call it before start making queries.
-        """
-    async def close(self: Self) -> None:
-        """Close the connection pool.
-
-        By default it will be closed automatically,
-        but you can call it manually.
         """
     async def execute(
         self: Self,
@@ -841,7 +908,6 @@ class PSQLPool:
 
         async def main() -> None:
             db_pool = PSQLPool()
-            await db_pool.startup()
             query_result: QueryResult = await psqlpy.execute(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
@@ -864,7 +930,7 @@ def create_connection_pool(
     host: Optional[str] = None,
     port: Optional[int] = None,
     db_name: Optional[str] = None,
-    max_db_pool_size: Optional[str] = None,
+    max_db_pool_size: int = 2,
     conn_recycling_method: Optional[ConnRecyclingMethod] = None,
 ) -> PSQLPool:
     """Create new connection pool.
