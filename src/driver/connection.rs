@@ -4,7 +4,7 @@ use std::{collections::HashSet, sync::Arc, vec};
 use tokio_postgres::types::ToSql;
 
 use crate::{
-    common::rustengine_future,
+    common::rustdriver_future,
     exceptions::rust_errors::RustPSQLDriverPyResult,
     query_result::PSQLDriverPyQueryResult,
     value_converter::{convert_parameters, PythonDTO},
@@ -15,85 +15,14 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant},
 };
 
-#[allow(clippy::module_name_repetitions)]
-pub struct RustConnection {
-    pub db_client: Arc<Object>,
-}
-
-impl RustConnection {
-    #[must_use]
-    pub fn new(db_client: Arc<Object>) -> Self {
-        RustConnection { db_client }
-    }
-    /// Execute statement with or witout parameters.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if
-    /// 1) Cannot convert incoming parameters
-    /// 2) Cannot prepare statement
-    /// 3) Cannot execute query
-    pub async fn inner_execute(
-        &self,
-        querystring: String,
-        params: Vec<PythonDTO>,
-        prepared: bool,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_client = &self.db_client;
-        let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
-        for param in &params {
-            vec_parameters.push(param);
-        }
-
-        let result = if prepared {
-            db_client
-                .query(
-                    &db_client.prepare_cached(&querystring).await?,
-                    &vec_parameters.into_boxed_slice(),
-                )
-                .await?
-        } else {
-            db_client
-                .query(&querystring, &vec_parameters.into_boxed_slice())
-                .await?
-        };
-
-        Ok(PSQLDriverPyQueryResult::new(result))
-    }
-
-    /// Return new instance of transaction.
-    #[must_use]
-    pub fn inner_transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
-    ) -> Transaction {
-        let inner_transaction = RustTransaction::new(
-            self.db_client.clone(),
-            false,
-            false,
-            Arc::new(tokio::sync::RwLock::new(HashSet::new())),
-            isolation_level,
-            read_variant,
-            deferrable,
-        );
-
-        Transaction::new(
-            Arc::new(tokio::sync::RwLock::new(inner_transaction)),
-            Default::default(),
-        )
-    }
-}
-
 #[pyclass()]
 pub struct Connection {
-    pub inner_connection: Arc<RustConnection>,
+    pub inner_connection: Arc<Object>,
 }
 
 impl Connection {
     #[must_use]
-    pub fn new(inner_connection: Arc<RustConnection>) -> Self {
+    pub fn new(inner_connection: Arc<Object>) -> Self {
         Connection { inner_connection }
     }
 }
@@ -121,10 +50,27 @@ impl Connection {
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
         }
-        rustengine_future(py, async move {
-            connection_arc
-                .inner_execute(querystring, params, prepared.unwrap_or(true))
-                .await
+        let is_prepared = prepared.unwrap_or(true);
+        rustdriver_future(py, async move {
+            let mut vec_parameters: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(params.len());
+            for param in &params {
+                vec_parameters.push(param);
+            }
+
+            let result = if is_prepared {
+                connection_arc
+                    .query(
+                        &connection_arc.prepare_cached(&querystring).await?,
+                        &vec_parameters.into_boxed_slice(),
+                    )
+                    .await?
+            } else {
+                connection_arc
+                    .query(&querystring, &vec_parameters.into_boxed_slice())
+                    .await?
+            };
+
+            Ok(PSQLDriverPyQueryResult::new(result))
         })
     }
 
@@ -136,7 +82,19 @@ impl Connection {
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
     ) -> Transaction {
-        self.inner_connection
-            .inner_transaction(isolation_level, read_variant, deferrable)
+        let inner_transaction = RustTransaction::new(
+            self.inner_connection.clone(),
+            false,
+            false,
+            Arc::new(tokio::sync::RwLock::new(HashSet::new())),
+            isolation_level,
+            read_variant,
+            deferrable,
+        );
+
+        Transaction::new(
+            Arc::new(tokio::sync::RwLock::new(inner_transaction)),
+            Default::default(),
+        )
     }
 }

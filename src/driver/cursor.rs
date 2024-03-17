@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio_postgres::{types::ToSql, Row};
 
 use crate::{
-    common::rustengine_future,
+    common::rustdriver_future,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
     value_converter::PythonDTO,
@@ -173,7 +173,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<&'a PyAny> {
         let inner_cursor_arc = slf.inner_cursor.clone();
         let inner_cursor_arc2 = slf.inner_cursor.clone();
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let mut inner_cursor_guard = inner_cursor_arc.write().await;
             inner_cursor_guard.inner_start().await?;
             Ok(Cursor {
@@ -195,7 +195,7 @@ impl Cursor {
         let is_no_exc = exception.is_none();
         let py_err = PyErr::from_value(exception);
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let mut inner_cursor_guard = inner_cursor_arc.write().await;
             if is_no_exc {
                 inner_cursor_guard.inner_close().await?;
@@ -223,7 +223,7 @@ impl Cursor {
     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        let future = rustengine_future(py, async move {
+        let future = rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -257,7 +257,7 @@ impl Cursor {
     pub fn start<'a>(&'a mut self, py: Python<'a>) -> RustPSQLDriverPyResult<&'a PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let mut inner_cursor_guard = inner_cursor_arc.write().await;
             inner_cursor_guard.inner_start().await
         })
@@ -270,7 +270,7 @@ impl Cursor {
     pub fn close<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let mut inner_cursor_guard = inner_cursor_arc.write().await;
             inner_cursor_guard.inner_close().await
         })
@@ -289,7 +289,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let fetch_number = match fetch_number {
                 Some(usize) => usize,
@@ -317,7 +317,7 @@ impl Cursor {
     pub fn fetch_next<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -338,7 +338,7 @@ impl Cursor {
     pub fn fetch_prior<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -359,7 +359,7 @@ impl Cursor {
     pub fn fetch_first<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -380,7 +380,7 @@ impl Cursor {
     pub fn fetch_last<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -405,7 +405,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -433,7 +433,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -457,7 +457,7 @@ impl Cursor {
     pub fn fetch_forward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -482,7 +482,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
@@ -506,7 +506,7 @@ impl Cursor {
     pub fn fetch_backward_all<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
         let inner_cursor_arc = self.inner_cursor.clone();
 
-        rustengine_future(py, async move {
+        rustdriver_future(py, async move {
             let inner_cursor_guard = inner_cursor_arc.read().await;
             let result = inner_cursor_guard
                 .inner_execute(
