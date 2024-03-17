@@ -80,7 +80,7 @@ impl InnerCursor {
         db_transaction_arc
             .read()
             .await
-            .inner_execute(cursor_init_query, &self.parameters, self.prepared)
+            .inner_execute(cursor_init_query, self.parameters.clone(), self.prepared)
             .await?;
 
         self.is_started = true;

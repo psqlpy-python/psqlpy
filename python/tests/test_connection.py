@@ -26,7 +26,7 @@ async def test_connection_execute(
     assert len(conn_result.result()) == number_database_records
 
 
-async def test_connection_transaction(
+async def test_connection_connection(
     psql_pool: PSQLPool,
 ) -> None:
     """Test that connection can create transactions."""
@@ -45,7 +45,7 @@ async def test_connection_transaction(
         [],
     ],
 )
-async def test_transaction_execute_many(
+async def test_connection_execute_many(
     psql_pool: PSQLPool,
     table_name: str,
     number_database_records: int,
@@ -66,7 +66,7 @@ async def test_transaction_execute_many(
         ) - number_database_records == len(insert_values)
 
 
-async def test_transaction_fetch_row(
+async def test_connection_fetch_row(
     psql_pool: PSQLPool,
     table_name: str,
 ) -> None:
@@ -79,7 +79,7 @@ async def test_transaction_fetch_row(
     assert isinstance(result, dict)
 
 
-async def test_transaction_fetch_row_more_than_one_row(
+async def test_connection_fetch_row_more_than_one_row(
     psql_pool: PSQLPool,
     table_name: str,
 ) -> None:
@@ -91,7 +91,7 @@ async def test_transaction_fetch_row_more_than_one_row(
         )
 
 
-async def test_transaction_fetch_val(
+async def test_connection_fetch_val(
     psql_pool: PSQLPool,
     table_name: str,
 ) -> None:
@@ -103,7 +103,7 @@ async def test_transaction_fetch_val(
     assert isinstance(value, int)
 
 
-async def test_transaction_fetch_val_more_than_one_row(
+async def test_connection_fetch_val_more_than_one_row(
     psql_pool: PSQLPool,
     table_name: str,
 ) -> None:
