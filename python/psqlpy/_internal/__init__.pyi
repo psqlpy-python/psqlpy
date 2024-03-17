@@ -882,6 +882,12 @@ class PSQLPool:
         - `max_db_pool_size`: maximum size of the connection pool
         - `conn_recycling_method`: how a connection is recycled.
         """
+    async def close(self: Self) -> None:
+        """Close the connection pool.
+
+        By default it will be closed automatically,
+        but you can call it manually.
+        """
     async def execute(
         self: Self,
         querystring: str,
