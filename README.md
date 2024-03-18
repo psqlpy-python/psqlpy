@@ -109,8 +109,6 @@ db_pool = PSQLPool(
 )
 
 async def main() -> None:
-    await db_pool.startup()
-
     res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
@@ -147,10 +145,12 @@ As connection can be closed in different situations on various sides you can sel
   rendered ineffective.
 
 ## Results from querying
+
 You have some options to get results from the query.
 `execute()` method, for example, returns `QueryResult` and this class can be converted into `list` of `dict`s - `list[dict[Any, Any]]` or into any Python class (`pydantic` model, as an example).
 
 Let's see some code:
+
 ```python
 from typing import Any
 
@@ -169,8 +169,6 @@ db_pool = PSQLPool(
 )
 
 async def main() -> None:
-    await db_pool.startup()
-
     res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
@@ -213,8 +211,6 @@ db_pool = PSQLPool(
 )
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
 
     res: QueryResult = await connection.execute(
@@ -252,8 +248,6 @@ from psqlpy import PSQLPool, IsolationLevel, QueryResult
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     async with connection.transaction() as transaction:
         res: QueryResult = await transaction.execute(
@@ -276,8 +270,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -310,8 +302,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -339,8 +329,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -367,8 +355,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -383,6 +369,7 @@ async def main() -> None:
 ```
 
 ### Transaction pipelining
+
 When you have a lot of independent queries and want to execute them concurrently, you can use `pipeline`.
 Pipelining can improve performance in use cases in which multiple,
 independent queries need to be executed.
@@ -390,6 +377,7 @@ In a traditional workflow,
 each query is sent to the server after the previous query completes.
 In contrast, pipelining allows the client to send all of the queries to the server up front,
 minimizing time spent by one side waiting for the other to finish sending data:
+
 ```
            Sequential                              Pipelined
 | Client         | Server          |    | Client         | Server          |
@@ -404,9 +392,11 @@ minimizing time spent by one side waiting for the other to finish sending data:
 |                | process query 3 |
 | receive rows 3 |                 |
 ```
+
 Read more: https://docs.rs/tokio-postgres/latest/tokio_postgres/#pipelining
 
 Let's see some code:
+
 ```python
 import asyncio
 
@@ -415,8 +405,6 @@ from psqlpy import PSQLPool, QueryResult
 
 async def main() -> None:
     db_pool = PSQLPool()
-    await db_pool.startup()
-
     transaction = await db_pool.transaction()
 
     results: list[QueryResult] = await transaction.pipeline(
@@ -450,8 +438,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -484,8 +470,6 @@ from psqlpy import PSQLPool, IsolationLevel
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -524,8 +508,6 @@ from psqlpy import PSQLPool, IsolationLevel, QueryResult
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction = connection.transaction(
         isolation_level=IsolationLevel.Serializable,
@@ -553,6 +535,7 @@ async def main() -> None:
 ```
 
 ### Cursor as an async context manager
+
 ```python
 from typing import Any
 
@@ -563,8 +546,6 @@ db_pool = PSQLPool()
 
 
 async def main() -> None:
-    await db_pool.startup()
-
     connection = await db_pool.connection()
     transaction: Transaction
     cursor: Cursor
@@ -624,8 +605,6 @@ from psqlpy.extra_types import (
 db_pool = PSQLPool()
 
 async def main() -> None:
-    await db_pool.startup()
-
     res: list[dict[str, Any]] = await db_pool.execute(
         "INSERT INTO users VALUES ($1, $2, $3, $4, $5)",
         [

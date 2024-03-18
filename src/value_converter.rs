@@ -22,23 +22,7 @@ use crate::{
     extra_types::{BigInt, Integer, PyJSON, PyUUID, SmallInt},
 };
 
-/// Trait allows pass variable by value and by reference.
-pub trait ValueOrReferenceTo<T> {
-    fn as_ref(&self) -> &T;
-}
-
-impl<T> ValueOrReferenceTo<T> for &T {
-    #[allow(clippy::explicit_auto_deref)]
-    fn as_ref(&self) -> &T {
-        *self
-    }
-}
-
-impl<T> ValueOrReferenceTo<T> for T {
-    fn as_ref(&self) -> &T {
-        self
-    }
-}
+pub type QueryParameter = (dyn ToSql + Sync);
 
 /// Additional type for types come from Python.
 ///

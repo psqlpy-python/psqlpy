@@ -1,12 +1,12 @@
 # Start example
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncGenerator, cast
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
-from psqlpy import PSQLPool, Connection
-import uvicorn
+from typing import AsyncGenerator
 
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from psqlpy import PSQLPool
 
 db_pool = PSQLPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
@@ -17,7 +17,6 @@ db_pool = PSQLPool(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup database connection pool and close it on shutdown."""
-    await db_pool.startup()
     app.state.db_pool = db_pool
     yield
     await db_pool.close()
@@ -34,7 +33,7 @@ async def some_long_func() -> None:
 
 
 @app.get("/")
-async def pg_pool_example():
+async def pg_pool_example() -> JSONResponse:
     await some_long_func()
     db_connection = await db_pool.connection()
     query_result = await db_connection.execute(
