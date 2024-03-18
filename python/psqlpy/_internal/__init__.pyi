@@ -458,7 +458,7 @@ class Transaction:
             connection = await db_pool.connection()
             transaction = connection.transaction()
             await transaction.begin()
-            value: Any | None = await transaction.execute(
+            value: Any = await transaction.fetch_val(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
             )
@@ -788,11 +788,10 @@ class Connection:
             db_pool = PSQLPool()
 
             connection = await db_pool.connection()
-            query_result: SingleQueryResult = await connection.fetch_row(
-                "SELECT username FROM users WHERE id = $1",
-                [100],
+            fetched_row: SingleQueryResult = await connection.fetch_row(
+                "SELECT * FROM users LIMIT 1",
+                [],
             )
-            dict_result: Dict[Any, Any] = query_result.result()
         ```
         """
     async def fetch_val(
@@ -822,7 +821,7 @@ class Connection:
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
-            value: Any = await connection.execute(  # some value or None
+            value: Any = await connection.fetch_val(
                 "SELECT username FROM users WHERE id = $1",
                 [100],
             )
