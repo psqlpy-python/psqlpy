@@ -751,11 +751,10 @@ class Connection:
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
-            query_result: QueryResult = await connection.execute_many(
+            await connection.execute_many(
                 "INSERT INTO users (name, age) VALUES ($1, $2)",
                 [["boba", 10], ["boba", 20]],
             )
-            dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
         """
     async def fetch_row(
@@ -788,10 +787,11 @@ class Connection:
             db_pool = PSQLPool()
 
             connection = await db_pool.connection()
-            fetched_row: SingleQueryResult = await connection.fetch_row(
-                "SELECT * FROM users LIMIT 1",
-                [],
+            query_result: SingleQueryResult = await transaction.fetch_row(
+                "SELECT username FROM users WHERE id = $1",
+                [100],
             )
+            dict_result: Dict[Any, Any] = query_result.result()
         ```
         """
     async def fetch_val(
@@ -821,8 +821,9 @@ class Connection:
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
-            value: Any = await connection.fetch_val(
-                "SELECT username FROM users WHERE id = $1",
+            # this will be an int value
+            query_result_value = await connection.fetch_row(
+                "SELECT COUNT(*) FROM users WHERE id > $1",
                 [100],
             )
         ```
