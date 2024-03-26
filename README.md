@@ -62,34 +62,6 @@ async def main() -> None:
 
 ```
 
-Or you can create connection pool with this function:
-
-```python
-from typing import Any
-
-from psqlpy import PSQLPool, QueryResult, create_connection_pool
-
-
-db_pool: PSQLPool = create_connection_pool(
-    username="postgres",
-    password="pg_password",
-    host="localhost",
-    port=5432,
-    db_name="postgres",
-    max_db_pool_size=2,
-)
-
-async def main() -> None:
-    res: QueryResult = await db_pool.execute(
-        "SELECT * FROM users",
-    )
-
-    print(res.result())
-    # You don't need to close Database Pool by yourself,
-    # rust does it instead.
-
-```
-
 Please take into account that each new execute gets new connection from connection pool.
 
 ### DSN support
