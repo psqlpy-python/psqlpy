@@ -1,4 +1,12 @@
-from ._internal.extra_types import BigInt, Integer, PyJSON, PyMacAddr6, PyUUID, SmallInt
+from ._internal.extra_types import (
+    BigInt,
+    Integer,
+    PyJSON,
+    PyMacAddr6,
+    PyMacAddr8,
+    PyUUID,
+    SmallInt,
+)
 
 __all__ = [
     "SmallInt",
@@ -7,4 +15,5 @@ __all__ = [
     "PyUUID",
     "PyJSON",
     "PyMacAddr6",
+    "PyMacAddr8",
 ]
