@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
 from psqlpy import PSQLPool
 
 db_pool = PSQLPool(

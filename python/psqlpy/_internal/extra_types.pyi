@@ -62,3 +62,13 @@ class PyJSON:
         ### Parameters:
         - `value`: value for the JSON/JSONB field.
         """
+
+class PyMacAddr6:
+    """Represents MACADDR in PostgreSQL."""
+
+    def __init__(self, value: str) -> None:
+        """Construct new MacAddr.
+
+        ### Parameters:
+        - `value`: value for MACADDR field.
+        """

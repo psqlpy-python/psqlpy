@@ -34,6 +34,8 @@ pub enum RustPSQLDriverError {
     DBEngineBuildError(#[from] deadpool_postgres::BuildError),
     #[error("Value convert has failed: {0}")]
     UUIDConvertError(#[from] uuid::Error),
+    #[error("Cannot convert provided string to MacAddr6")]
+    MacAddr6ConversionError(#[from] macaddr::ParseError),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -43,6 +45,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::PyError(err) => err,
             RustPSQLDriverError::DBEngineError(_)
             | RustPSQLDriverError::DBEnginePoolError(_)
+            | RustPSQLDriverError::MacAddr6ConversionError(_)
             | RustPSQLDriverError::DBEngineBuildError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }

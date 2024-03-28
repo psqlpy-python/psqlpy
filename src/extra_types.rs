@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use macaddr::MacAddr6;
 use pyo3::{pyclass, pymethods, types::PyModule, PyAny, PyResult, Python};
 use serde_json::Value;
 use uuid::Uuid;
@@ -94,6 +95,30 @@ impl PyJSON {
     }
 }
 
+#[pyclass]
+#[derive(Clone)]
+pub struct PyMacAddr6 {
+    inner: MacAddr6,
+}
+
+impl PyMacAddr6 {
+    #[must_use]
+    pub fn inner(self) -> MacAddr6 {
+        self.inner
+    }
+}
+
+#[pymethods]
+impl PyMacAddr6 {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_macaddr6(value: &str) -> RustPSQLDriverPyResult<Self> {
+        Ok(Self {
+            inner: MacAddr6::from_str(value)?,
+        })
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
 pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
@@ -102,5 +127,6 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<BigInt>()?;
     pymod.add_class::<PyUUID>()?;
     pymod.add_class::<PyJSON>()?;
+    pymod.add_class::<PyMacAddr6>()?;
     Ok(())
 }

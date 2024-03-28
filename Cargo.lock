@@ -445,6 +445,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
+name = "macaddr"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
+
+[[package]]
 name = "md-5"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,6 +676,7 @@ dependencies = [
  "chrono-tz",
  "deadpool-postgres",
  "futures-util",
+ "macaddr",
  "postgres-protocol",
  "pyo3",
  "pyo3-asyncio",

@@ -535,7 +535,7 @@ class Transaction:
             )
 
         ```
-        """  # noqa: E501
+        """
     async def savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 

@@ -242,11 +242,9 @@ async def test_transaction_fetch_row(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        database_single_query_result: typing.Final = (
-            await transaction.fetch_row(
-                f"SELECT * FROM  {table_name} LIMIT 1",
-                [],
-            )
+        database_single_query_result: typing.Final = await transaction.fetch_row(
+            f"SELECT * FROM  {table_name} LIMIT 1",
+            [],
         )
         result = database_single_query_result.result()
         assert isinstance(result, dict)
