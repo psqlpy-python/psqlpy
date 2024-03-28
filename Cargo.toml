@@ -28,3 +28,4 @@ chrono-tz = "0.8.5"
 uuid = { version = "1.7.0", features = ["v4"] }
 serde_json = "1.0.113"
 futures-util = "0.3.30"
+macaddr = "1.0.1"

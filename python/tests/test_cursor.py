@@ -116,10 +116,7 @@ async def test_cursor_fetch_forward_all(
 
     rest_results = await test_cursor.fetch_forward_all()
 
-    assert (
-        len(rest_results.result())
-        == number_database_records - default_fetch_number
-    )
+    assert len(rest_results.result()) == number_database_records - default_fetch_number
 
 
 async def test_cursor_fetch_backward(

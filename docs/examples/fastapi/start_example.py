@@ -5,8 +5,9 @@ from typing import AsyncGenerator, cast
 import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from psqlpy import Connection, PSQLPool
 from typing_extensions import Annotated
+
+from psqlpy import Connection, PSQLPool
 
 
 @asynccontextmanager
@@ -26,7 +27,7 @@ app = FastAPI(lifespan=lifespan)
 
 async def db_connection(request: Request) -> Connection:
     """Retrieve new connection from connection pool and return it."""
-    return await (cast(PSQLPool, request.app.state.db_pool)).connection()
+    return await cast(PSQLPool, request.app.state.db_pool).connection()
 
 
 @app.get("/")
