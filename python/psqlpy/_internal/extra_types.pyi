@@ -72,3 +72,13 @@ class PyMacAddr6:
         ### Parameters:
         - `value`: value for MACADDR field.
         """
+
+class PyMacAddr8:
+    """Represents MACADDR8 in PostgreSQL."""
+
+    def __init__(self, value: str) -> None:
+        """Construct new MacAddr8.
+
+        ### Parameters:
+        - `value`: value for MACADDR8 field.
+        """

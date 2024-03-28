@@ -1,5 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use macaddr::MacAddr6;
+use macaddr::{MacAddr6, MacAddr8};
 use serde_json::{json, Map, Value};
 use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
@@ -19,9 +19,9 @@ use tokio_postgres::{
 };
 
 use crate::{
-    additional_types::RustMacAddr6,
+    additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::{BigInt, Integer, PyJSON, PyMacAddr6, PyUUID, SmallInt},
+    extra_types::{BigInt, Integer, PyJSON, PyMacAddr6, PyMacAddr8, PyUUID, SmallInt},
 };
 
 pub type QueryParameter = (dyn ToSql + Sync);
@@ -54,6 +54,7 @@ pub enum PythonDTO {
     PyTuple(Vec<PythonDTO>),
     PyJson(Value),
     PyMacAddr6(MacAddr6),
+    PyMacAddr8(MacAddr8),
 }
 
 impl PythonDTO {
@@ -188,6 +189,9 @@ impl ToSql for PythonDTO {
             PythonDTO::PyMacAddr6(pymacaddr) => {
                 <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
             }
+            PythonDTO::PyMacAddr8(pymacaddr) => {
+                <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
+            }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
                 for inner in py_iterable {
@@ -245,6 +249,7 @@ pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<Pyth
 ///
 /// May return Err Result if python type doesn't have support yet
 /// or value of the type is incorrect.
+#[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
@@ -359,6 +364,12 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_instance_of::<PyMacAddr6>() {
         return Ok(PythonDTO::PyMacAddr6(
             parameter.extract::<PyMacAddr6>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyMacAddr8>() {
+        return Ok(PythonDTO::PyMacAddr8(
+            parameter.extract::<PyMacAddr8>()?.inner(),
         ));
     }
 
@@ -494,8 +505,20 @@ pub fn postgres_to_py(
         }
         // Convert MACADDR into inner type for macaddr6, then into str
         Type::MACADDR => {
-            let macaddr_ = row.try_get::<_, RustMacAddr6>(column_i)?;
-            Ok(macaddr_.inner().to_string().to_object(py))
+            let macaddr_ = row.try_get::<_, Option<RustMacAddr6>>(column_i)?;
+            if let Some(macaddr_) = macaddr_ {
+                Ok(macaddr_.inner().to_string().to_object(py))
+            } else {
+                Ok(py.None().to_object(py))
+            }
+        }
+        Type::MACADDR8 => {
+            let macaddr_ = row.try_get::<_, Option<RustMacAddr8>>(column_i)?;
+            if let Some(macaddr_) = macaddr_ {
+                Ok(macaddr_.inner().to_string().to_object(py))
+            } else {
+                Ok(py.None().to_object(py))
+            }
         }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             column.type_().to_string(),
