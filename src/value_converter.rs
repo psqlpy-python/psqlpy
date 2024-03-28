@@ -187,7 +187,6 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyMacAddr6(pymacaddr) => {
                 <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
-                // <&str as ToSql>::to_sql(&pymacaddr.as_str(), ty, out)?;
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
