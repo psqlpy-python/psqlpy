@@ -18,7 +18,7 @@ create_exception!(
 );
 create_exception!(
     psqlpy.exceptions,
-    DBTransactionError,
+    TransactionError,
     RustPSQLDriverPyBaseError
 );
 create_exception!(
@@ -30,6 +30,12 @@ create_exception!(
 create_exception!(
     psqlpy.exceptions,
     UUIDValueConvertError,
+    RustPSQLDriverPyBaseError
+);
+
+create_exception!(
+    psqlpy.exceptions,
+    MacAddr6ConversionError,
     RustPSQLDriverPyBaseError
 );
 
@@ -50,7 +56,7 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()
         "PyToRustValueMappingError",
         py.get_type::<PyToRustValueMappingError>(),
     )?;
-    pymod.add("DBTransactionError", py.get_type::<DBTransactionError>())?;
+    pymod.add("TransactionError", py.get_type::<TransactionError>())?;
     pymod.add(
         "DBPoolConfigurationError",
         py.get_type::<DBPoolConfigurationError>(),
@@ -60,5 +66,9 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()
         py.get_type::<UUIDValueConvertError>(),
     )?;
     pymod.add("CursorError", py.get_type::<CursorError>())?;
+    pymod.add(
+        "MacAddr6ConversionError",
+        py.get_type::<MacAddr6ConversionError>(),
+    )?;
     Ok(())
 }

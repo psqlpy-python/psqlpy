@@ -23,7 +23,7 @@ class PyToRustValueMappingError(RustPSQLDriverPyBaseError):
     So, if there are no parameters for the query, don't handle this error.
     """
 
-class DBTransactionError(RustPSQLDriverPyBaseError):
+class TransactionError(RustPSQLDriverPyBaseError):
     """Error if something goes wrong with `Transaction`.
 
     It has verbose error message.
@@ -37,3 +37,6 @@ class UUIDValueConvertError(RustPSQLDriverPyBaseError):
 
 class CursorError(RustPSQLDriverPyBaseError):
     """Error if something goes wrong with the cursor."""
+
+class MacAddr6ConversionError(RustPSQLDriverPyBaseError):
+    """Error if cannot convert MacAddr6 string value to rust type."""
