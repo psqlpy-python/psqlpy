@@ -6,7 +6,7 @@ import pytest
 from tests.helpers import count_rows_in_test_table
 
 from psqlpy import PSQLPool, QueryResult, Transaction
-from psqlpy.exceptions import DBTransactionError, RustPSQLDriverPyBaseError
+from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
 
 pytestmark = pytest.mark.anyio
 
@@ -57,7 +57,7 @@ async def test_connection_execute_many(
             f"INSERT INTO {table_name} VALUES ($1, $2)",
             insert_values,
         )
-    except DBTransactionError:
+    except TransactionError:
         assert not insert_values
     else:
         assert await count_rows_in_test_table(

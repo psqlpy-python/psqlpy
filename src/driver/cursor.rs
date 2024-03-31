@@ -91,7 +91,7 @@ impl InnerCursor {
         let db_transaction_arc = self.db_transaction.clone();
 
         if self.closed {
-            return Err(RustPSQLDriverError::DBCursorError(
+            return Err(RustPSQLDriverError::DataBaseCursorError(
                 "Cursor is already closed".into(),
             ));
         }
@@ -120,7 +120,7 @@ impl InnerCursor {
         let db_transaction_arc = self.db_transaction.clone();
 
         if !self.is_started {
-            return Err(RustPSQLDriverError::DBCursorError(
+            return Err(RustPSQLDriverError::DataBaseCursorError(
                 "Cursor is not opened, please call `start()`.".into(),
             ));
         }
