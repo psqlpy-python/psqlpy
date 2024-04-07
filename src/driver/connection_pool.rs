@@ -419,13 +419,10 @@ impl ConnectionPool {
     pub async fn execute<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: bool,
+        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| {
-            let this = self_.borrow(gil);
-            this.db_pool.clone().unwrap()
-        });
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
         let db_pool_manager = tokio()
             .spawn(async move { db_pool.get().await.unwrap() })
             .await
@@ -434,6 +431,7 @@ impl ConnectionPool {
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
         }
+        let prepared = prepared.unwrap_or(true);
         let result = if prepared {
             tokio()
                 .spawn(async move {
