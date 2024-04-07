@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 deadpool-postgres = "0.12.1"
-pyo3 = { version = "0.19.2", features = ["chrono"] }
+pyo3 = { version = "*", features = ["chrono", "experimental-async"] }
 tokio = { version = "1.35.1", features = ["full"] }
 tokio-postgres = { version = "0.7.10", features = [
     "with-serde_json-1",
@@ -18,7 +18,6 @@ tokio-postgres = { version = "0.7.10", features = [
     "with-chrono-0_4",
     "with-uuid-1",
 ] }
-pyo3-asyncio = { version = "0.19.0", features = ["tokio-runtime"] }
 thiserror = "1.0.56"
 bytes = "1.5.0"
 byteorder = "1.5.0"

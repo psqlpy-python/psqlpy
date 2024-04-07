@@ -8,10 +8,10 @@ use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
     types::{
-        PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyFloat, PyInt, PyList, PySet, PyString,
-        PyTime, PyTuple,
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyFloat, PyInt, PyList, PySet,
+        PyString, PyTime, PyTuple,
     },
-    Py, PyAny, Python, ToPyObject,
+    Bound, Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, ToSql, Type},
@@ -228,18 +228,15 @@ impl ToSql for PythonDTO {
 /// # Errors
 ///
 /// May return Err Result if can't convert python object.
-pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
+pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
 
-    if parameters.is_instance_of::<PyList>()
-        || parameters.is_instance_of::<PyTuple>()
-        || parameters.is_instance_of::<PySet>()
-    {
-        let params = parameters.extract::<Vec<&PyAny>>()?;
+    Python::with_gil(|gil| {
+        let params = parameters.extract::<Vec<Py<PyAny>>>(gil).unwrap();
         for parameter in params {
-            result_vec.push(py_to_rust(parameter)?);
+            result_vec.push(py_to_rust(parameter.bind(gil)).unwrap());
         }
-    }
+    });
     Ok(result_vec)
 }
 
@@ -250,7 +247,7 @@ pub fn convert_parameters(parameters: &PyAny) -> RustPSQLDriverPyResult<Vec<Pyth
 /// May return Err Result if python type doesn't have support yet
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
-pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
+pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
@@ -325,7 +322,7 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
         let mut items = Vec::new();
         for inner in parameter.iter()? {
-            items.push(py_to_rust(inner?)?);
+            items.push(py_to_rust(&inner?)?);
         }
         return Ok(PythonDTO::PyList(items));
     }
@@ -339,15 +336,16 @@ pub fn py_to_rust(parameter: &PyAny) -> RustPSQLDriverPyResult<PythonDTO> {
 
         let mut serde_map: Map<String, Value> = Map::new();
 
-        for dict_item in dict.items() {
-            let py_list = dict_item.downcast::<PyTuple>().map_err(|error| {
+        for dict_item in dict.iter().unwrap() {
+            let dict_elem = dict_item.unwrap();
+            let py_list = dict_elem.downcast::<PyTuple>().map_err(|error| {
                 RustPSQLDriverError::PyToRustValueConversionError(format!(
                     "Cannot cast to list: {error}"
                 ))
             })?;
 
             let key = py_list.get_item(0)?.extract::<String>()?;
-            let value = py_to_rust(py_list.get_item(1)?)?;
+            let value = py_to_rust(&py_list.get_item(1)?)?;
 
             serde_map.insert(key, value.to_serde_value()?);
         }
@@ -531,32 +529,33 @@ pub fn postgres_to_py(
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
 pub fn build_serde_value(value: &PyAny) -> RustPSQLDriverPyResult<Value> {
-    if value.is_instance_of::<PyList>() {
-        let mut result_vec: Vec<Value> = vec![];
+    Ok(json!(123))
+    // if value.is_instance_of::<PyList>() {
+    //     let mut result_vec: Vec<Value> = vec![];
 
-        let params: Vec<&PyAny> = value.extract::<Vec<&PyAny>>()?;
+    //     let params: Vec<&PyAny> = value.extract::<Vec<&PyAny>>()?;
 
-        for inner in &params {
-            if inner.is_instance_of::<PyDict>() {
-                let python_dto = py_to_rust(inner)?;
-                result_vec.push(python_dto.to_serde_value()?);
-            } else if inner.is_instance_of::<PyList>() {
-                let serde_value = build_serde_value(inner)?;
-                result_vec.push(serde_value);
-            } else {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "PyJSON supports only list of lists or list of dicts.".to_string(),
-                ));
-            }
-        }
-        Ok(json!(result_vec))
-    } else if value.is_instance_of::<PyDict>() {
-        return py_to_rust(value)?.to_serde_value();
-    } else {
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "PyJSON must be list value.".to_string(),
-        ));
-    }
+    //     for inner in &params {
+    //         if inner.is_instance_of::<PyDict>() {
+    //             let python_dto = py_to_rust(inner)?;
+    //             result_vec.push(python_dto.to_serde_value()?);
+    //         } else if inner.is_instance_of::<PyList>() {
+    //             let serde_value = build_serde_value(inner)?;
+    //             result_vec.push(serde_value);
+    //         } else {
+    //             return Err(RustPSQLDriverError::PyToRustValueConversionError(
+    //                 "PyJSON supports only list of lists or list of dicts.".to_string(),
+    //             ));
+    //         }
+    //     }
+    //     Ok(json!(result_vec))
+    // } else if value.is_instance_of::<PyDict>() {
+    //     return py_to_rust(value)?.to_serde_value();
+    // } else {
+    //     return Err(RustPSQLDriverError::PyToRustValueConversionError(
+    //         "PyJSON must be list value.".to_string(),
+    //     ));
+    // }
 }
 
 /// Convert serde `Value` into Python object.
