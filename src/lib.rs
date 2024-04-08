@@ -7,6 +7,7 @@ pub mod query_result;
 pub mod value_converter;
 
 use common::add_module;
+use geometric_types::geometric_types_module;
 use exceptions::python_errors::python_exceptions_module;
 use extra_types::extra_types_module;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
@@ -23,6 +24,7 @@ fn psqlpy(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;
+    add_module(py, pymod, "geometric_types", geometric_types_module)?;
     add_module(py, pymod, "exceptions", python_exceptions_module)?;
     Ok(())
 }
