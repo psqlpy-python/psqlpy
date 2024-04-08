@@ -411,23 +411,23 @@ use std::{collections::HashSet, sync::Arc};
 //         slf
 //     }
 
-//     /// Return new instance of transaction.
-//     ///
-//     /// It's necessary because python requires it.
-//     ///
-//     /// # Errors
-//     /// May return Err Result if future returns error.
-//     pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
-//         let transaction_clone = self.transaction.clone();
-//         let cursor_num = self.cursor_num;
-//         let future = rustdriver_future(py, async move {
-//             Ok(Transaction {
-//                 transaction: transaction_clone,
-//                 cursor_num,
-//             })
-//         });
-//         Ok(Some(future?.into()))
-//     }
+// /// Return new instance of transaction.
+// ///
+// /// It's necessary because python requires it.
+// ///
+// /// # Errors
+// /// May return Err Result if future returns error.
+// pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
+//     let transaction_clone = self.transaction.clone();
+//     let cursor_num = self.cursor_num;
+//     let future = rustdriver_future(py, async move {
+//         Ok(Transaction {
+//             transaction: transaction_clone,
+//             cursor_num,
+//         })
+//     });
+//     Ok(Some(future?.into()))
+// }
 
 //     #[allow(clippy::missing_errors_doc)]
 //     #[allow(clippy::needless_pass_by_value)]
@@ -1689,7 +1689,7 @@ use std::{collections::HashSet, sync::Arc};
 // }
 
 #[pyclass]
-pub struct TransactionNew {
+pub struct Transaction {
     connection: Arc<Connection>,
     is_started: bool,
     is_done: bool,

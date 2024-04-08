@@ -512,3 +512,21 @@
 //         })
 //     }
 // }
+
+use std::sync::Arc;
+
+use crate::value_converter::PythonDTO;
+
+use super::transaction::Transaction;
+
+pub struct Cursor {
+    db_transaction: Arc<Transaction>,
+    querystring: String,
+    parameters: Vec<PythonDTO>,
+    cursor_name: String,
+    fetch_number: usize,
+    scroll: Option<bool>,
+    prepared: bool,
+    is_started: bool,
+    closed: bool,
+}
