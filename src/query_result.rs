@@ -1,3 +1,4 @@
+use pyo3::prelude::*;
 use pyo3::{pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
@@ -10,8 +11,11 @@ use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::po
 /// May return Err Result if can not convert
 /// postgres type to python or set new key-value pair
 /// in python dict.
-fn row_to_dict<'a>(py: Python<'a>, postgres_row: &'a Row) -> RustPSQLDriverPyResult<&'a PyDict> {
-    let python_dict = PyDict::new(py);
+fn row_to_dict<'a>(
+    py: Python<'a>,
+    postgres_row: &'a Row,
+) -> RustPSQLDriverPyResult<pyo3::Bound<'a, PyDict>> {
+    let python_dict = PyDict::new_bound(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
         let python_type = postgres_to_py(py, postgres_row, column, column_idx)?;
         python_dict.set_item(column.name().to_object(py), python_type)?;
@@ -47,7 +51,7 @@ impl PSQLDriverPyQueryResult {
     /// postgres type to python or set new key-value pair
     /// in python dict.
     pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let mut result: Vec<&PyDict> = vec![];
+        let mut result: Vec<pyo3::Bound<'_, PyDict>> = vec![];
         for row in &self.inner {
             result.push(row_to_dict(py, row)?);
         }
@@ -63,12 +67,12 @@ impl PSQLDriverPyQueryResult {
     pub fn as_class<'a>(
         &'a self,
         py: Python<'a>,
-        as_class: &'a PyAny,
+        as_class: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let mut res: Vec<&PyAny> = vec![];
+        let mut res: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
-            let pydict: &PyDict = row_to_dict(py, row)?;
-            let convert_class_inst = as_class.call((), Some(pydict))?;
+            let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row)?;
+            let convert_class_inst = as_class.call_bound(py, (), Some(&pydict))?;
             res.push(convert_class_inst);
         }
 
@@ -120,9 +124,9 @@ impl PSQLDriverSinglePyQueryResult {
     pub fn as_class<'a>(
         &'a self,
         py: Python<'a>,
-        as_class: &'a PyAny,
-    ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let pydict: &PyDict = row_to_dict(py, &self.inner)?;
-        Ok(as_class.call((), Some(pydict))?)
+        as_class: Py<PyAny>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, &self.inner)?;
+        Ok(as_class.call_bound(py, (), Some(&pydict))?)
     }
 }

@@ -1,8 +1,8 @@
-use crate::driver::runtime::tokio;
+use crate::runtime::tokio;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
-use pyo3::{pyclass, pymethods, types::PyAnyMethods, Bound, PyAny, PyObject, Python};
-use std::{str::FromStr, sync::Arc, vec};
-use tokio_postgres::NoTls;
+use pyo3::{pyclass, pymethods, PyAny};
+use std::{str::FromStr, vec};
+use tokio_postgres::{NoTls, Row};
 
 use crate::{
     // common::rustdriver_future,
@@ -13,6 +13,7 @@ use crate::{
 
 use super::{
     common_options::ConnRecyclingMethod,
+    connection::Connection,
     // connection::{Connection, RustConnection},
 };
 
@@ -311,38 +312,13 @@ pub struct ConnectionPool {
     db_pool: Option<Pool>,
 }
 
-#[pymethods]
 impl ConnectionPool {
-    #[new]
-    pub fn new(
-        dsn: Option<String>,
-        username: Option<String>,
-        password: Option<String>,
-        host: Option<String>,
-        port: Option<u16>,
-        db_name: Option<String>,
-        max_db_pool_size: Option<usize>,
-        conn_recycling_method: Option<ConnRecyclingMethod>,
-    ) -> Self {
-        ConnectionPool {
-            dsn,
-            username,
-            password,
-            host,
-            port,
-            db_name,
-            max_db_pool_size,
-            conn_recycling_method,
-            db_pool: None,
-        }
-    }
-
     /// Create new Database pool.
     ///
     /// # Errors
     /// May return Err Result if Database pool is already initialized,
     /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
-    pub fn startup(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub fn startup(mut self) -> RustPSQLDriverPyResult<Self> {
         let dsn = self.dsn.clone();
         let password = self.password.clone();
         let username = self.username.clone();
@@ -406,7 +382,35 @@ impl ConnectionPool {
         }
 
         self.db_pool = Some(db_pool_builder.build()?);
-        Ok(())
+        Ok(self)
+    }
+}
+
+#[pymethods]
+impl ConnectionPool {
+    #[new]
+    pub fn new(
+        dsn: Option<String>,
+        username: Option<String>,
+        password: Option<String>,
+        host: Option<String>,
+        port: Option<u16>,
+        db_name: Option<String>,
+        max_db_pool_size: Option<usize>,
+        conn_recycling_method: Option<ConnRecyclingMethod>,
+    ) -> RustPSQLDriverPyResult<Self> {
+        let conn_pool = ConnectionPool {
+            dsn,
+            username,
+            password,
+            host,
+            port,
+            db_name,
+            max_db_pool_size,
+            conn_recycling_method,
+            db_pool: None,
+        };
+        conn_pool.startup()
     }
 
     /// Execute querystring with parameters.
@@ -435,35 +439,52 @@ impl ConnectionPool {
         let result = if prepared {
             tokio()
                 .spawn(async move {
-                    let vec_parameters: Vec<&QueryParameter> = params
-                        .iter()
-                        .map(|param| param as &QueryParameter)
-                        .collect();
-                    db_pool_manager
-                        .query(
-                            &db_pool_manager.prepare_cached(&querystring).await.unwrap(),
-                            &vec_parameters.into_boxed_slice(),
-                        )
-                        .await
-                        .unwrap()
+                    Ok::<Vec<Row>, RustPSQLDriverError>(
+                        db_pool_manager
+                            .query(
+                                &db_pool_manager.prepare_cached(&querystring).await.unwrap(),
+                                &params
+                                    .iter()
+                                    .map(|param| param as &QueryParameter)
+                                    .collect::<Vec<&QueryParameter>>()
+                                    .into_boxed_slice(),
+                            )
+                            .await?,
+                    )
                 })
-                .await
-                .unwrap()
+                .await??
         } else {
             tokio()
                 .spawn(async move {
-                    let vec_parameters: Vec<&QueryParameter> = params
-                        .iter()
-                        .map(|param| param as &QueryParameter)
-                        .collect();
-                    db_pool_manager
-                        .query(&querystring, &vec_parameters.into_boxed_slice())
-                        .await
-                        .unwrap()
+                    Ok::<Vec<Row>, RustPSQLDriverError>(
+                        db_pool_manager
+                            .query(
+                                &querystring,
+                                &params
+                                    .iter()
+                                    .map(|param| param as &QueryParameter)
+                                    .collect::<Vec<&QueryParameter>>()
+                                    .into_boxed_slice(),
+                            )
+                            .await?,
+                    )
                 })
-                .await
-                .unwrap()
+                .await??
         };
         Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
+    /// Return new single connection.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot get new connection from the pool.
+    pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
+        let db_connection = tokio()
+            .spawn(async move { db_pool.get().await.unwrap() })
+            .await
+            .unwrap();
+
+        Ok(Connection::new(db_connection))
     }
 }

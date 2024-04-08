@@ -1,19 +1,14 @@
-// use deadpool_postgres::Object;
-// use pyo3::{pyclass, pymethods, types::PyList, PyAny, Python};
-// use std::{collections::HashSet, sync::Arc, vec};
+use deadpool_postgres::Object;
+use pyo3::{pyclass, pymethods, types::PyList, PyAny, Python};
+use std::{collections::HashSet, sync::Arc, vec};
 
-// use crate::{
-//     common::rustdriver_future,
-//     exceptions::rust_errors::RustPSQLDriverPyResult,
-//     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-//     value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
-// };
-// use tokio_postgres::Row;
-
-// use super::{
-//     transaction::{RustTransaction, Transaction},
-//     transaction_options::{IsolationLevel, ReadVariant},
-// };
+use crate::{
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
+    runtime::tokio,
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
+};
+use tokio_postgres::Row;
 
 // #[allow(clippy::module_name_repetitions)]
 // pub struct RustConnection {
@@ -294,36 +289,36 @@
 //         })
 //     }
 
-//     /// Execute querystring with parameters and return first row.
-//     ///
-//     /// It converts incoming parameters to rust readable,
-//     /// executes query with them and returns first row of response.
-//     ///
-//     /// # Errors
-//     ///
-//     /// May return Err Result if:
-//     /// 1) Cannot convert python parameters
-//     /// 2) Cannot execute querystring.
-//     /// 3) Query returns more than one row.
-//     pub fn fetch_row<'a>(
-//         &'a self,
-//         py: Python<'a>,
-//         querystring: String,
-//         parameters: Option<&'a PyList>,
-//         prepared: Option<bool>,
-//     ) -> RustPSQLDriverPyResult<&PyAny> {
-//         let transaction_arc = self.inner_connection.clone();
-//         let mut params: Vec<PythonDTO> = vec![];
-//         if let Some(parameters) = parameters {
-//             params = convert_parameters(parameters)?;
-//         }
-
-//         rustdriver_future(py, async move {
-//             transaction_arc
-//                 .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
-//                 .await
-//         })
+// / Execute querystring with parameters and return first row.
+// /
+// / It converts incoming parameters to rust readable,
+// / executes query with them and returns first row of response.
+// /
+// / # Errors
+// /
+// / May return Err Result if:
+// / 1) Cannot convert python parameters
+// / 2) Cannot execute querystring.
+// / 3) Query returns more than one row.
+// pub fn fetch_row<'a>(
+//     &'a self,
+//     py: Python<'a>,
+//     querystring: String,
+//     parameters: Option<&'a PyList>,
+//     prepared: Option<bool>,
+// ) -> RustPSQLDriverPyResult<&PyAny> {
+//     let transaction_arc = self.inner_connection.clone();
+//     let mut params: Vec<PythonDTO> = vec![];
+//     if let Some(parameters) = parameters {
+//         params = convert_parameters(parameters)?;
 //     }
+
+//     rustdriver_future(py, async move {
+//         transaction_arc
+//             .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
+//             .await
+//     })
+// }
 
 //     /// Execute querystring with parameters and return first value in the first row.
 //     ///
@@ -385,3 +380,61 @@
 //         )
 //     }
 // }
+
+#[pyclass]
+pub struct Connection {
+    pub db_client: Arc<Object>,
+}
+
+impl Connection {
+    pub fn new(db_client: Object) -> Self {
+        Connection {
+            db_client: Arc::new(db_client),
+        }
+    }
+}
+
+#[pymethods]
+impl Connection {
+    /// Execute statement with or witout parameters.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if
+    /// 1) Cannot convert incoming parameters
+    /// 2) Cannot prepare statement
+    /// 3) Cannot execute query
+    pub async fn execute(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let vec_parameters: Vec<&QueryParameter> = params
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect();
+
+        let result = if prepared {
+            db_client
+                .query(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &vec_parameters.into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .await?
+        };
+
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+}

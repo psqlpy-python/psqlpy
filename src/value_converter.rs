@@ -9,9 +9,9 @@ use postgres_protocol::types;
 use pyo3::{
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PySet, PyString, PyTime, PyTuple,
+        PyList, PyString, PyTime, PyTuple,
     },
-    Bound, Py, PyAny, Python, ToPyObject,
+    Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, ToSql, Type},
@@ -231,12 +231,17 @@ impl ToSql for PythonDTO {
 pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
 
-    Python::with_gil(|gil| {
-        let params = parameters.extract::<Vec<Py<PyAny>>>(gil).unwrap();
+    result_vec = Python::with_gil(|gil| {
+        let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
+            RustPSQLDriverError::PyToRustValueConversionError(
+                "Cannot convert you parameters argument for an array in Rust, please use List/Set/Tuple".into(),
+            )
+        })?;
         for parameter in params {
             result_vec.push(py_to_rust(parameter.bind(gil)).unwrap());
         }
-    });
+        Ok::<Vec<PythonDTO>, RustPSQLDriverError>(result_vec)
+    })?;
     Ok(result_vec)
 }
 
@@ -395,7 +400,7 @@ pub fn postgres_to_py(
         // ---------- Bytes Types ----------
         // Convert BYTEA type into Vector<u8>, then into PyBytes
         Type::BYTEA => match row.try_get::<_, Option<Vec<u8>>>(column_i)? {
-            Some(rest_bytes) => Ok(PyBytes::new(py, &rest_bytes).to_object(py)),
+            Some(rest_bytes) => Ok(PyBytes::new_bound(py, &rest_bytes).to_object(py)),
             None => Ok(py.None()),
         },
         // ---------- String Types ----------
@@ -434,7 +439,7 @@ pub fn postgres_to_py(
             let rust_uuid = row.try_get::<_, Option<Uuid>>(column_i)?;
             match rust_uuid {
                 Some(rust_uuid) => {
-                    return Ok(PyString::new(py, &rust_uuid.to_string()).to_object(py))
+                    return Ok(PyString::new_bound(py, &rust_uuid.to_string()).to_object(py))
                 }
                 None => Ok(py.None()),
             }
@@ -476,7 +481,7 @@ pub fn postgres_to_py(
         // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
         Type::UUID_ARRAY => match row.try_get::<_, Option<Vec<Uuid>>>(column_i)? {
             Some(rust_uuid_vec) => {
-                return Ok(PyList::new(
+                return Ok(PyList::new_bound(
                     py,
                     rust_uuid_vec
                         .iter()
@@ -578,7 +583,7 @@ pub fn build_python_from_serde_value(
             Ok(result_vec.to_object(py))
         }
         Value::Object(mapping) => {
-            let py_dict = PyDict::new(py);
+            let py_dict = PyDict::new_bound(py);
 
             for (key, value) in mapping {
                 py_dict.set_item(

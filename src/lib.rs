@@ -4,6 +4,7 @@ pub mod driver;
 pub mod exceptions;
 pub mod extra_types;
 pub mod query_result;
+pub mod runtime;
 pub mod value_converter;
 
 use common::add_module;

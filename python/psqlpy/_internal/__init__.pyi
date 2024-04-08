@@ -1017,3 +1017,9 @@ class ConnectionPool:
             # it will be dropped on Rust side.
         ```
         """
+
+    async def connection(self: Self) -> Connection:
+        """Create new connection.
+
+        It acquires new connection from the database pool.
+        """
