@@ -238,7 +238,7 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
             )
         })?;
         for parameter in params {
-            result_vec.push(py_to_rust(parameter.bind(gil)).unwrap());
+            result_vec.push(py_to_rust(parameter.bind(gil))?);
         }
         Ok::<Vec<PythonDTO>, RustPSQLDriverError>(result_vec)
     })?;

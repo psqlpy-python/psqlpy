@@ -481,9 +481,10 @@ impl ConnectionPool {
     pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
         let db_connection = tokio()
-            .spawn(async move { db_pool.get().await.unwrap() })
-            .await
-            .unwrap();
+            .spawn(async move {
+                Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
+            })
+            .await??;
 
         Ok(Connection::new(db_connection))
     }

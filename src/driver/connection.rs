@@ -1,14 +1,12 @@
 use deadpool_postgres::Object;
-use pyo3::{pyclass, pymethods, types::PyList, PyAny, Python};
-use std::{collections::HashSet, sync::Arc, vec};
+use pyo3::{pyclass, pymethods, Py, PyAny, Python};
+use std::{sync::Arc, vec};
 
 use crate::{
-    exceptions::rust_errors::RustPSQLDriverPyResult,
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    runtime::tokio,
     value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
-use tokio_postgres::Row;
 
 // #[allow(clippy::module_name_repetitions)]
 // pub struct RustConnection {
@@ -411,30 +409,221 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
         }
         let prepared = prepared.unwrap_or(true);
 
-        let vec_parameters: Vec<&QueryParameter> = params
-            .iter()
-            .map(|param| param as &QueryParameter)
-            .collect();
-
         let result = if prepared {
             db_client
                 .query(
                     &db_client.prepare_cached(&querystring).await?,
-                    &vec_parameters.into_boxed_slice(),
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
                 )
                 .await?
         } else {
             db_client
-                .query(&querystring, &vec_parameters.into_boxed_slice())
+                .query(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
                 .await?
         };
 
         Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub async fn execute_many<'a>(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<Vec<Py<PyAny>>>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let mut params: Vec<Vec<PythonDTO>> = vec![];
+        if let Some(parameters) = parameters {
+            for vec_of_py_any in parameters {
+                params.push(convert_parameters(vec_of_py_any)?);
+            }
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        db_client.batch_execute("BEGIN;").await.map_err(|err| {
+            RustPSQLDriverError::DataBaseTransactionError(format!(
+                "Cannot start transaction to run execute_many: {err}"
+            ))
+        })?;
+        for param in params {
+            let querystring_result = if prepared {
+                let prepared_stmt = &db_client.prepare_cached(&querystring).await;
+                if let Err(error) = prepared_stmt {
+                    return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                        "Cannot prepare statement in execute_many, operation rolled back {error}",
+                    )));
+                }
+                db_client
+                    .query(
+                        &db_client.prepare_cached(&querystring).await?,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            } else {
+                db_client
+                    .query(
+                        &querystring,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            };
+
+            if let Err(error) = querystring_result {
+                db_client.batch_execute("ROLLBACK;").await?;
+                return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                    "Error occured in `execute_many` statement, transaction is rolled back: {error}"
+                )));
+            }
+        }
+
+        db_client.batch_execute("COMMIT;").await?;
+
+        Ok(())
+    }
+
+    /// Fetch exaclty single row from query.
+    ///
+    /// Method doesn't acquire lock on any structure fields.
+    /// It prepares and caches querystring in the inner Object object.
+    ///
+    /// Then execute the query.
+    ///
+    /// # Errors
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done already
+    /// 3) Can not create/retrieve prepared statement
+    /// 4) Can not execute statement
+    /// 5) Query returns more than one row
+    pub async fn fetch_row(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let result = if prepared {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Ok(PSQLDriverSinglePyQueryResult::new(result))
+    }
+
+    /// Execute querystring with parameters and return first value in the first row.
+    ///
+    /// It converts incoming parameters to rust readable,
+    /// executes query with them and returns first row of response.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    /// 3) Query returns more than one row
+    pub async fn fetch_val<'a>(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let result = if prepared {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Python::with_gil(|gil| match result.columns().first() {
+            Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
+            None => Ok(gil.None()),
+        })
     }
 }
