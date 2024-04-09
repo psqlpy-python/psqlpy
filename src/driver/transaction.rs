@@ -1362,29 +1362,6 @@ impl Transaction {
             .psqlpy_query(querystring, parameters, prepared)
             .await
     }
-}
-
-impl Transaction {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        db_client: Arc<Object>,
-        is_started: bool,
-        is_done: bool,
-        rollback_savepoint: HashSet<String>,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
-    ) -> Self {
-        Self {
-            db_client,
-            is_started,
-            is_done,
-            isolation_level,
-            read_variant,
-            deferrable,
-            rollback_savepoint,
-        }
-    }
     /// Start the transaction.
     ///
     /// Execute `BEGIN` commands and mark transaction as `started`.
@@ -1412,6 +1389,29 @@ impl Transaction {
         self.is_started = true;
 
         Ok(())
+    }
+}
+
+impl Transaction {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        db_client: Arc<Object>,
+        is_started: bool,
+        is_done: bool,
+        rollback_savepoint: HashSet<String>,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> Self {
+        Self {
+            db_client,
+            is_started,
+            is_done,
+            isolation_level,
+            read_variant,
+            deferrable,
+            rollback_savepoint,
+        }
     }
 
     /// Start transaction
