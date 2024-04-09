@@ -515,18 +515,215 @@
 
 use std::sync::Arc;
 
-use crate::value_converter::PythonDTO;
+use deadpool_postgres::Object;
+use pyo3::{pyclass, pymethods, Py, PyAny, PyErr, Python};
 
-use super::transaction::Transaction;
+use crate::{
+    common::BaseDataBaseQuery,
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    query_result::PSQLDriverPyQueryResult,
+};
 
+trait CursorObjectTrait {
+    async fn cursor_start(
+        &self,
+        cursor_name: &String,
+        scroll: &Option<bool>,
+        querystring: &String,
+        prepared: &Option<bool>,
+        parameters: &Option<Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<()>;
+
+    async fn cursor_close(&self, closed: &bool, cursor_name: &String)
+        -> RustPSQLDriverPyResult<()>;
+}
+
+impl CursorObjectTrait for Object {
+    async fn cursor_start(
+        &self,
+        cursor_name: &String,
+        scroll: &Option<bool>,
+        querystring: &String,
+        prepared: &Option<bool>,
+        parameters: &Option<Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let mut cursor_init_query = format!("DECLARE {}", cursor_name);
+        if let Some(scroll) = scroll {
+            if *scroll {
+                cursor_init_query.push_str(" SCROLL");
+            } else {
+                cursor_init_query.push_str(" NO SCROLL");
+            }
+        }
+
+        cursor_init_query.push_str(format!(" CURSOR FOR {}", querystring).as_str());
+
+        self.psqlpy_query(cursor_init_query, parameters.clone(), *prepared)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn cursor_close(
+        &self,
+        closed: &bool,
+        cursor_name: &String,
+    ) -> RustPSQLDriverPyResult<()> {
+        if *closed {
+            return Err(RustPSQLDriverError::DataBaseCursorError(
+                "Cursor is already closed".into(),
+            ));
+        }
+
+        self.psqlpy_query(
+            format!("CLOSE {}", cursor_name),
+            Default::default(),
+            Some(false),
+        )
+        .await?;
+
+        Ok(())
+    }
+}
+
+#[pyclass]
 pub struct Cursor {
-    db_transaction: Arc<Transaction>,
+    db_transaction: Arc<Object>,
     querystring: String,
-    parameters: Vec<PythonDTO>,
+    parameters: Option<pyo3::Py<pyo3::PyAny>>,
     cursor_name: String,
     fetch_number: usize,
     scroll: Option<bool>,
-    prepared: bool,
+    prepared: Option<bool>,
     is_started: bool,
     closed: bool,
+}
+
+#[pymethods]
+impl Cursor {
+    #[must_use]
+    pub fn __aiter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __await__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+        let (db_transaction, cursor_name, scroll, querystring, prepared, parameters) =
+            Python::with_gil(|gil| {
+                let self_ = slf.borrow(gil);
+                return (
+                    self_.db_transaction.clone(),
+                    self_.cursor_name.clone(),
+                    self_.scroll,
+                    self_.querystring.clone(),
+                    self_.prepared,
+                    self_.parameters.clone(),
+                );
+            });
+        db_transaction
+            .cursor_start(&cursor_name, &scroll, &querystring, &prepared, &parameters)
+            .await?;
+        Python::with_gil(|gil| {
+            let mut self_ = slf.borrow_mut(gil);
+            self_.is_started = true;
+        });
+        Ok(slf)
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    async fn __aexit__<'a>(
+        slf: Py<Self>,
+        _exception_type: Py<PyAny>,
+        exception: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let (db_transaction, closed, cursor_name, is_exception_none, py_err) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = slf.borrow(gil);
+                (
+                    self_.db_transaction.clone(),
+                    self_.closed,
+                    self_.cursor_name.clone(),
+                    exception.is_none(gil),
+                    PyErr::from_value_bound(exception.into_bound(gil)),
+                )
+            });
+
+        db_transaction.cursor_close(&closed, &cursor_name).await?;
+        if !is_exception_none {
+            return Err(RustPSQLDriverError::PyError(py_err));
+        }
+        Ok(())
+    }
+
+    pub async fn start(&mut self) -> RustPSQLDriverPyResult<()> {
+        let db_transaction_arc = self.db_transaction.clone();
+
+        db_transaction_arc
+            .cursor_start(
+                &self.cursor_name,
+                &self.scroll,
+                &self.querystring,
+                &self.prepared,
+                &self.parameters,
+            )
+            .await?;
+
+        self.is_started = true;
+        Ok(())
+    }
+
+    /// Close the cursor.
+    ///
+    /// It executes CLOSE command to close cursor in the transaction.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn close(&mut self) -> RustPSQLDriverPyResult<()> {
+        let db_transaction_arc = self.db_transaction.clone();
+
+        db_transaction_arc
+            .cursor_close(&self.closed, &self.cursor_name)
+            .await?;
+
+        self.closed = true;
+        Ok(())
+    }
+
+    /// Fetch data from cursor.
+    ///
+    /// It's possible to specify fetch number.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch<'a>(
+        slf: Py<Self>,
+        fetch_number: Option<usize>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, inner_fetch_number, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (
+                self_.db_transaction.clone(),
+                self_.fetch_number,
+                self_.cursor_name.clone(),
+            );
+        });
+
+        let fetch_number = match fetch_number {
+            Some(usize) => usize,
+            None => inner_fetch_number,
+        };
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH {fetch_number} FROM {}", cursor_name),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
 }
