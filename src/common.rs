@@ -1,4 +1,11 @@
-use pyo3::{types::PyModule, PyResult, Python};
+use deadpool_postgres::Object;
+use pyo3::{types::PyModule, PyAny, PyResult, Python};
+
+use crate::{
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
+    value_converter::{convert_parameters, PythonDTO, QueryParameter},
+};
 
 /// Add new module to the parent one.
 ///
@@ -22,4 +29,105 @@ pub fn add_module(
         sub_module,
     )?;
     Ok(())
+}
+
+pub trait BaseDataBaseQuery {
+    fn psqlpy_query_one(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult>> + Send;
+
+    fn psqlpy_query(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<PSQLDriverPyQueryResult>> + Send;
+
+    fn psqlpy_query_simple(
+        &self,
+        querystring: String,
+    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+}
+
+impl BaseDataBaseQuery for Object {
+    async fn psqlpy_query_one(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let result = if prepared {
+            self.query_one(
+                &self.prepare_cached(&querystring).await?,
+                &params
+                    .iter()
+                    .map(|param| param as &QueryParameter)
+                    .collect::<Vec<&QueryParameter>>()
+                    .into_boxed_slice(),
+            )
+            .await?
+        } else {
+            self.query_one(
+                &querystring,
+                &params
+                    .iter()
+                    .map(|param| param as &QueryParameter)
+                    .collect::<Vec<&QueryParameter>>()
+                    .into_boxed_slice(),
+            )
+            .await?
+        };
+
+        Ok(PSQLDriverSinglePyQueryResult::new(result))
+    }
+
+    async fn psqlpy_query(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let result = if prepared {
+            self.query(
+                &self.prepare_cached(&querystring).await?,
+                &params
+                    .iter()
+                    .map(|param| param as &QueryParameter)
+                    .collect::<Vec<&QueryParameter>>()
+                    .into_boxed_slice(),
+            )
+            .await?
+        } else {
+            self.query(
+                &querystring,
+                &params
+                    .iter()
+                    .map(|param| param as &QueryParameter)
+                    .collect::<Vec<&QueryParameter>>()
+                    .into_boxed_slice(),
+            )
+            .await?
+        };
+
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
+    async fn psqlpy_query_simple(&self, querystring: String) -> RustPSQLDriverPyResult<()> {
+        Ok(self.batch_execute(querystring.as_str()).await?)
+    }
 }
