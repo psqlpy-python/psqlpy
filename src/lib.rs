@@ -5,6 +5,7 @@ pub mod exceptions;
 pub mod extra_types;
 pub mod query_result;
 pub mod value_converter;
+pub mod geometric_types;
 
 use common::add_module;
 use geometric_types::geometric_types_module;
