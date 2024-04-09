@@ -941,7 +941,6 @@ class PSQLPool:
         It acquires new connection from the database pool.
         """
 
-
 class ConnectionPool:
     """Connection pool for executing queries.
 
@@ -1017,7 +1016,6 @@ class ConnectionPool:
             # it will be dropped on Rust side.
         ```
         """
-
     async def connection(self: Self) -> Connection:
         """Create new connection.
 

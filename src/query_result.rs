@@ -1,5 +1,4 @@
-use pyo3::prelude::*;
-use pyo3::{pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
+use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
 use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};

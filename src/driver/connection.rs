@@ -1,11 +1,16 @@
 use deadpool_postgres::Object;
 use pyo3::{pyclass, pymethods, Py, PyAny, Python};
-use std::{sync::Arc, vec};
+use std::{collections::HashSet, sync::Arc, vec};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
+};
+
+use super::{
+    transaction::Transaction,
+    transaction_options::{IsolationLevel, ReadVariant},
 };
 
 #[pyclass]
@@ -34,8 +39,8 @@ impl Connection {
     pub async fn execute(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
@@ -254,5 +259,23 @@ impl Connection {
             Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
             None => Ok(gil.None()),
         })
+    }
+
+    #[must_use]
+    pub fn transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> Transaction {
+        Transaction::new(
+            self.db_client.clone(),
+            false,
+            false,
+            HashSet::new(),
+            isolation_level,
+            read_variant,
+            deferrable,
+        )
     }
 }
