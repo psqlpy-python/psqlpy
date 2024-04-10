@@ -1267,18 +1267,30 @@ impl Transaction {
     }
 
     async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
-        let (is_transaction_ready, isolation_level, read_variant, deferrable, db_client) =
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = slf.borrow(gil);
                 (
-                    self_.check_is_transaction_ready(),
+                    self_.is_started,
+                    self_.is_done,
                     self_.isolation_level,
                     self_.read_variant,
                     self_.deferrable,
                     self_.db_client.clone(),
                 )
             });
-        is_transaction_ready?;
+
+        if is_started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already started".into(),
+            ));
+        }
+
+        if is_done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
         db_client
             .start_transaction(isolation_level, read_variant, deferrable)
             .await?;
