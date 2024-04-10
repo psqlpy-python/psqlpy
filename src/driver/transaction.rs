@@ -4,22 +4,14 @@ use pyo3::{prelude::*, pyclass};
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
-    value_converter::{convert_parameters, PythonDTO},
 };
 
 use super::{
-    connection::Connection,
     cursor::Cursor,
     transaction_options::{IsolationLevel, ReadVariant},
 };
-use crate::common::ObjectQueryTrait;
-use std::{
-    borrow::Borrow,
-    collections::HashSet,
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
-
+use crate::common::{ObjectQueryTrait, TransactionObjectTrait};
+use std::{borrow::Borrow, collections::HashSet, sync::Arc};
 // use super::connection::RustConnection;
 
 // /// Transaction for internal use only.
@@ -1253,7 +1245,6 @@ use std::{
 // }
 
 #[pyclass]
-#[derive(Clone)]
 pub struct Transaction {
     pub db_client: Arc<Object>,
     is_started: bool,
@@ -1277,9 +1268,40 @@ impl Transaction {
         slf
     }
 
-    async fn __aenter__<'a>(&mut self) -> RustPSQLDriverPyResult<Transaction> {
-        self.begin().await?;
-        Ok(self.clone())
+    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = slf.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
+
+        if is_started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already started".into(),
+            ));
+        }
+
+        if is_done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+        db_client
+            .start_transaction(isolation_level, read_variant, deferrable)
+            .await?;
+
+        Python::with_gil(|gil| {
+            let mut self_ = slf.borrow_mut(gil);
+            self_.is_started = true;
+        });
+        Ok(slf)
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -1289,21 +1311,30 @@ impl Transaction {
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<()> {
-        let (is_exception_none, py_err, mut transaction) = pyo3::Python::with_gil(|gil| {
-            (
-                exception.is_none(gil),
-                PyErr::from_value_bound(exception.into_bound(gil)),
-                slf.borrow_mut(gil).clone(),
-            )
-        });
-
-        if is_exception_none {
-            transaction.commit().await?;
+        let (is_transaction_ready, is_exception_none, py_err, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = slf.borrow(gil);
+                (
+                    self_.check_is_transaction_ready(),
+                    exception.is_none(gil),
+                    PyErr::from_value_bound(exception.into_bound(gil)),
+                    self_.db_client.clone(),
+                )
+            });
+        is_transaction_ready?;
+        let exit_result = if is_exception_none {
+            db_client.commit().await?;
             Ok(())
         } else {
-            transaction.rollback().await?;
+            db_client.rollback().await?;
             Err(RustPSQLDriverError::PyError(py_err))
-        }
+        };
+
+        pyo3::Python::with_gil(|gil| {
+            let mut self_ = slf.borrow_mut(gil);
+            self_.is_done = true;
+        });
+        exit_result
     }
 
     /// Commit the transaction.
@@ -1318,9 +1349,8 @@ impl Transaction {
     /// 3) Cannot execute `COMMIT` command
     pub async fn commit(&mut self) -> RustPSQLDriverPyResult<()> {
         self.check_is_transaction_ready()?;
-        self.db_client.batch_execute("COMMIT;").await?;
+        self.db_client.commit().await?;
         self.is_done = true;
-
         Ok(())
     }
 
@@ -1351,15 +1381,17 @@ impl Transaction {
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
     pub async fn execute(
-        self_: pyo3::Py<Self>,
+        slf: Py<Self>,
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let transaction = pyo3::Python::with_gil(|gil| self_.borrow(gil).clone());
-        transaction.check_is_transaction_ready()?;
-        transaction
-            .db_client
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+        db_client
             .psqlpy_query(querystring, parameters, prepared)
             .await
     }
@@ -1463,7 +1495,6 @@ impl Transaction {
 
         Ok(())
     }
-
     fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
         if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
@@ -1475,7 +1506,6 @@ impl Transaction {
                 "Transaction is already committed or rolled back".into(),
             ));
         }
-
         Ok(())
     }
 }
