@@ -513,20 +513,18 @@
 //     }
 // }
 
-use std::future::IntoFuture;
 use std::sync::Arc;
 
 use deadpool_postgres::Object;
-use pyo3::coroutine::Coroutine;
-use pyo3::{exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, Python};
-use pyo3::{pyfunction, PyObject};
+use pyo3::{
+    exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
+};
 
 use crate::runtime::rustdriver_future;
 use crate::{
     common::ObjectQueryTrait,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
-    runtime::tokio_runtime,
 };
 
 trait CursorObjectTrait {
@@ -589,11 +587,6 @@ impl CursorObjectTrait for Object {
 
         Ok(())
     }
-}
-
-#[pyfunction]
-async fn test() -> usize {
-    42
 }
 
 #[pyclass]
@@ -710,7 +703,7 @@ impl Cursor {
             let future = rustdriver_future(gil, async move {
                 let result = db_transaction
                     .psqlpy_query(
-                        format!("FETCH {} FROM {}", fetch_number, cursor_name),
+                        format!("FETCH {fetch_number} FROM {cursor_name}"),
                         None,
                         Some(false),
                     )
@@ -792,7 +785,202 @@ impl Cursor {
 
         let result = db_transaction
             .psqlpy_query(
-                format!("FETCH {fetch_number} FROM {}", cursor_name),
+                format!("FETCH {fetch_number} FROM {cursor_name}"),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch row from cursor.
+    ///
+    /// Execute FETCH NEXT.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_next<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(format!("FETCH NEXT FROM {cursor_name}"), None, Some(false))
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch previous from cursor.
+    ///
+    /// Execute FETCH PRIOR.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_prior<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(format!("FETCH PRIOR FROM {cursor_name}"), None, Some(false))
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch first row from cursor.
+    ///
+    /// Execute FETCH FIRST (same as ABSOLUTE 1)
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_first<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(format!("FETCH FIRST FROM {cursor_name}"), None, Some(false))
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch last row from cursor.
+    ///
+    /// Execute FETCH LAST (same as ABSOLUTE -1)
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_last<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(format!("FETCH LAST FROM {cursor_name}"), None, Some(false))
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch absolute row from cursor.
+    ///
+    /// Execute FETCH ABSOLUTE<absolute_number>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_absolute<'a>(
+        slf: Py<Self>,
+        absolute_number: i64,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH ABSOLUTE {absolute_number} FROM {cursor_name}"),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch absolute row from cursor.
+    ///
+    /// Execute FETCH ABSOLUTE<absolute_number>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_relative<'a>(
+        slf: Py<Self>,
+        relative_number: i64,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH  RELATIVE {relative_number} FROM {cursor_name}"),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch forward all from cursor.
+    ///
+    /// Execute FORWARD ALL.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_forward_all<'a>(
+        slf: Py<Self>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH FORWARD ALL FROM {cursor_name}"),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch backward from cursor.
+    ///
+    /// Execute BACKWARD <backward_count>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_backward<'a>(
+        slf: Py<Self>,
+        backward_count: i64,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH BACKWARD {backward_count} FROM {cursor_name}",),
+                None,
+                Some(false),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    /// Fetch backward from cursor.
+    ///
+    /// Execute BACKWARD <backward_count>.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot execute query.
+    pub async fn fetch_backward_all<'a>(
+        slf: Py<Self>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+        });
+
+        let result = db_transaction
+            .psqlpy_query(
+                format!("FETCH BACKWARD ALL FROM {cursor_name}"),
                 None,
                 Some(false),
             )
