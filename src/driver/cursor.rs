@@ -513,15 +513,20 @@
 //     }
 // }
 
+use std::future::IntoFuture;
 use std::sync::Arc;
 
 use deadpool_postgres::Object;
-use pyo3::{pyclass, pymethods, Py, PyAny, PyErr, Python};
+use pyo3::coroutine::Coroutine;
+use pyo3::{exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, Python};
+use pyo3::{pyfunction, PyObject};
 
+use crate::runtime::rustdriver_future;
 use crate::{
-    common::BaseDataBaseQuery,
+    common::ObjectQueryTrait,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
+    runtime::tokio_runtime,
 };
 
 trait CursorObjectTrait {
@@ -586,11 +591,16 @@ impl CursorObjectTrait for Object {
     }
 }
 
+#[pyfunction]
+async fn test() -> usize {
+    42
+}
+
 #[pyclass]
 pub struct Cursor {
     db_transaction: Arc<Object>,
     querystring: String,
-    parameters: Option<pyo3::Py<pyo3::PyAny>>,
+    parameters: Option<Py<PyAny>>,
     cursor_name: String,
     fetch_number: usize,
     scroll: Option<bool>,
@@ -599,10 +609,34 @@ pub struct Cursor {
     closed: bool,
 }
 
+impl Cursor {
+    pub fn new(
+        db_transaction: Arc<Object>,
+        querystring: String,
+        parameters: Option<Py<PyAny>>,
+        cursor_name: String,
+        fetch_number: usize,
+        scroll: Option<bool>,
+        prepared: Option<bool>,
+    ) -> Self {
+        Cursor {
+            db_transaction,
+            querystring,
+            parameters,
+            cursor_name,
+            fetch_number,
+            scroll,
+            prepared,
+            is_started: false,
+            closed: false,
+        }
+    }
+}
+
 #[pymethods]
 impl Cursor {
     #[must_use]
-    pub fn __aiter__(slf: Py<Self>) -> Py<Self> {
+    fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
@@ -657,6 +691,45 @@ impl Cursor {
             return Err(RustPSQLDriverError::PyError(py_err));
         }
         Ok(())
+    }
+
+    /// Return next result from the SQL statement.
+    ///
+    /// Execute FETCH <number> FROM <cursor name>
+    ///
+    /// This is the only place where we use `rustdriver_future` cuz
+    /// we didn't find any solution how to implement it without
+    /// # Errors
+    /// May return Err Result if can't execute querystring.
+    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<PyObject>> {
+        let db_transaction = self.db_transaction.clone();
+        let fetch_number = self.fetch_number;
+        let cursor_name = self.cursor_name.clone();
+
+        let py_future = Python::with_gil(move |gil| {
+            let future = rustdriver_future(gil, async move {
+                let result = db_transaction
+                    .psqlpy_query(
+                        format!("FETCH {} FROM {}", fetch_number, cursor_name),
+                        None,
+                        Some(false),
+                    )
+                    .await?;
+
+                if result.is_empty() {
+                    return Err(PyStopAsyncIteration::new_err(
+                        "Iteration is over, no more results in cursor",
+                    )
+                    .into());
+                };
+
+                Ok(result)
+            });
+
+            future
+        });
+
+        Ok(Some(py_future?.into()))
     }
 
     pub async fn start(&mut self) -> RustPSQLDriverPyResult<()> {

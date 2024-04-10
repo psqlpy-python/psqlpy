@@ -31,7 +31,7 @@ pub fn add_module(
     Ok(())
 }
 
-pub trait BaseDataBaseQuery {
+pub trait ObjectQueryTrait {
     fn psqlpy_query_one(
         &self,
         querystring: String,
@@ -52,7 +52,7 @@ pub trait BaseDataBaseQuery {
     ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl BaseDataBaseQuery for Object {
+impl ObjectQueryTrait for Object {
     async fn psqlpy_query_one(
         &self,
         querystring: String,

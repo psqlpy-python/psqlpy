@@ -9,9 +9,10 @@ use crate::{
 
 use super::{
     connection::Connection,
+    cursor::Cursor,
     transaction_options::{IsolationLevel, ReadVariant},
 };
-use crate::common::BaseDataBaseQuery;
+use crate::common::ObjectQueryTrait;
 use std::{
     borrow::Borrow,
     collections::HashSet,
@@ -1389,6 +1390,25 @@ impl Transaction {
         self.is_started = true;
 
         Ok(())
+    }
+
+    pub fn cursor(
+        &self,
+        querystring: String,
+        parameters: Option<Py<PyAny>>,
+        fetch_number: Option<usize>,
+        scroll: Option<bool>,
+        prepared: Option<bool>,
+    ) -> Cursor {
+        Cursor::new(
+            self.db_client.clone(),
+            querystring,
+            parameters,
+            "cur_name".into(),
+            fetch_number.unwrap_or(10),
+            scroll,
+            prepared,
+        )
     }
 }
 

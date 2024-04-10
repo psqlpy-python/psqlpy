@@ -35,6 +35,10 @@ impl PSQLDriverPyQueryResult {
             inner: database_result,
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
 #[pymethods]

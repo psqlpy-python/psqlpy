@@ -1,4 +1,4 @@
-use crate::runtime::tokio;
+use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, PyAny};
 use std::{str::FromStr, vec};
@@ -427,7 +427,7 @@ impl ConnectionPool {
         parameters: Option<pyo3::Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
-        let db_pool_manager = tokio()
+        let db_pool_manager = tokio_runtime()
             .spawn(async move { db_pool.get().await.unwrap() })
             .await
             .unwrap();
@@ -437,7 +437,7 @@ impl ConnectionPool {
         }
         let prepared = prepared.unwrap_or(true);
         let result = if prepared {
-            tokio()
+            tokio_runtime()
                 .spawn(async move {
                     Ok::<Vec<Row>, RustPSQLDriverError>(
                         db_pool_manager
@@ -454,7 +454,7 @@ impl ConnectionPool {
                 })
                 .await??
         } else {
-            tokio()
+            tokio_runtime()
                 .spawn(async move {
                     Ok::<Vec<Row>, RustPSQLDriverError>(
                         db_pool_manager
@@ -480,7 +480,7 @@ impl ConnectionPool {
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
-        let db_connection = tokio()
+        let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
             })
