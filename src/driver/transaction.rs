@@ -10,7 +10,7 @@ use super::{
     cursor::Cursor,
     transaction_options::{IsolationLevel, ReadVariant},
 };
-use crate::common::{ObjectQueryTrait, TransactionObjectTrait};
+use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
 // use super::connection::RustConnection;
 
@@ -1243,6 +1243,56 @@ use std::{collections::HashSet, sync::Arc};
 //         Ok(())
 //     }
 // }
+
+pub trait TransactionObjectTrait {
+    fn start_transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        defferable: Option<bool>,
+    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+    fn commit(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+    fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+}
+
+impl TransactionObjectTrait for Object {
+    async fn start_transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let mut querystring = "START TRANSACTION".to_string();
+
+        if let Some(level) = isolation_level {
+            let level = &level.to_str_level();
+            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
+        };
+
+        querystring.push_str(match read_variant {
+            Some(ReadVariant::ReadOnly) => " READ ONLY",
+            Some(ReadVariant::ReadWrite) => " READ WRITE",
+            None => "",
+        });
+
+        querystring.push_str(match deferrable {
+            Some(true) => " DEFERRABLE",
+            Some(false) => " NOT DEFERRABLE",
+            None => "",
+        });
+        self.batch_execute(&querystring).await?;
+
+        Ok(())
+    }
+    async fn commit(&self) -> RustPSQLDriverPyResult<()> {
+        self.batch_execute("COMMIT;").await?;
+        Ok(())
+    }
+    async fn rollback(&self) -> RustPSQLDriverPyResult<()> {
+        self.batch_execute("ROLLBACK;").await?;
+        Ok(())
+    }
+}
 
 #[pyclass]
 pub struct Transaction {
