@@ -1,5 +1,8 @@
 use deadpool_postgres::Object;
-use pyo3::{types::PyModule, PyAny, PyResult, Python};
+use pyo3::{
+    types::{PyAnyMethods, PyModule, PyModuleMethods},
+    Bound, PyAny, PyResult, Python,
+};
 
 use crate::{
     driver::transaction_options::{IsolationLevel, ReadVariant},
@@ -18,14 +21,14 @@ use crate::{
 /// May return Err Result if can't build module or change modules.
 pub fn add_module(
     py: Python<'_>,
-    parent_mod: &PyModule,
+    parent_mod: &Bound<'_, PyModule>,
     child_mod_name: &'static str,
-    child_mod_builder: impl FnOnce(Python<'_>, &PyModule) -> PyResult<()>,
+    child_mod_builder: impl FnOnce(Python<'_>, &Bound<'_, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let sub_module = PyModule::new(py, child_mod_name)?;
-    child_mod_builder(py, sub_module)?;
-    parent_mod.add_submodule(sub_module)?;
-    py.import("sys")?.getattr("modules")?.set_item(
+    let sub_module = PyModule::new_bound(py, child_mod_name)?;
+    child_mod_builder(py, &sub_module)?;
+    parent_mod.add_submodule(&sub_module)?;
+    py.import_bound("sys")?.getattr("modules")?.set_item(
         format!("{}.{}", parent_mod.name()?, child_mod_name),
         sub_module,
     )?;

@@ -1,7 +1,11 @@
 use std::str::FromStr;
 
 use macaddr::{MacAddr6, MacAddr8};
-use pyo3::{pyclass, pymethods, types::PyModule, Py, PyAny, PyResult, Python};
+use pyo3::{
+    pyclass, pymethods,
+    types::{PyModule, PyModuleMethods},
+    Bound, Py, PyAny, PyResult, Python,
+};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -128,7 +132,7 @@ build_macaddr_type!(PyMacAddr8, MacAddr8);
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
-pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;

@@ -11,7 +11,7 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant},
 };
 use crate::common::{ObjectQueryTrait, TransactionObjectTrait};
-use std::{borrow::Borrow, collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 // use super::connection::RustConnection;
 
 // /// Transaction for internal use only.

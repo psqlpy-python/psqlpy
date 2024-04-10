@@ -1,4 +1,8 @@
-use pyo3::{create_exception, types::PyModule, PyResult, Python};
+use pyo3::{
+    create_exception,
+    types::{PyModule, PyModuleMethods},
+    Bound, PyResult, Python,
+};
 
 create_exception!(
     psqlpy.exceptions,
@@ -42,7 +46,7 @@ create_exception!(
 create_exception!(psqlpy.exceptions, CursorError, RustPSQLDriverPyBaseError);
 
 #[allow(clippy::missing_errors_doc)]
-pub fn python_exceptions_module(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add(
         "RustPSQLDriverPyBaseError",
         py.get_type_bound::<RustPSQLDriverPyBaseError>(),

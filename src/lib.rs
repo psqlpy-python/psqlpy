@@ -10,11 +10,11 @@ pub mod value_converter;
 use common::add_module;
 use exceptions::python_errors::python_exceptions_module;
 use extra_types::extra_types_module;
-use pyo3::{pymodule, types::PyModule, PyResult, Python};
+use pyo3::{pymodule, types::PyModule, Bound, PyResult, Python};
 
 #[pymodule]
 #[pyo3(name = "_internal")]
-fn psqlpy(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::ConnectionPool>()?;
     pymod.add_class::<driver::connection::Connection>()?;
     pymod.add_class::<driver::transaction::Transaction>()?;

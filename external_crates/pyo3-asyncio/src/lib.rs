@@ -1,5 +1,6 @@
 #![warn(missing_docs)]
 #![allow(clippy::borrow_deref_ref)]
+#![allow(warnings)]
 
 //! Rust Bindings to the Python Asyncio Event Loop
 //!
