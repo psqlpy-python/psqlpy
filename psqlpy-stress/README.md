@@ -22,11 +22,11 @@ docker compose up
 5. Import a dashboard to a grafana, named `dashboad.yaml`, located in root directory.  
    This dashboard displays certain important parameters:
 
-   - p99
-   - p95
-   - p90
-   - p50
-   - mean
+   - p99 latency
+   - p95 latency
+   - p90 latency
+   - p50 latency
+   - mean latency
    - p50 rps
 
 6. Run poetry install in root
