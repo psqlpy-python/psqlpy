@@ -272,10 +272,10 @@ impl Connection {
             self.db_client.clone(),
             false,
             false,
-            HashSet::new(),
             isolation_level,
             read_variant,
             deferrable,
+            HashSet::new(),
         )
     }
 }
