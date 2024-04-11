@@ -1,6 +1,0 @@
-replicaCount: 1
-
-image:
-  repository: "registry.chandr.net/cluster/psqlpy-stress"
-  pullPolicy: IfNotPresent
-  tag: ""
