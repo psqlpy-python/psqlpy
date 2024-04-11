@@ -1,163 +1,226 @@
-use super::{
-    cursor::{Cursor, InnerCursor},
-    transaction_options::{IsolationLevel, ReadVariant},
-};
-use crate::{
-    common::rustdriver_future,
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO},
-};
+use deadpool_postgres::Object;
 use futures_util::future;
 use pyo3::{
-    pyclass, pymethods,
-    types::{PyList, PyString, PyTuple},
-    Py, PyAny, PyErr, PyObject, PyRef, PyRefMut, Python,
+    prelude::*,
+    pyclass,
+    types::{PyList, PyTuple},
 };
-use std::{collections::HashSet, sync::Arc, vec};
-use tokio::sync::RwLock;
-use tokio_postgres::Row;
 
-use super::connection::RustConnection;
+use crate::{
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
+};
 
-/// Transaction for internal use only.
-///
-/// It is not exposed to python.
+use super::{
+    cursor::Cursor,
+    transaction_options::{IsolationLevel, ReadVariant},
+};
+use crate::common::ObjectQueryTrait;
+use std::{collections::HashSet, sync::Arc};
+
 #[allow(clippy::module_name_repetitions)]
-pub struct RustTransaction {
-    connection: Arc<RustConnection>,
+pub trait TransactionObjectTrait {
+    fn start_transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        defferable: Option<bool>,
+    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+    fn commit(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+    fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+}
+
+impl TransactionObjectTrait for Object {
+    async fn start_transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let mut querystring = "START TRANSACTION".to_string();
+
+        if let Some(level) = isolation_level {
+            let level = &level.to_str_level();
+            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
+        };
+
+        querystring.push_str(match read_variant {
+            Some(ReadVariant::ReadOnly) => " READ ONLY",
+            Some(ReadVariant::ReadWrite) => " READ WRITE",
+            None => "",
+        });
+
+        querystring.push_str(match deferrable {
+            Some(true) => " DEFERRABLE",
+            Some(false) => " NOT DEFERRABLE",
+            None => "",
+        });
+        self.batch_execute(&querystring).await?;
+
+        Ok(())
+    }
+    async fn commit(&self) -> RustPSQLDriverPyResult<()> {
+        self.batch_execute("COMMIT;").await?;
+        Ok(())
+    }
+    async fn rollback(&self) -> RustPSQLDriverPyResult<()> {
+        self.batch_execute("ROLLBACK;").await?;
+        Ok(())
+    }
+}
+
+#[pyclass]
+pub struct Transaction {
+    pub db_client: Arc<Object>,
     is_started: bool,
     is_done: bool,
-    rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
 
     isolation_level: Option<IsolationLevel>,
     read_variant: Option<ReadVariant>,
-    deferable: Option<bool>,
+    deferrable: Option<bool>,
+
+    savepoints_map: HashSet<String>,
 }
 
-impl RustTransaction {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        connection: Arc<RustConnection>,
-        is_started: bool,
-        is_done: bool,
-        rollback_savepoint: Arc<tokio::sync::RwLock<HashSet<String>>>,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferable: Option<bool>,
-    ) -> Self {
-        Self {
-            connection,
-            is_started,
-            is_done,
-            rollback_savepoint,
-            isolation_level,
-            read_variant,
-            deferable,
-        }
+#[pymethods]
+impl Transaction {
+    #[must_use]
+    pub fn __aiter__(self_: Py<Self>) -> Py<Self> {
+        self_
     }
 
-    fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
-        if !self.is_started {
+    fn __await__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
+
+        if is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Transaction is not started, please call begin() on transaction".into(),
+                "Transaction is already started".into(),
             ));
         }
-        if self.is_done {
+
+        if is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
+        db_client
+            .start_transaction(isolation_level, read_variant, deferrable)
+            .await?;
 
-        Ok(())
+        Python::with_gil(|gil| {
+            let mut self_ = self_.borrow_mut(gil);
+            self_.is_started = true;
+        });
+        Ok(self_)
     }
 
-    /// Execute querystring with parameters.
-    ///
-    /// Method doesn't acquire lock on any structure fields.
-    /// It prepares and caches querystring in the inner Object object.
-    ///
-    /// Then execute the query.
-    ///
-    /// # Errors
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done already
-    /// 3) Can not create/retrieve prepared statement
-    /// 4) Can not execute statement
-    pub async fn inner_execute(
-        &self,
-        querystring: String,
-        parameters: Vec<PythonDTO>,
-        prepared: bool,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        self.check_is_transaction_ready()?;
-        self.connection
-            .inner_execute(querystring, parameters, prepared)
-            .await
-    }
-
-    /// Execute querystring with parameters.
-    ///
-    /// Method doesn't acquire lock on any structure fields.
-    /// It prepares and caches querystring in the inner Object object.
-    ///
-    /// Then execute the query.
-    ///
-    /// It returns `Vec<Row>` instead of `PSQLDriverPyQueryResult`.
-    ///
-    /// # Errors
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done already
-    /// 3) Can not create/retrieve prepared statement
-    /// 4) Can not execute statement
-    pub async fn inner_execute_raw(
-        &self,
-        querystring: String,
-        parameters: Vec<PythonDTO>,
-        prepared: bool,
-    ) -> RustPSQLDriverPyResult<Vec<Row>> {
-        self.check_is_transaction_ready()?;
-        self.connection
-            .inner_execute_raw(querystring, parameters, prepared)
-            .await
-    }
-
-    /// Execute querystring with many parameters.
-    ///
-    /// Method doesn't acquire lock on any structure fields.
-    /// It prepares and caches querystring in the inner Object object.
-    ///
-    /// Then execute the query.
-    ///
-    /// # Errors
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done already
-    /// 3) Can not create/retrieve prepared statement
-    /// 4) Can not execute statement
-    pub async fn inner_execute_many(
-        &self,
-        querystring: String,
-        parameters: Vec<Vec<PythonDTO>>,
-        prepared: bool,
+    #[allow(clippy::needless_pass_by_value)]
+    async fn __aexit__<'a>(
+        self_: Py<Self>,
+        _exception_type: Py<PyAny>,
+        exception: Py<PyAny>,
+        _traceback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
-        if parameters.is_empty() {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "No parameters passed to execute_many".into(),
-            ));
-        }
-        for single_parameters in parameters {
-            self.connection
-                .inner_execute(querystring.clone(), single_parameters, prepared)
-                .await?;
-        }
+        let (is_transaction_ready, is_exception_none, py_err, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.check_is_transaction_ready(),
+                    exception.is_none(gil),
+                    PyErr::from_value_bound(exception.into_bound(gil)),
+                    self_.db_client.clone(),
+                )
+            });
+        is_transaction_ready?;
+        let exit_result = if is_exception_none {
+            db_client.commit().await?;
+            Ok(())
+        } else {
+            db_client.rollback().await?;
+            Err(RustPSQLDriverError::PyError(py_err))
+        };
 
+        pyo3::Python::with_gil(|gil| {
+            let mut self_ = self_.borrow_mut(gil);
+            self_.is_done = true;
+        });
+        exit_result
+    }
+
+    /// Commit the transaction.
+    ///
+    /// Execute `COMMIT` command and mark transaction as `done`.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Cannot execute `COMMIT` command
+    pub async fn commit(&mut self) -> RustPSQLDriverPyResult<()> {
+        self.check_is_transaction_ready()?;
+        self.db_client.commit().await?;
+        self.is_done = true;
         Ok(())
     }
 
+    /// Execute ROLLBACK command.
+    ///
+    /// Run ROLLBACK command and mark the transaction as done.
+    ///
+    /// # Errors
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Can not execute ROLLBACK command
+    pub async fn rollback(&mut self) -> RustPSQLDriverPyResult<()> {
+        self.check_is_transaction_ready()?;
+        self.db_client.batch_execute("ROLLBACK").await?;
+        self.is_done = true;
+        Ok(())
+    }
+
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub async fn execute(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+        db_client
+            .psqlpy_query(querystring, parameters, prepared)
+            .await
+    }
     /// Fetch exaclty single row from query.
     ///
     /// Method doesn't acquire lock on any structure fields.
@@ -172,72 +235,171 @@ impl RustTransaction {
     /// 3) Can not create/retrieve prepared statement
     /// 4) Can not execute statement
     /// 5) Query returns more than one row
-    pub async fn inner_fetch_row(
-        &self,
+    pub async fn fetch_row(
+        self_: Py<Self>,
         querystring: String,
-        parameters: Vec<PythonDTO>,
-        prepared: bool,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        self.check_is_transaction_ready()?;
-        self.connection
-            .inner_fetch_row(querystring, parameters, prepared)
-            .await
-    }
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
 
-    /// Run many queries as pipeline.
-    ///
-    /// It can boost up querying speed.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if can't join futures or cannot execute
-    /// any of queries.
-    pub async fn inner_pipeline(
-        &self,
-        queries: Vec<(String, Vec<PythonDTO>)>,
-        prepared: bool,
-    ) -> RustPSQLDriverPyResult<Vec<PSQLDriverPyQueryResult>> {
-        let mut futures = vec![];
-        for (querystring, params) in queries {
-            let execute_future = self.inner_execute(querystring, params, prepared);
-            futures.push(execute_future);
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
         }
 
-        let b = future::try_join_all(futures).await?;
-        Ok(b)
-    }
-
-    /// Start transaction
-    /// Set up isolation level if specified
-    /// Set up deferable if specified
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute querystring.
-    pub async fn start_transaction(&self) -> RustPSQLDriverPyResult<()> {
-        let mut querystring = "START TRANSACTION".to_string();
-
-        if let Some(level) = self.isolation_level {
-            let level = &level.to_str_level();
-            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
+        let result = if prepared.unwrap_or(true) {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
         };
 
-        querystring.push_str(match self.read_variant {
-            Some(ReadVariant::ReadOnly) => " READ ONLY",
-            Some(ReadVariant::ReadWrite) => " READ WRITE",
-            None => "",
+        Ok(PSQLDriverSinglePyQueryResult::new(result))
+    }
+    /// Execute querystring with parameters and return first value in the first row.
+    ///
+    /// It converts incoming parameters to rust readable,
+    /// executes query with them and returns first row of response.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    /// 3) Query returns more than one row
+    pub async fn fetch_val(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
+        is_transaction_ready?;
 
-        querystring.push_str(match self.deferable {
-            Some(true) => " DEFERRABLE",
-            Some(false) => " NOT DEFERRABLE",
-            None => "",
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+
+        let result = if prepared.unwrap_or(true) {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Python::with_gil(|gil| match result.columns().first() {
+            Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
+            None => Ok(gil.None()),
+        })
+    }
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub async fn execute_many(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<Vec<Py<PyAny>>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard.batch_execute(&querystring).await?;
+        is_transaction_ready?;
+
+        let mut params: Vec<Vec<PythonDTO>> = vec![];
+        if let Some(parameters) = parameters {
+            for vec_of_py_any in parameters {
+                params.push(convert_parameters(vec_of_py_any)?);
+            }
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        for param in params {
+            let is_query_result_ok = if prepared {
+                let prepared_stmt = &db_client.prepare_cached(&querystring).await;
+                if let Err(error) = prepared_stmt {
+                    return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                        "Cannot prepare statement in execute_many, operation rolled back {error}",
+                    )));
+                }
+                db_client
+                    .query(
+                        &db_client.prepare_cached(&querystring).await?,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            } else {
+                db_client
+                    .query(
+                        &querystring,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            };
+            is_query_result_ok?;
+        }
 
         Ok(())
     }
-
     /// Start the transaction.
     ///
     /// Execute `BEGIN` commands and mark transaction as `started`.
@@ -248,40 +410,39 @@ impl RustTransaction {
     /// 1) Transaction is already started.
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
-    pub async fn inner_begin(&mut self) -> RustPSQLDriverPyResult<()> {
-        if self.is_started {
+    pub async fn begin(self_: Py<Self>) -> RustPSQLDriverPyResult<()> {
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
+
+        if is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already started".into(),
             ));
         }
 
-        if self.is_done {
+        if is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
+        db_client
+            .start_transaction(isolation_level, read_variant, deferrable)
+            .await?;
 
-        self.start_transaction().await?;
-        self.is_started = true;
-
-        Ok(())
-    }
-
-    /// Commit the transaction.
-    ///
-    /// Execute `COMMIT` command and mark transaction as `done`.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done
-    /// 3) Cannot execute `COMMIT` command
-    pub async fn inner_commit(&mut self) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard.batch_execute("COMMIT;").await?;
-        self.is_done = true;
+        pyo3::Python::with_gil(|gil| {
+            let mut self_ = self_.borrow_mut(gil);
+            self_.is_started = true;
+        });
 
         Ok(())
     }
@@ -297,76 +458,34 @@ impl RustTransaction {
     /// 2) Transaction is done
     /// 3) Specified savepoint name is exists
     /// 4) Can not execute SAVEPOINT command
-    pub async fn inner_savepoint(&self, savepoint_name: String) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
-
-        let is_savepoint_name_exists = {
-            let rollback_savepoint_read_guard = self.rollback_savepoint.read().await;
-            rollback_savepoint_read_guard.contains(&savepoint_name)
-        };
+    pub async fn create_savepoint(
+        self_: Py<Self>,
+        savepoint_name: String,
+    ) -> RustPSQLDriverPyResult<()> {
+        let (is_transaction_ready, is_savepoint_name_exists) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (
+                self_.check_is_transaction_ready(),
+                self_.savepoints_map.contains(&savepoint_name),
+            )
+        });
+        is_transaction_ready?;
 
         if is_savepoint_name_exists {
             return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
                 "SAVEPOINT name {savepoint_name} is already taken by this transaction",
             )));
         }
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        db_client
             .batch_execute(format!("SAVEPOINT {savepoint_name}").as_str())
             .await?;
-        let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
-        rollback_savepoint_guard.insert(savepoint_name);
+
+        pyo3::Python::with_gil(|gil| {
+            self_.borrow_mut(gil).savepoints_map.insert(savepoint_name);
+        });
         Ok(())
     }
-
-    /// Execute ROLLBACK command.
-    ///
-    /// Run ROLLBACK command and mark the transaction as done.
-    ///
-    /// # Errors
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done
-    /// 3) Can not execute ROLLBACK command
-    pub async fn inner_rollback(&mut self) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard.batch_execute("ROLLBACK").await?;
-        self.is_done = true;
-        Ok(())
-    }
-
-    /// ROLLBACK to the specified savepoint
-    ///
-    /// Execute ROLLBACK TO SAVEPOINT <name of the savepoint>.
-    ///
-    /// # Errors
-    /// May return Err Result if:
-    /// 1) Transaction is not started
-    /// 2) Transaction is done
-    /// 3) Specified savepoint name doesn't exist
-    /// 4) Can not execute ROLLBACK TO SAVEPOINT command
-    pub async fn inner_rollback_to(&self, rollback_name: String) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
-
-        let rollback_savepoint_arc = self.rollback_savepoint.clone();
-        let is_rollback_exists = {
-            let rollback_savepoint_guard = rollback_savepoint_arc.read().await;
-            rollback_savepoint_guard.contains(&rollback_name)
-        };
-        if !is_rollback_exists {
-            return Err(RustPSQLDriverError::DataBaseTransactionError(
-                "Don't have rollback with this name".into(),
-            ));
-        }
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard
-            .batch_execute(format!("ROLLBACK TO SAVEPOINT {rollback_name}").as_str())
-            .await?;
-
-        Ok(())
-    }
-
     /// Execute RELEASE SAVEPOINT.
     ///
     /// Run RELEASE SAVEPOINT command.
@@ -377,261 +496,72 @@ impl RustTransaction {
     /// 2) Transaction is done
     /// 3) Specified savepoint name doesn't exists
     /// 4) Can not execute RELEASE SAVEPOINT command
-    pub async fn inner_release_savepoint(
-        &self,
-        rollback_name: String,
+    pub async fn release_savepoint(
+        self_: Py<Self>,
+        savepoint_name: String,
     ) -> RustPSQLDriverPyResult<()> {
-        self.check_is_transaction_ready()?;
+        let (is_transaction_ready, is_savepoint_name_exists) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (
+                self_.check_is_transaction_ready(),
+                self_.savepoints_map.contains(&savepoint_name),
+            )
+        });
+        is_transaction_ready?;
 
-        let mut rollback_savepoint_guard = self.rollback_savepoint.write().await;
-        let is_rollback_exists = rollback_savepoint_guard.remove(&rollback_name);
-
-        if !is_rollback_exists {
+        if !is_savepoint_name_exists {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Don't have rollback with this name".into(),
             ));
         }
-        let db_client_guard = self.connection.db_client.read().await;
-        db_client_guard
-            .batch_execute(format!("RELEASE SAVEPOINT {rollback_name}").as_str())
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        db_client
+            .batch_execute(format!("RELEASE SAVEPOINT {savepoint_name}").as_str())
             .await?;
 
+        pyo3::Python::with_gil(|gil| {
+            self_.borrow_mut(gil).savepoints_map.remove(&savepoint_name);
+        });
         Ok(())
     }
-}
-
-#[pyclass()]
-pub struct Transaction {
-    transaction: Arc<RwLock<RustTransaction>>,
-    cursor_num: usize,
-}
-
-impl Transaction {
-    #[must_use]
-    pub fn new(transaction: Arc<RwLock<RustTransaction>>, cursor_num: usize) -> Self {
-        Transaction {
-            transaction,
-            cursor_num,
-        }
-    }
-}
-
-#[pymethods]
-impl Transaction {
-    #[must_use]
-    pub fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    /// Return new instance of transaction.
+    /// ROLLBACK to the specified savepoint
     ///
-    /// It's necessary because python requires it.
+    /// Execute ROLLBACK TO SAVEPOINT <name of the savepoint>.
     ///
     /// # Errors
-    /// May return Err Result if future returns error.
-    pub fn __anext__(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Option<PyObject>> {
-        let transaction_clone = self.transaction.clone();
-        let cursor_num = self.cursor_num;
-        let future = rustdriver_future(py, async move {
-            Ok(Transaction {
-                transaction: transaction_clone,
-                cursor_num,
-            })
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done
+    /// 3) Specified savepoint name doesn't exist
+    /// 4) Can not execute ROLLBACK TO SAVEPOINT command
+    pub async fn rollback_savepoint(
+        self_: Py<Self>,
+        savepoint_name: String,
+    ) -> RustPSQLDriverPyResult<()> {
+        let (is_transaction_ready, is_savepoint_name_exists) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (
+                self_.check_is_transaction_ready(),
+                self_.savepoints_map.contains(&savepoint_name),
+            )
         });
-        Ok(Some(future?.into()))
-    }
+        is_transaction_ready?;
 
-    #[allow(clippy::missing_errors_doc)]
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn __await__<'a>(
-        slf: PyRefMut<'a, Self>,
-        _py: Python,
-    ) -> RustPSQLDriverPyResult<PyRefMut<'a, Self>> {
-        Ok(slf)
-    }
-
-    #[allow(clippy::needless_pass_by_value)]
-    fn __aenter__<'a>(
-        slf: PyRefMut<'a, Self>,
-        py: Python<'a>,
-    ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let transaction_arc = slf.transaction.clone();
-        let transaction_arc2 = slf.transaction.clone();
-        let cursor_num = slf.cursor_num;
-        rustdriver_future(py, async move {
-            transaction_arc.write().await.inner_begin().await?;
-            Ok(Transaction {
-                transaction: transaction_arc2,
-                cursor_num,
-            })
-        })
-    }
-
-    #[allow(clippy::needless_pass_by_value)]
-    fn __aexit__<'a>(
-        slf: PyRefMut<'a, Self>,
-        py: Python<'a>,
-        _exception_type: Py<PyAny>,
-        exception: &PyAny,
-        _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let transaction_arc = slf.transaction.clone();
-        let transaction_arc2 = slf.transaction.clone();
-        let is_no_exc = exception.is_none();
-        let py_err = PyErr::from_value(exception);
-        let cursor_num = slf.cursor_num;
-
-        rustdriver_future(py, async move {
-            let mut trasaction_guard = transaction_arc.write().await;
-            if is_no_exc {
-                trasaction_guard.inner_commit().await?;
-                Ok(Transaction {
-                    transaction: transaction_arc2,
-                    cursor_num,
-                })
-            } else {
-                trasaction_guard.inner_rollback().await?;
-                Err(RustPSQLDriverError::PyError(py_err))
-            }
-        })
-    }
-
-    /// Execute querystring with parameters.
-    ///
-    /// It converts incoming parameters to rust readable
-    /// and then execute the query with them.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if:
-    /// 1) Cannot convert python parameters
-    /// 2) Cannot execute querystring.
-    pub fn execute<'a>(
-        &'a self,
-        py: Python<'a>,
-        querystring: String,
-        parameters: Option<&'a PyAny>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
+        if !is_savepoint_name_exists {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Don't have rollback with this name".into(),
+            ));
         }
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        db_client
+            .batch_execute(format!("ROLLBACK TO SAVEPOINT {savepoint_name}").as_str())
+            .await?;
 
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_execute(querystring, params, prepared.unwrap_or(true))
-                .await
-        })
+        pyo3::Python::with_gil(|gil| {
+            self_.borrow_mut(gil).savepoints_map.remove(&savepoint_name);
+        });
+        Ok(())
     }
-
-    /// Execute querystring with parameters.
-    ///
-    /// It converts incoming parameters to rust readable
-    /// and then execute the query with them.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if:
-    /// 1) Cannot convert python parameters
-    /// 2) Cannot execute querystring.
-    pub fn execute_many<'a>(
-        &'a self,
-        py: Python<'a>,
-        querystring: String,
-        parameters: Option<&'a PyList>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-        let mut params: Vec<Vec<PythonDTO>> = vec![];
-        if let Some(parameters) = parameters {
-            for single_parameters in parameters {
-                params.push(convert_parameters(single_parameters)?);
-            }
-        }
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_execute_many(querystring, params, prepared.unwrap_or(true))
-                .await
-        })
-    }
-    /// Execute querystring with parameters and return first row.
-    ///
-    /// It converts incoming parameters to rust readable,
-    /// executes query with them and returns first row of response.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if:
-    /// 1) Cannot convert python parameters
-    /// 2) Cannot execute querystring.
-    /// 3) Query returns more than one row.
-    pub fn fetch_row<'a>(
-        &'a self,
-        py: Python<'a>,
-        querystring: String,
-        parameters: Option<&'a PyList>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
-                .await
-        })
-    }
-
-    /// Execute querystring with parameters and return first value in the first row.
-    ///
-    /// It converts incoming parameters to rust readable,
-    /// executes query with them and returns first row of response.
-    ///
-    /// # Errors
-    ///
-    /// May return Err Result if:
-    /// 1) Cannot convert python parameters
-    /// 2) Cannot execute querystring.
-    /// 3) Query returns more than one row
-    pub fn fetch_val<'a>(
-        &'a self,
-        py: Python<'a>,
-        querystring: String,
-        parameters: Option<&'a PyList>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
-
-        rustdriver_future(py, async move {
-            let first_row = transaction_arc
-                .read()
-                .await
-                .inner_fetch_row(querystring, params, prepared.unwrap_or(true))
-                .await?
-                .get_inner();
-            Python::with_gil(|py| match first_row.columns().first() {
-                Some(first_column) => postgres_to_py(py, &first_row, first_column, 0),
-                None => Ok(py.None()),
-            })
-        })
-    }
-
     /// Execute querystrings with parameters and return all results.
     ///
     /// Create pipeline of queries.
@@ -641,211 +571,104 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute any of querystring.
-    pub fn pipeline<'a>(
-        &'a self,
-        py: Python<'a>,
-        queries: Option<&'a PyList>,
+    pub async fn pipeline<'py>(
+        self_: Py<Self>,
+        queries: Option<Py<PyList>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<&'a PyAny> {
-        let mut processed_queries: Vec<(String, Vec<PythonDTO>)> = vec![];
+    ) -> RustPSQLDriverPyResult<Vec<PSQLDriverPyQueryResult>> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+
+        let mut futures = vec![];
         if let Some(queries) = queries {
-            for single_query in queries {
-                let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
-                    RustPSQLDriverError::PyToRustValueConversionError(format!(
-                        "Cannot cast to tuple: {err}",
-                    ))
-                })?;
-                let querystring = query_tuple.get_item(0)?.extract::<String>()?;
-                match query_tuple.get_item(1) {
-                    Ok(params) => {
-                        processed_queries.push((querystring, convert_parameters(params)?));
-                    }
-                    Err(_) => {
-                        processed_queries.push((querystring, vec![]));
-                    }
+            let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
+                for single_query in queries.into_bound(gil).iter() {
+                    let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
+                        RustPSQLDriverError::PyToRustValueConversionError(format!(
+                            "Cannot cast to tuple: {err}",
+                        ))
+                    })?;
+
+                    let querystring = query_tuple.get_item(0)?.extract::<String>()?;
+                    let params = match query_tuple.get_item(1) {
+                        Ok(param) => Some(param.into()),
+                        Err(_) => None,
+                    };
+                    futures.push(db_client.psqlpy_query(querystring, params, prepared));
+                }
+                Ok(())
+            });
+
+            match gil_result {
+                Ok(()) => {}
+                Err(e) => {
+                    // Handle PyO3 error, convert to your error type as needed
+                    return Err(RustPSQLDriverError::from(e)); // Adjust according to your error types
                 }
             }
         }
-
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_pipeline(processed_queries, prepared.unwrap_or(true))
-                .await
-        })
+        future::try_join_all(futures).await
     }
 
-    /// Start the transaction.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute command.
-    pub fn begin<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc.write().await.inner_begin().await?;
-
-            Ok(())
-        })
-    }
-
-    /// Commit the transaction.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute command.
-    pub fn commit<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc.write().await.inner_commit().await?;
-
-            Ok(())
-        })
-    }
-
-    /// Create new SAVEPOINT.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot extract string
-    /// or `inner_savepoint` returns
-    pub fn savepoint<'a>(
-        &'a self,
-        py: Python<'a>,
-        savepoint_name: &'a PyAny,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let py_string = {
-            if savepoint_name.is_instance_of::<PyString>() {
-                savepoint_name.extract::<String>()?
-            } else {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "Can't convert your savepoint_name to String value".into(),
-                ));
-            }
-        };
-
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_savepoint(py_string)
-                .await?;
-
-            Ok(())
-        })
-    }
-
-    /// Rollback the whole transaction.
-    ///
-    /// # Errors
-    /// May return Err Result if `rollback` returns Error.
-    pub fn rollback<'a>(&'a self, py: Python<'a>) -> RustPSQLDriverPyResult<&PyAny> {
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc.write().await.inner_rollback().await?;
-
-            Ok(())
-        })
-    }
-
-    /// Rollback to the specified savepoint.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot extract string
-    /// or`inner_rollback_to` returns Error.
-    pub fn rollback_to<'a>(
-        &'a self,
-        py: Python<'a>,
-        savepoint_name: &'a PyAny,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let py_string = {
-            if savepoint_name.is_instance_of::<PyString>() {
-                savepoint_name.extract::<String>()?
-            } else {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "Can't convert your savepoint_name to String value".into(),
-                ));
-            }
-        };
-
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_rollback_to(py_string)
-                .await?;
-
-            Ok(())
-        })
-    }
-
-    /// Rollback to the specified savepoint.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot extract string
-    /// or`inner_rollback_to` returns Error.
-    pub fn release_savepoint<'a>(
-        &'a self,
-        py: Python<'a>,
-        savepoint_name: &'a PyAny,
-    ) -> RustPSQLDriverPyResult<&PyAny> {
-        let py_string = {
-            if savepoint_name.is_instance_of::<PyString>() {
-                savepoint_name.extract::<String>()?
-            } else {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "Can't convert your savepoint_name to String value".into(),
-                ));
-            }
-        };
-
-        let transaction_arc = self.transaction.clone();
-
-        rustdriver_future(py, async move {
-            transaction_arc
-                .read()
-                .await
-                .inner_release_savepoint(py_string)
-                .await?;
-            Ok(())
-        })
-    }
-
-    /// Create new cursor.
-    ///
-    /// Call `inner_cursor` function.
-    ///
-    /// # Errors
-    /// May return Err Result if can't convert incoming parameters
-    /// or if `inner_cursor` returns error.
-    pub fn cursor<'a>(
-        &'a self,
+    #[must_use]
+    pub fn cursor(
+        &self,
         querystring: String,
-        parameters: Option<&'a PyAny>,
+        parameters: Option<Py<PyAny>>,
         fetch_number: Option<usize>,
         scroll: Option<bool>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Cursor> {
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
-
-        Ok(Cursor::new(InnerCursor::new(
-            self.transaction.clone(),
+    ) -> Cursor {
+        Cursor::new(
+            self.db_client.clone(),
             querystring,
-            params,
-            format!("cur{}", self.cursor_num),
-            scroll,
+            parameters,
+            "cur_name".into(),
             fetch_number.unwrap_or(10),
-            prepared.unwrap_or(true),
-        )))
+            scroll,
+            prepared,
+        )
+    }
+}
+
+impl Transaction {
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub fn new(
+        db_client: Arc<Object>,
+        is_started: bool,
+        is_done: bool,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+        savepoints_map: HashSet<String>,
+    ) -> Self {
+        Self {
+            db_client,
+            is_started,
+            is_done,
+            isolation_level,
+            read_variant,
+            deferrable,
+            savepoints_map,
+        }
+    }
+
+    fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
+        if !self.is_started {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is not started, please call begin() on transaction".into(),
+            ));
+        }
+        if self.is_done {
+            return Err(RustPSQLDriverError::DataBaseTransactionError(
+                "Transaction is already committed or rolled back".into(),
+            ));
+        }
+        Ok(())
     }
 }

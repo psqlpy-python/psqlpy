@@ -5,14 +5,14 @@ import typing
 import pytest
 from tests.helpers import count_rows_in_test_table
 
-from psqlpy import PSQLPool, QueryResult, Transaction
+from psqlpy import ConnectionPool, QueryResult, Transaction
 from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
 
 pytestmark = pytest.mark.anyio
 
 
 async def test_connection_execute(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:
@@ -27,7 +27,7 @@ async def test_connection_execute(
 
 
 async def test_connection_connection(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
 ) -> None:
     """Test that connection can create transactions."""
     connection = await psql_pool.connection()
@@ -46,7 +46,7 @@ async def test_connection_connection(
     ],
 )
 async def test_connection_execute_many(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
     insert_values: list[list[typing.Any]],
@@ -67,7 +67,7 @@ async def test_connection_execute_many(
 
 
 async def test_connection_fetch_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -80,7 +80,7 @@ async def test_connection_fetch_row(
 
 
 async def test_connection_fetch_row_more_than_one_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -92,7 +92,7 @@ async def test_connection_fetch_row_more_than_one_row(
 
 
 async def test_connection_fetch_val(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -104,7 +104,7 @@ async def test_connection_fetch_val(
 
 
 async def test_connection_fetch_val_more_than_one_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()

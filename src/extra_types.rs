@@ -1,7 +1,11 @@
 use std::str::FromStr;
 
 use macaddr::{MacAddr6, MacAddr8};
-use pyo3::{pyclass, pymethods, types::PyModule, PyAny, PyResult, Python};
+use pyo3::{
+    pyclass, pymethods,
+    types::{PyModule, PyModuleMethods},
+    Bound, Py, PyAny, PyResult, Python,
+};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -88,7 +92,7 @@ impl PyJSON {
 impl PyJSON {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_json(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_json(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         Ok(Self {
             inner: build_serde_value(value)?,
         })
@@ -126,53 +130,9 @@ macro_rules! build_macaddr_type {
 build_macaddr_type!(PyMacAddr6, MacAddr6);
 build_macaddr_type!(PyMacAddr8, MacAddr8);
 
-// #[pyclass]
-// #[derive(Clone)]
-// pub struct PyMacAddr6 {
-//     inner: MacAddr6,
-// }
-
-// impl PyMacAddr6 {
-//     #[must_use]
-//     pub fn inner(self) -> MacAddr6 {
-//         self.inner
-//     }
-// }
-
-// #[pymethods]
-// impl PyMacAddr6 {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_macaddr6(value: &str) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: MacAddr6::from_str(value)?,
-//         })
-//     }
-// }
-
-// #[pyclass]
-// #[derive(Clone)]
-// pub struct PyMacAddr8 {
-//     inner: MacAddr8,
-// }
-
-// impl PyMacAddr8 {
-//     #[must_use]
-//     pub fn inner(self) -> MacAddr8 {
-//         self.inner
-//     }
-// }
-
-// #[pymethods]
-// impl PyMacAddr8 {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_macaddr8(value: &str) -> RustPSQLDriverPyResult<Self> {}
-// }
-
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
-pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;
