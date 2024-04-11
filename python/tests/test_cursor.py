@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from psqlpy import Cursor, PSQLPool, QueryResult, Transaction
+from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
 
 pytestmark = pytest.mark.anyio
 
@@ -151,7 +151,7 @@ async def test_cursor_fetch_backward_all(
 
 
 async def test_cursor_as_async_manager(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:

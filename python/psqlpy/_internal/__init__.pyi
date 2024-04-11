@@ -536,7 +536,7 @@ class Transaction:
 
         ```
         """
-    async def savepoint(self: Self, savepoint_name: str) -> None:
+    async def create_savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
         One `savepoint_name` can be used once.
@@ -560,9 +560,9 @@ class Transaction:
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
-            await transaction.savepoint("my_savepoint")
+            await transaction.create_savepoint("my_savepoint")
             await transaction.execute(...)
-            await transaction.rollback_to("my_savepoint")
+            await transaction.rollback_savepoint("my_savepoint")
         ```
         """
     async def rollback(self: Self) -> None:
@@ -586,7 +586,7 @@ class Transaction:
             await transaction.rollback()
         ```
         """
-    async def rollback_to(self: Self, savepoint_name: str) -> None:
+    async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
         If you specified wrong savepoint name
@@ -609,7 +609,7 @@ class Transaction:
 
             await transaction.savepoint("my_savepoint")
             await transaction.execute(...)
-            await transaction.rollback_to("my_savepoint")
+            await transaction.rollback_savepoint("my_savepoint")
         ```
         """
     async def release_savepoint(self: Self, savepoint_name: str) -> None:
@@ -854,7 +854,7 @@ class Connection:
         - `deferrable`: configure deferrable of the transaction.
         """
 
-class PSQLPool:
+class ConnectionPool:
     """Connection pool for executing queries.
 
     This is the main entrypoint in the library.
@@ -893,12 +893,6 @@ class PSQLPool:
         - `db_name`: name of the database in postgres
         - `max_db_pool_size`: maximum size of the connection pool
         - `conn_recycling_method`: how a connection is recycled.
-        """
-    async def close(self: Self) -> None:
-        """Close the connection pool.
-
-        By default it will be closed automatically,
-        but you can call it manually.
         """
     async def execute(
         self: Self,
@@ -940,3 +934,5 @@ class PSQLPool:
 
         It acquires new connection from the database pool.
         """
+    def close(self: Self) -> None:
+        """Close the connection pool."""

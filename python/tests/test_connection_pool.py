@@ -1,6 +1,6 @@
 import pytest
 
-from psqlpy import Connection, ConnRecyclingMethod, PSQLPool, QueryResult
+from psqlpy import Connection, ConnectionPool, ConnRecyclingMethod, QueryResult
 from psqlpy.exceptions import RustPSQLDriverPyBaseError
 
 pytestmark = pytest.mark.anyio
@@ -8,7 +8,7 @@ pytestmark = pytest.mark.anyio
 
 async def test_pool_dsn_startup() -> None:
     """Test that connection pool can startup with dsn."""
-    pg_pool = PSQLPool(
+    pg_pool = ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
@@ -16,11 +16,11 @@ async def test_pool_dsn_startup() -> None:
 
 
 async def test_pool_execute(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:
-    """Test that PSQLPool can execute queries."""
+    """Test that ConnectionPool can execute queries."""
     select_result = await psql_pool.execute(
         f"SELECT * FROM {table_name}",
     )
@@ -33,9 +33,9 @@ async def test_pool_execute(
 
 
 async def test_pool_connection(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
 ) -> None:
-    """Test that PSQLPool can return single connection from the pool."""
+    """Test that ConnectionPool can return single connection from the pool."""
     connection = await psql_pool.connection()
     assert isinstance(connection, Connection)
 
@@ -51,7 +51,7 @@ async def test_pool_connection(
 async def test_pool_conn_recycling_method(
     conn_recycling_method: ConnRecyclingMethod,
 ) -> None:
-    pg_pool = PSQLPool(
+    pg_pool = ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
         conn_recycling_method=conn_recycling_method,
     )
@@ -61,13 +61,13 @@ async def test_pool_conn_recycling_method(
 
 async def test_close_connection_pool() -> None:
     """Test that `close` method closes connection pool."""
-    pg_pool = PSQLPool(
+    pg_pool = ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
     await pg_pool.execute("SELECT 1")
 
-    await pg_pool.close()
+    pg_pool.close()
 
     with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
         await pg_pool.execute("SELECT 1")

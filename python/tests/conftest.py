@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 import pytest
 from pydantic import BaseModel
 
-from psqlpy import Cursor, PSQLPool
+from psqlpy import ConnectionPool, Cursor
 
 
 class DefaultPydanticModel(BaseModel):
@@ -80,8 +80,8 @@ async def psql_pool(
     postgres_password: str,
     postgres_port: int,
     postgres_dbname: str,
-) -> PSQLPool:
-    return PSQLPool(
+) -> ConnectionPool:
+    return ConnectionPool(
         username=postgres_user,
         password=postgres_password,
         host=postgres_host,
@@ -92,7 +92,7 @@ async def psql_pool(
 
 @pytest.fixture(autouse=True)
 async def create_deafult_data_for_tests(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> AsyncGenerator[None, None]:
@@ -114,7 +114,7 @@ async def create_deafult_data_for_tests(
 
 @pytest.fixture()
 async def test_cursor(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> AsyncGenerator[Cursor, None]:
     connection = await psql_pool.connection()

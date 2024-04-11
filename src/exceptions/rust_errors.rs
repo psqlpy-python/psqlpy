@@ -1,4 +1,5 @@
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::exceptions::python_errors::{
     DBPoolConfigurationError, DBPoolError, PyToRustValueMappingError, RustPSQLDriverPyBaseError,
@@ -36,6 +37,8 @@ pub enum RustPSQLDriverError {
     UUIDConvertError(#[from] uuid::Error),
     #[error("Cannot convert provided string to MacAddr6")]
     MacAddr6ConversionError(#[from] macaddr::ParseError),
+    #[error("Error: {0}")]
+    BadPizedc(#[from] JoinError),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -46,7 +49,8 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::DBEngineError(_)
             | RustPSQLDriverError::DBEnginePoolError(_)
             | RustPSQLDriverError::MacAddr6ConversionError(_)
-            | RustPSQLDriverError::DBEngineBuildError(_) => {
+            | RustPSQLDriverError::DBEngineBuildError(_)
+            | RustPSQLDriverError::BadPizedc(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
