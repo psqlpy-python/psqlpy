@@ -28,7 +28,7 @@ pip:
 
 Or you can build it by yourself. To do it, install stable rust and [maturin](https://github.com/PyO3/maturin).
 
-```
+```bash
 > maturin develop --release
 ```
 
