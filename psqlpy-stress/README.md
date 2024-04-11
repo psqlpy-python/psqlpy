@@ -13,7 +13,7 @@ docker compose up
 
 2. Log in to IfluxDB. Default credential are `admin`:`admin`. Save token that will be shown to you after login.
 3. Create a bucket inside InfluxDB named `psqlpy-stress-bucket`.
-4. Connect InfluxDB to grafana.
+4. Connect InfluxDB to grafana.  
    host: `http://influxdb:8086`  
    database: `psqlpy-stress-bucket`  
    user: `admin`  
@@ -29,8 +29,13 @@ docker compose up
 - p50 rps
 
 6. Run poetry install in root
-7. Launch application via
+7. Apply migrations to database (default database is in docker-compose).  
+   You can change `database_url` inside `psqlpy_stress.settings` file in order to connect to external database.
+
+8. Launch application via
 
 ```bash
 python -m psqlpy_stress.app
 ```
+
+9. You can start load testing drivers.
