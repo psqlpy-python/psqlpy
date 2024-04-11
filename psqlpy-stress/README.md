@@ -33,6 +33,12 @@ docker compose up
 7. Apply migrations to database (default database is in docker-compose).  
    You can change `database_url` inside `psqlpy_stress.settings` file in order to connect to external database.
 
+   Migrations can be applied via:
+
+   ```bash
+   alembic upgrade head
+   ```
+
 8. Launch application via
 
 ```bash
