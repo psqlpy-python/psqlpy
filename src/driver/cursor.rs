@@ -300,7 +300,7 @@ impl Cursor {
     pub async fn fetch_next<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -318,7 +318,7 @@ impl Cursor {
     pub async fn fetch_prior<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -336,7 +336,7 @@ impl Cursor {
     pub async fn fetch_first<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -354,7 +354,7 @@ impl Cursor {
     pub async fn fetch_last<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -375,7 +375,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -400,7 +400,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -424,7 +424,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -449,7 +449,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
@@ -473,7 +473,7 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (self_.db_transaction.clone(), self_.cursor_name.clone());
+            (self_.db_transaction.clone(), self_.cursor_name.clone())
         });
 
         let result = db_transaction
