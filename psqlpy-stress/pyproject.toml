@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "psqlpy-stress"
+version = "0.1.0"
+description = ""
+authors = ["reqww <my.gurbanov@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+psqlpy = "0.3.5"
+asyncpg = "0.29.0"
+psycopg = { version = "3.1.18", extras = ["pool"] }
+aiohttp = "*"
+pydantic = "*"
+pydantic-settings = "*"
+uvloop = "*"
+psycopg-binary = "*"
+alembic = "^1.13.1"
+influxdb-client = "^1.41.0"
+pytz = "^2024.1"
+psycopg2-binary = "^2.9.9"
+gunicorn = "^21.2.0"
+uvicorn = "^0.29.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "*"
+mypy = "*"
+ruff = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+ignore = [
+    "ANN401",
+    "SLF001",
+    "TRY003",
+    "PLR0913",
+    "FBT001",
+    "FBT002",
+    "S608",
+    "S101",
+    "D",
+    "T201",
+]
+line-length = 89
+select = ["ALL"]
+fixable = ["ALL"]
+
+[tool.ruff.isort]
+lines-after-imports = 2
+no-lines-before = ["standard-library", "local-folder"]
+
+[tool.mypy]
+strict = true

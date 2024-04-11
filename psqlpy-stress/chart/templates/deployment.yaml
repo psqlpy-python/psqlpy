@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: psqlpy-stress
+spec:
+  replicas: {{.Values.replicaCount}}
+  selector:
+    matchLabels:
+      app: psqlpy-stress
+  template:
+    metadata:
+      labels:
+        app: psqlpy-stress
+    spec:
+      containers:
+        - name: psqlpy-stress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["python"]
+          args: ["-m", "psqlpy_stress.app"]
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          ports:
+            - containerPort: 8080
