@@ -3,7 +3,8 @@ use pyo3::{prelude::*, pyclass};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    query_result::PSQLDriverPyQueryResult,
+    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
+    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
 
 use super::{
@@ -152,31 +153,31 @@ use std::{collections::HashSet, sync::Arc};
 //         Ok(())
 //     }
 
-//     /// Fetch exaclty single row from query.
-//     ///
-//     /// Method doesn't acquire lock on any structure fields.
-//     /// It prepares and caches querystring in the inner Object object.
-//     ///
-//     /// Then execute the query.
-//     ///
-//     /// # Errors
-//     /// May return Err Result if:
-//     /// 1) Transaction is not started
-//     /// 2) Transaction is done already
-//     /// 3) Can not create/retrieve prepared statement
-//     /// 4) Can not execute statement
-//     /// 5) Query returns more than one row
-//     pub async fn inner_fetch_row(
-//         &self,
-//         querystring: String,
-//         parameters: Vec<PythonDTO>,
-//         prepared: bool,
-//     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-//         self.check_is_transaction_ready()?;
-//         self.connection
-//             .inner_fetch_row(querystring, parameters, prepared)
-//             .await
-//     }
+// /// Fetch exaclty single row from query.
+// ///
+// /// Method doesn't acquire lock on any structure fields.
+// /// It prepares and caches querystring in the inner Object object.
+// ///
+// /// Then execute the query.
+// ///
+// /// # Errors
+// /// May return Err Result if:
+// /// 1) Transaction is not started
+// /// 2) Transaction is done already
+// /// 3) Can not create/retrieve prepared statement
+// /// 4) Can not execute statement
+// /// 5) Query returns more than one row
+// pub async fn inner_fetch_row(
+//     &self,
+//     querystring: String,
+//     parameters: Vec<PythonDTO>,
+//     prepared: bool,
+// ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+//     self.check_is_transaction_ready()?;
+//     self.connection
+//         .inner_fetch_row(querystring, parameters, prepared)
+//         .await
+// }
 
 //     /// Run many queries as pipeline.
 //     ///
@@ -1310,18 +1311,18 @@ pub struct Transaction {
 #[pymethods]
 impl Transaction {
     #[must_use]
-    pub fn __aiter__(slf: Py<Self>) -> Py<Self> {
-        slf
+    pub fn __aiter__(self_: Py<Self>) -> Py<Self> {
+        self_
     }
 
-    fn __await__(slf: Py<Self>) -> Py<Self> {
-        slf
+    fn __await__(self_: Py<Self>) -> Py<Self> {
+        self_
     }
 
-    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+    async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
         let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
             pyo3::Python::with_gil(|gil| {
-                let self_ = slf.borrow(gil);
+                let self_ = self_.borrow(gil);
                 (
                     self_.is_started,
                     self_.is_done,
@@ -1348,22 +1349,22 @@ impl Transaction {
             .await?;
 
         Python::with_gil(|gil| {
-            let mut self_ = slf.borrow_mut(gil);
+            let mut self_ = self_.borrow_mut(gil);
             self_.is_started = true;
         });
-        Ok(slf)
+        Ok(self_)
     }
 
     #[allow(clippy::needless_pass_by_value)]
     async fn __aexit__<'a>(
-        slf: Py<Self>,
+        self_: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<()> {
         let (is_transaction_ready, is_exception_none, py_err, db_client) =
             pyo3::Python::with_gil(|gil| {
-                let self_ = slf.borrow(gil);
+                let self_ = self_.borrow(gil);
                 (
                     self_.check_is_transaction_ready(),
                     exception.is_none(gil),
@@ -1381,7 +1382,7 @@ impl Transaction {
         };
 
         pyo3::Python::with_gil(|gil| {
-            let mut self_ = slf.borrow_mut(gil);
+            let mut self_ = self_.borrow_mut(gil);
             self_.is_done = true;
         });
         exit_result
@@ -1431,19 +1432,198 @@ impl Transaction {
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
     pub async fn execute(
-        slf: Py<Self>,
+        self_: Py<Self>,
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
+            let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
         is_transaction_ready?;
         db_client
             .psqlpy_query(querystring, parameters, prepared)
             .await
+    }
+    /// Fetch exaclty single row from query.
+    ///
+    /// Method doesn't acquire lock on any structure fields.
+    /// It prepares and caches querystring in the inner Object object.
+    ///
+    /// Then execute the query.
+    ///
+    /// # Errors
+    /// May return Err Result if:
+    /// 1) Transaction is not started
+    /// 2) Transaction is done already
+    /// 3) Can not create/retrieve prepared statement
+    /// 4) Can not execute statement
+    /// 5) Query returns more than one row
+    pub async fn inner_fetch_row(
+        self_: Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+
+        let result = if prepared.unwrap_or(true) {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Ok(PSQLDriverSinglePyQueryResult::new(result))
+    }
+    /// Execute querystring with parameters and return first value in the first row.
+    ///
+    /// It converts incoming parameters to rust readable,
+    /// executes query with them and returns first row of response.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    /// 3) Query returns more than one row
+    pub async fn fetch_val<'a>(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+
+        let result = if prepared.unwrap_or(true) {
+            db_client
+                .query_one(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query_one(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Python::with_gil(|gil| match result.columns().first() {
+            Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
+            None => Ok(gil.None()),
+        })
+    }
+    /// Execute querystring with parameters.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub async fn execute_many<'a>(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<Vec<Py<PyAny>>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+
+        let mut params: Vec<Vec<PythonDTO>> = vec![];
+        if let Some(parameters) = parameters {
+            for vec_of_py_any in parameters {
+                params.push(convert_parameters(vec_of_py_any)?);
+            }
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        for param in params {
+            let is_query_result_ok = if prepared {
+                let prepared_stmt = &db_client.prepare_cached(&querystring).await;
+                if let Err(error) = prepared_stmt {
+                    return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                        "Cannot prepare statement in execute_many, operation rolled back {error}",
+                    )));
+                }
+                db_client
+                    .query(
+                        &db_client.prepare_cached(&querystring).await?,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            } else {
+                db_client
+                    .query(
+                        &querystring,
+                        &param
+                            .iter()
+                            .map(|param| param as &QueryParameter)
+                            .collect::<Vec<&QueryParameter>>()
+                            .into_boxed_slice(),
+                    )
+                    .await
+            };
+            is_query_result_ok?;
+        }
+
+        Ok(())
     }
     /// Start the transaction.
     ///
@@ -1455,21 +1635,39 @@ impl Transaction {
     /// 1) Transaction is already started.
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
-    pub async fn begin(&mut self) -> RustPSQLDriverPyResult<()> {
-        if self.is_started {
+    pub async fn begin(self_: Py<Self>) -> RustPSQLDriverPyResult<()> {
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
+
+        if is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already started".into(),
             ));
         }
 
-        if self.is_done {
+        if is_done {
             return Err(RustPSQLDriverError::DataBaseTransactionError(
                 "Transaction is already committed or rolled back".into(),
             ));
         }
+        db_client
+            .start_transaction(isolation_level, read_variant, deferrable)
+            .await?;
 
-        self.start_transaction().await?;
-        self.is_started = true;
+        pyo3::Python::with_gil(|gil| {
+            let mut self_ = self_.borrow_mut(gil);
+            self_.is_started = true;
+        });
 
         Ok(())
     }
@@ -1516,35 +1714,6 @@ impl Transaction {
         }
     }
 
-    /// Start transaction
-    /// Set up isolation level if specified
-    /// Set up deferable if specified
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute querystring.
-    pub async fn start_transaction(&self) -> RustPSQLDriverPyResult<()> {
-        let mut querystring = "START TRANSACTION".to_string();
-
-        if let Some(level) = self.isolation_level {
-            let level = &level.to_str_level();
-            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
-        };
-
-        querystring.push_str(match self.read_variant {
-            Some(ReadVariant::ReadOnly) => " READ ONLY",
-            Some(ReadVariant::ReadWrite) => " READ WRITE",
-            None => "",
-        });
-
-        querystring.push_str(match self.deferrable {
-            Some(true) => " DEFERRABLE",
-            Some(false) => " NOT DEFERRABLE",
-            None => "",
-        });
-        self.db_client.batch_execute(&querystring).await?;
-
-        Ok(())
-    }
     fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
         if !self.is_started {
             return Err(RustPSQLDriverError::DataBaseTransactionError(

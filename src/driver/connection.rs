@@ -90,8 +90,8 @@ impl Connection {
     pub async fn execute_many<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<Vec<Py<PyAny>>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<()> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         let mut params: Vec<Vec<PythonDTO>> = vec![];
@@ -168,8 +168,8 @@ impl Connection {
     pub async fn fetch_row(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
@@ -220,8 +220,8 @@ impl Connection {
     pub async fn fetch_val<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
