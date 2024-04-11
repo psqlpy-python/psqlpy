@@ -17,7 +17,7 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant},
 };
 use crate::common::ObjectQueryTrait;
-use std::{borrow::Borrow, collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 pub trait TransactionObjectTrait {
     fn start_transaction(

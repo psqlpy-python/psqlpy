@@ -5,7 +5,6 @@ use pyo3::{
 };
 
 use crate::{
-    driver::transaction_options::{IsolationLevel, ReadVariant},
     exceptions::rust_errors::RustPSQLDriverPyResult,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
