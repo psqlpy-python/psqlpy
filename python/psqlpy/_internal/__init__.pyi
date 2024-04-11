@@ -854,93 +854,6 @@ class Connection:
         - `deferrable`: configure deferrable of the transaction.
         """
 
-class PSQLPool:
-    """Connection pool for executing queries.
-
-    This is the main entrypoint in the library.
-    """
-
-    def __init__(
-        self: Self,
-        dsn: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        db_name: Optional[str] = None,
-        max_db_pool_size: int = 2,
-        conn_recycling_method: Optional[ConnRecyclingMethod] = None,
-    ) -> None:
-        """Create new PostgreSQL connection pool.
-
-        It connects to the database and create pool.
-
-        You cannot set the minimum size for the connection
-        pool, by default it is 1.
-
-        This connection pool can:
-        - Startup itself with `startup` method
-        - Execute queries and return `QueryResult` class as a result
-        - Create new instance of `Transaction`
-
-        ### Parameters:
-        - `dsn`: full dsn connection string.
-            `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
-        - `username`: username of the user in postgres
-        - `password`: password of the user in postgres
-        - `host`: host of postgres
-        - `port`: port of postgres
-        - `db_name`: name of the database in postgres
-        - `max_db_pool_size`: maximum size of the connection pool
-        - `conn_recycling_method`: how a connection is recycled.
-        """
-    async def close(self: Self) -> None:
-        """Close the connection pool.
-
-        By default it will be closed automatically,
-        but you can call it manually.
-        """
-    async def execute(
-        self: Self,
-        querystring: str,
-        parameters: list[Any] | None = None,
-        prepared: bool = True,
-    ) -> QueryResult:
-        """Execute the query.
-
-        Querystring can contain `$<number>` parameters
-        for converting them in the driver side.
-
-        ### Parameters:
-        - `querystring`: querystring to execute.
-        - `parameters`: list of parameters to pass in the query.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
-
-        ### Example:
-        ```python
-        import asyncio
-
-        from psqlpy import PSQLPool, QueryResult
-
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            query_result: QueryResult = await psqlpy.execute(
-                "SELECT username FROM users WHERE id = $1",
-                [100],
-            )
-            dict_result: List[Dict[Any, Any]] = query_result.result()
-            # you don't need to close the pool,
-            # it will be dropped on Rust side.
-        ```
-        """
-    async def connection(self: Self) -> Connection:
-        """Create new connection.
-
-        It acquires new connection from the database pool.
-        """
-
 class ConnectionPool:
     """Connection pool for executing queries.
 
@@ -1021,3 +934,5 @@ class ConnectionPool:
 
         It acquires new connection from the database pool.
         """
+    def close(self: Self) -> None:
+        """Close the connection pool."""

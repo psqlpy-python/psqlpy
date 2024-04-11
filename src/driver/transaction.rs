@@ -19,6 +19,7 @@ use super::{
 use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
 
+#[allow(clippy::module_name_repetitions)]
 pub trait TransactionObjectTrait {
     fn start_transaction(
         &self,
@@ -610,9 +611,10 @@ impl Transaction {
                 }
             }
         }
-        Ok(future::try_join_all(futures).await?)
+        future::try_join_all(futures).await
     }
 
+    #[must_use]
     pub fn cursor(
         &self,
         querystring: String,
@@ -635,6 +637,7 @@ impl Transaction {
 
 impl Transaction {
     #[allow(clippy::too_many_arguments)]
+    #[must_use]
     pub fn new(
         db_client: Arc<Object>,
         is_started: bool,

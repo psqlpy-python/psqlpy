@@ -1,5 +1,5 @@
 use crate::runtime::tokio_runtime;
-use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
+use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, PyAny};
 use std::{str::FromStr, vec};
 use tokio_postgres::{NoTls, Row};
@@ -300,40 +300,26 @@ use super::{
 // }
 
 #[pyclass]
-pub struct ConnectionPool {
-    dsn: Option<String>,
-    username: Option<String>,
-    password: Option<String>,
-    host: Option<String>,
-    port: Option<u16>,
-    db_name: Option<String>,
-    max_db_pool_size: Option<usize>,
-    conn_recycling_method: Option<ConnRecyclingMethod>,
-    db_pool: Option<Pool>,
-}
+pub struct ConnectionPool(Pool);
 
+#[pymethods]
 impl ConnectionPool {
-    /// Create new Database pool.
+    /// Create new connection pool.
     ///
     /// # Errors
-    /// May return Err Result if Database pool is already initialized,
-    /// `max_db_pool_size` is less than 2 or it's impossible to build db pool.
-    pub fn startup(mut self) -> RustPSQLDriverPyResult<Self> {
-        let dsn = self.dsn.clone();
-        let password = self.password.clone();
-        let username = self.username.clone();
-        let db_host = self.host.clone();
-        let db_port = self.port;
-        let db_name = self.db_name.clone();
-        let conn_recycling_method = self.conn_recycling_method;
-        let max_db_pool_size = self.max_db_pool_size;
-
-        if self.db_pool.is_some() {
-            return Err(RustPSQLDriverError::DatabasePoolError(
-                "Database pool is already initialized".into(),
-            ));
-        }
-
+    /// May return error if cannot build new connection pool.
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        dsn: Option<String>,
+        username: Option<String>,
+        password: Option<String>,
+        host: Option<String>,
+        port: Option<u16>,
+        db_name: Option<String>,
+        max_db_pool_size: Option<usize>,
+        conn_recycling_method: Option<ConnRecyclingMethod>,
+    ) -> RustPSQLDriverPyResult<Self> {
         if let Some(max_db_pool_size) = max_db_pool_size {
             if max_db_pool_size < 2 {
                 return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
@@ -351,12 +337,12 @@ impl ConnectionPool {
                 pg_config.password(&password);
                 pg_config.user(&username);
             }
-            if let Some(db_host) = db_host {
-                pg_config.host(&db_host);
+            if let Some(host) = host {
+                pg_config.host(&host);
             }
 
-            if let Some(db_port) = db_port {
-                pg_config.port(db_port);
+            if let Some(port) = port {
+                pg_config.port(port);
             }
 
             if let Some(db_name) = db_name {
@@ -381,36 +367,9 @@ impl ConnectionPool {
             db_pool_builder = db_pool_builder.max_size(max_db_pool_size);
         }
 
-        self.db_pool = Some(db_pool_builder.build()?);
-        Ok(self)
-    }
-}
+        let db_pool = db_pool_builder.build()?;
 
-#[pymethods]
-impl ConnectionPool {
-    #[new]
-    pub fn new(
-        dsn: Option<String>,
-        username: Option<String>,
-        password: Option<String>,
-        host: Option<String>,
-        port: Option<u16>,
-        db_name: Option<String>,
-        max_db_pool_size: Option<usize>,
-        conn_recycling_method: Option<ConnRecyclingMethod>,
-    ) -> RustPSQLDriverPyResult<Self> {
-        let conn_pool = ConnectionPool {
-            dsn,
-            username,
-            password,
-            host,
-            port,
-            db_name,
-            max_db_pool_size,
-            conn_recycling_method,
-            db_pool: None,
-        };
-        conn_pool.startup()
+        Ok(ConnectionPool(db_pool))
     }
 
     /// Execute querystring with parameters.
@@ -426,11 +385,11 @@ impl ConnectionPool {
         prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
+
         let db_pool_manager = tokio_runtime()
-            .spawn(async move { db_pool.get().await.unwrap() })
-            .await
-            .unwrap();
+            .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
+            .await??;
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
             params = convert_parameters(parameters)?;
@@ -442,7 +401,7 @@ impl ConnectionPool {
                     Ok::<Vec<Row>, RustPSQLDriverError>(
                         db_pool_manager
                             .query(
-                                &db_pool_manager.prepare_cached(&querystring).await.unwrap(),
+                                &db_pool_manager.prepare_cached(&querystring).await?,
                                 &params
                                     .iter()
                                     .map(|param| param as &QueryParameter)
@@ -479,7 +438,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_pool.clone().unwrap());
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
         let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -487,5 +446,15 @@ impl ConnectionPool {
             .await??;
 
         Ok(Connection::new(db_connection))
+    }
+
+    /// Return new single connection.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot get new connection from the pool.
+    pub fn close(&self) {
+        let db_pool = self.0.clone();
+
+        db_pool.close();
     }
 }

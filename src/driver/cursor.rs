@@ -5,26 +5,25 @@ use pyo3::{
     exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
 };
 
-use crate::runtime::rustdriver_future;
 use crate::{
     common::ObjectQueryTrait,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
+    runtime::rustdriver_future,
 };
 
 /// Additional implementation for the `Object` type.
 trait CursorObjectTrait {
     async fn cursor_start(
         &self,
-        cursor_name: &String,
+        cursor_name: &str,
         scroll: &Option<bool>,
-        querystring: &String,
+        querystring: &str,
         prepared: &Option<bool>,
         parameters: &Option<Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<()>;
 
-    async fn cursor_close(&self, closed: &bool, cursor_name: &String)
-        -> RustPSQLDriverPyResult<()>;
+    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()>;
 }
 
 impl CursorObjectTrait for Object {
@@ -36,13 +35,13 @@ impl CursorObjectTrait for Object {
     /// May return Err Result if cannot execute querystring.
     async fn cursor_start(
         &self,
-        cursor_name: &String,
+        cursor_name: &str,
         scroll: &Option<bool>,
-        querystring: &String,
+        querystring: &str,
         prepared: &Option<bool>,
         parameters: &Option<Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<()> {
-        let mut cursor_init_query = format!("DECLARE {}", cursor_name);
+        let mut cursor_init_query = format!("DECLARE {cursor_name}");
         if let Some(scroll) = scroll {
             if *scroll {
                 cursor_init_query.push_str(" SCROLL");
@@ -51,7 +50,7 @@ impl CursorObjectTrait for Object {
             }
         }
 
-        cursor_init_query.push_str(format!(" CURSOR FOR {}", querystring).as_str());
+        cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
 
         self.psqlpy_query(cursor_init_query, parameters.clone(), *prepared)
             .await?;
@@ -65,11 +64,7 @@ impl CursorObjectTrait for Object {
     ///
     /// # Errors
     /// May return Err Result if cannot execute querystring.
-    async fn cursor_close(
-        &self,
-        closed: &bool,
-        cursor_name: &String,
-    ) -> RustPSQLDriverPyResult<()> {
+    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()> {
         if *closed {
             return Err(RustPSQLDriverError::DataBaseCursorError(
                 "Cursor is already closed".into(),
@@ -77,8 +72,8 @@ impl CursorObjectTrait for Object {
         }
 
         self.psqlpy_query(
-            format!("CLOSE {}", cursor_name),
-            Default::default(),
+            format!("CLOSE {cursor_name}"),
+            Option::default(),
             Some(false),
         )
         .await?;
@@ -101,6 +96,7 @@ pub struct Cursor {
 }
 
 impl Cursor {
+    #[must_use]
     pub fn new(
         db_transaction: Arc<Object>,
         querystring: String,
@@ -139,14 +135,14 @@ impl Cursor {
         let (db_transaction, cursor_name, scroll, querystring, prepared, parameters) =
             Python::with_gil(|gil| {
                 let self_ = slf.borrow(gil);
-                return (
+                (
                     self_.db_transaction.clone(),
                     self_.cursor_name.clone(),
                     self_.scroll,
                     self_.querystring.clone(),
                     self_.prepared,
                     self_.parameters.clone(),
-                );
+                )
             });
         db_transaction
             .cursor_start(&cursor_name, &scroll, &querystring, &prepared, &parameters)
@@ -198,7 +194,7 @@ impl Cursor {
         let cursor_name = self.cursor_name.clone();
 
         let py_future = Python::with_gil(move |gil| {
-            let future = rustdriver_future(gil, async move {
+            rustdriver_future(gil, async move {
                 let result = db_transaction
                     .psqlpy_query(
                         format!("FETCH {fetch_number} FROM {cursor_name}"),
@@ -215,14 +211,17 @@ impl Cursor {
                 };
 
                 Ok(result)
-            });
-
-            future
+            })
         });
 
-        Ok(Some(py_future?.into()))
+        Ok(Some(py_future?))
     }
 
+    /// Start the cursor
+    ///
+    /// # Errors
+    /// May return Err Result
+    /// if cannot execute querystring for cursor declaration.
     pub async fn start(&mut self) -> RustPSQLDriverPyResult<()> {
         let db_transaction_arc = self.db_transaction.clone();
 
@@ -269,11 +268,11 @@ impl Cursor {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, inner_fetch_number, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
-            return (
+            (
                 self_.db_transaction.clone(),
                 self_.fetch_number,
                 self_.cursor_name.clone(),
-            );
+            )
         });
 
         let fetch_number = match fetch_number {

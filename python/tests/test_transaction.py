@@ -5,7 +5,7 @@ import typing
 import pytest
 from tests.helpers import count_rows_in_test_table
 
-from psqlpy import Cursor, IsolationLevel, PSQLPool, ReadVariant
+from psqlpy import ConnectionPool, Cursor, IsolationLevel, ReadVariant
 from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
 
 pytestmark = pytest.mark.anyio
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.anyio
     ],
 )
 async def test_transaction_init_parameters(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     isolation_level: IsolationLevel | None,
     deferrable: bool | None,
@@ -47,7 +47,7 @@ async def test_transaction_init_parameters(
 
 
 async def test_transaction_begin(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:
@@ -70,7 +70,7 @@ async def test_transaction_begin(
 
 
 async def test_transaction_commit(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     """Test that transaction commit command."""
@@ -103,7 +103,7 @@ async def test_transaction_commit(
 
 
 async def test_transaction_savepoint(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     """Test that it's possible to rollback to savepoint."""
@@ -135,7 +135,7 @@ async def test_transaction_savepoint(
 
 
 async def test_transaction_rollback(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     """Test that ROLLBACK works correctly."""
@@ -172,7 +172,7 @@ async def test_transaction_rollback(
 
 
 async def test_transaction_release_savepoint(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
 ) -> None:
     """Test that it is possible to acquire and release savepoint."""
     connection = await psql_pool.connection()
@@ -194,7 +194,7 @@ async def test_transaction_release_savepoint(
 
 
 async def test_transaction_cursor(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     """Test that transaction can create cursor."""
@@ -215,7 +215,7 @@ async def test_transaction_cursor(
     ],
 )
 async def test_transaction_execute_many(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
     insert_values: list[list[typing.Any]],
@@ -237,7 +237,7 @@ async def test_transaction_execute_many(
 
 
 async def test_transaction_fetch_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -251,7 +251,7 @@ async def test_transaction_fetch_row(
 
 
 async def test_transaction_fetch_row_more_than_one_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -264,7 +264,7 @@ async def test_transaction_fetch_row_more_than_one_row(
 
 
 async def test_transaction_fetch_val(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
@@ -277,7 +277,7 @@ async def test_transaction_fetch_val(
 
 
 async def test_transaction_fetch_val_more_than_one_row(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()

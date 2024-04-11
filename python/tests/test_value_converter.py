@@ -1,13 +1,13 @@
 import pytest
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
-from psqlpy import PSQLPool
+from psqlpy import ConnectionPool
 
 pytestmark = pytest.mark.anyio
 
 
 async def test_as_class(
-    psql_pool: PSQLPool,
+    psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:

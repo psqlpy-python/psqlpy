@@ -19,6 +19,7 @@ pub struct Connection {
 }
 
 impl Connection {
+    #[must_use]
     pub fn new(db_client: Object) -> Self {
         Connection {
             db_client: Arc::new(db_client),

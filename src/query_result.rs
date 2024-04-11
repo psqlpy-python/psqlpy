@@ -36,6 +36,7 @@ impl PSQLDriverPyQueryResult {
         }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
@@ -67,6 +68,7 @@ impl PSQLDriverPyQueryResult {
     ///
     /// May return Err Result if can not convert
     /// postgres type to python or create new Python class.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn as_class<'a>(
         &'a self,
         py: Python<'a>,
@@ -124,6 +126,7 @@ impl PSQLDriverSinglePyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python, can not create new Python class
     /// or there are no results.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn as_class<'a>(
         &'a self,
         py: Python<'a>,

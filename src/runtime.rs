@@ -3,6 +3,8 @@ use pyo3::{IntoPy, Py, PyAny, PyObject, Python};
 
 use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
 
+#[allow(clippy::missing_panics_doc)]
+#[allow(clippy::module_name_repetitions)]
 pub fn tokio_runtime() -> &'static tokio::runtime::Runtime {
     use std::sync::OnceLock;
     static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();

@@ -228,6 +228,7 @@ impl ToSql for PythonDTO {
 /// # Errors
 ///
 /// May return Err Result if can't convert python object.
+#[allow(clippy::needless_pass_by_value)]
 pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
 
@@ -532,6 +533,7 @@ pub fn postgres_to_py(
 ///
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
+#[allow(clippy::needless_pass_by_value)]
 pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
     Python::with_gil(|gil| {
         let bind_value = value.bind(gil);
