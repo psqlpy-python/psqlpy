@@ -12,7 +12,14 @@ docker compose up
 ```
 
 2. Log in to IfluxDB. Default credential are `admin`:`admin`. Save token that will be shown to you after login.
-3. Create a bucket inside InfluxDB named `psqlpy-stress-bucket`.
+3. Create InfluxDB abstractions
+
+   - Create an InfluxDB organization named `influx_db_organization`.
+   - Create a bucket inside InfluxDB named `psqlpy-stress-bucket`.
+
+   > You can create bucket and organization with different names.  
+   > But do not forget to replace those values within `psqlpy_stress.settings` file.
+
 4. Connect InfluxDB to grafana.  
    host: `http://influxdb:8086`  
    database: `psqlpy-stress-bucket`  
@@ -39,10 +46,11 @@ docker compose up
    alembic upgrade head
    ```
 
-8. Launch application via
+8. Past in your InfluxDB token into `psqlpy_stress.settings` file.
+9. Launch application via
 
 ```bash
 python -m psqlpy_stress.app
 ```
 
-9. You can start load testing drivers.
+10. You can start load testing drivers.
