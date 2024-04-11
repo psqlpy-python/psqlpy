@@ -19,14 +19,15 @@ docker compose up
    user: `admin`  
    password: is your token that you have saved at `step 2`
 
-5. Import a dashboard to a grafana, named `dashboad.yaml`, located in root directory, where you can find measured values such as:
+5. Import a dashboard to a grafana, named `dashboad.yaml`, located in root directory.  
+   This dashboard displays certain important parameters:
 
-- p99
-- p95
-- p90
-- p50
-- mean
-- p50 rps
+   - p99
+   - p95
+   - p90
+   - p50
+   - mean
+   - p50 rps
 
 6. Run poetry install in root
 7. Apply migrations to database (default database is in docker-compose).  
