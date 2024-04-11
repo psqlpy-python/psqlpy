@@ -536,7 +536,7 @@ class Transaction:
 
         ```
         """
-    async def savepoint(self: Self, savepoint_name: str) -> None:
+    async def create_savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
         One `savepoint_name` can be used once.
@@ -560,9 +560,9 @@ class Transaction:
             connection = await db_pool.connection()
             transaction = connection.transaction()
 
-            await transaction.savepoint("my_savepoint")
+            await transaction.create_savepoint("my_savepoint")
             await transaction.execute(...)
-            await transaction.rollback_to("my_savepoint")
+            await transaction.rollback_savepoint("my_savepoint")
         ```
         """
     async def rollback(self: Self) -> None:
@@ -586,7 +586,7 @@ class Transaction:
             await transaction.rollback()
         ```
         """
-    async def rollback_to(self: Self, savepoint_name: str) -> None:
+    async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
         If you specified wrong savepoint name
@@ -609,7 +609,7 @@ class Transaction:
 
             await transaction.savepoint("my_savepoint")
             await transaction.execute(...)
-            await transaction.rollback_to("my_savepoint")
+            await transaction.rollback_savepoint("my_savepoint")
         ```
         """
     async def release_savepoint(self: Self, savepoint_name: str) -> None:

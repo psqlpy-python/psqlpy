@@ -113,7 +113,7 @@ async def test_transaction_savepoint(
 
     test_name = "test_name"
     savepoint_name = "sp1"
-    await transaction.savepoint(savepoint_name=savepoint_name)
+    await transaction.create_savepoint(savepoint_name=savepoint_name)
     await transaction.execute(
         f"INSERT INTO {table_name} VALUES ($1, $2)",
         parameters=[100, test_name],
@@ -124,7 +124,7 @@ async def test_transaction_savepoint(
     )
     assert result.result()
 
-    await transaction.rollback_to(savepoint_name=savepoint_name)
+    await transaction.rollback_savepoint(savepoint_name=savepoint_name)
     result = await psql_pool.execute(
         f"SELECT * FROM {table_name} WHERE name = $1",
         parameters=[test_name],
@@ -182,15 +182,15 @@ async def test_transaction_release_savepoint(
     sp_name_1 = "sp1"
     sp_name_2 = "sp2"
 
-    await transaction.savepoint(sp_name_1)
+    await transaction.create_savepoint(sp_name_1)
 
     with pytest.raises(expected_exception=TransactionError):
-        await transaction.savepoint(sp_name_1)
+        await transaction.create_savepoint(sp_name_1)
 
-    await transaction.savepoint(sp_name_2)
+    await transaction.create_savepoint(sp_name_2)
 
     await transaction.release_savepoint(sp_name_1)
-    await transaction.savepoint(sp_name_1)
+    await transaction.create_savepoint(sp_name_1)
 
 
 async def test_transaction_cursor(

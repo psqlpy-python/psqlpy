@@ -238,8 +238,8 @@ impl Transaction {
     pub async fn fetch_row(
         self_: Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
