@@ -17,7 +17,7 @@ docker compose up
    host: `http://influxdb:8086`  
    database: `psqlpy-stress-bucket`  
    user: `admin`  
-   password: is your token that you saved at `step 2`
+   password: is your token that you have saved at `step 2`
 
 5. Import a dashboard to a grafana, named `dashboad.yaml`, located in root directory, where you can find measured values such as:
 
