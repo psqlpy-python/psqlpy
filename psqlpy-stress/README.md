@@ -14,7 +14,7 @@ docker compose up
 2. Log in to IfluxDB. Default credential are `admin`:`admin`. Save token that will be shown to you after login.
 3. Create InfluxDB abstractions
 
-   - Create an InfluxDB organization named `influx_db_organization`.
+   - Create an InfluxDB organization named `psqlpy-stress-test`.
    - Create a bucket inside InfluxDB named `psqlpy-stress-bucket`.
 
    > You can create bucket and organization with different names.  
