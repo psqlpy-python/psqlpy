@@ -6,6 +6,12 @@ from ._internal.extra_types import (
     PyMacAddr8,
     PyUUID,
     SmallInt,
+    PyPoint,
+    PyBox,
+    PyPath,
+    PyLine,
+    PyLineSegment,
+    PyPolygon,
 )
 
 __all__ = [
@@ -16,4 +22,10 @@ __all__ = [
     "PyJSON",
     "PyMacAddr6",
     "PyMacAddr8",
+    "PyPoint",
+    "PyBox",
+    "PyPath",
+    "PyLine",
+    "PyLineSegment",
+    "PyPolygon",
 ]
