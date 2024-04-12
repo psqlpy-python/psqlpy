@@ -43,6 +43,12 @@ create_exception!(
     RustPSQLDriverPyBaseError
 );
 
+create_exception!(
+    psqlpy.exceptions,
+    RustRuntimeJoinError,
+    RustPSQLDriverPyBaseError
+);
+
 create_exception!(psqlpy.exceptions, CursorError, RustPSQLDriverPyBaseError);
 
 #[allow(clippy::missing_errors_doc)]
@@ -72,6 +78,10 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
     pymod.add("CursorError", py.get_type_bound::<CursorError>())?;
     pymod.add(
         "MacAddr6ConversionError",
+        py.get_type_bound::<MacAddr6ConversionError>(),
+    )?;
+    pymod.add(
+        "RustRuntimeJoinError",
         py.get_type_bound::<MacAddr6ConversionError>(),
     )?;
     Ok(())
