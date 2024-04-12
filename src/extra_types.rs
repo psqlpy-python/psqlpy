@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{pyclass, pymethods, types::PyModule, PyAny, PyResult, Python};
+use geo_types::{Point, Rect, Line, LineString, Polygon};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -170,6 +171,108 @@ build_macaddr_type!(PyMacAddr8, MacAddr8);
 //     pub fn new_macaddr8(value: &str) -> RustPSQLDriverPyResult<Self> {}
 // }
 
+macro_rules! build_geo_type {
+    ($st_name:ident, $rust_type:ty) => {
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct $st_name {
+            inner: $rust_type,
+        }
+
+        impl $st_name {
+            #[must_use]
+            pub fn retrieve_value(&self) -> &$rust_type {
+                &self.inner
+            }
+        }
+    };
+}
+
+build_geo_type!(PyPoint, Point);
+build_geo_type!(PyBox, Rect);
+build_geo_type!(PyPath, LineString);
+build_geo_type!(PyLine, Line);
+build_geo_type!(PyLineSegment, Line);
+build_geo_type!(PyPolygon, Polygon);
+// build_geo_type!(PyCircle, );
+
+// #[pymethods]
+// impl PyPoint {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_point(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyBox {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_box(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyPath {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_path(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyLine {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_line(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyLineSegment {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_line_segment(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyPolygon {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_polygon(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
+// #[pymethods]
+// impl PyCircle {
+//     #[new]
+//     #[allow(clippy::missing_errors_doc)]
+//     pub fn new_circle(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//         Ok(Self {
+//             inner: build_serde_value(value)?,
+//         })
+//     }
+// }
+
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
 pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
@@ -180,5 +283,12 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
     pymod.add_class::<PyJSON>()?;
     pymod.add_class::<PyMacAddr6>()?;
     pymod.add_class::<PyMacAddr8>()?;
+    pymod.add_class::<PyPoint>()?;
+    pymod.add_class::<PyBox>()?;
+    pymod.add_class::<PyPath>()?;
+    pymod.add_class::<PyLine>()?;
+    pymod.add_class::<PyLineSegment>()?;
+    pymod.add_class::<PyPolygon>()?;
+    // pymod.add_class::<PyCircle>()?;
     Ok(())
 }
