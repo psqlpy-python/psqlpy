@@ -15,7 +15,7 @@ use super::{
 
 #[pyclass]
 pub struct Connection {
-    pub db_client: Arc<Object>,
+    db_client: Arc<Object>,
 }
 
 impl Connection {
@@ -257,7 +257,7 @@ impl Connection {
         };
 
         Python::with_gil(|gil| match result.columns().first() {
-            Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
+            Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
             None => Ok(gil.None()),
         })
     }

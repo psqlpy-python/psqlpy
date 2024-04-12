@@ -28,7 +28,7 @@ pub enum RustPSQLDriverError {
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
     #[error("Database engine exception: {0}.")]
-    DBEngineError(#[from] tokio_postgres::Error),
+    DBEngineError(#[from] deadpool_postgres::tokio_postgres::Error),
     #[error("Database engine pool exception: {0}")]
     DBEnginePoolError(#[from] deadpool_postgres::PoolError),
     #[error("Database engine build failed: {0}")]

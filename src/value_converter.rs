@@ -1,7 +1,8 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
+use postgres_types::{Field, Kind};
 use serde_json::{json, Map, Value};
-use std::{fmt::Debug, net::IpAddr};
+use std::{collections::HashMap, fmt::Debug, net::IpAddr};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -385,13 +386,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     )))
 }
 
-/// Convert type from postgres to python type.
-///
-/// # Errors
-///
-/// May return Err Result if cannot convert postgres
-/// type into rust one.
-pub fn postgres_to_py(
+pub fn simple_postgres_to_py(
     py: Python<'_>,
     row: &Row,
     column: &Column,
@@ -529,7 +524,102 @@ pub fn postgres_to_py(
     }
 }
 
-/// Convert python List of Dict type or just Dict in serde `Value`.
+pub fn composite_postgres_to_py(
+    py: Python<'_>,
+    row: &Row,
+    column: &Column,
+    column_i: usize,
+    custom_types: &Option<HashMap<String, Py<PyAny>>>,
+    fields: &Vec<Field>,
+    buf: &[u8],
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    let mut vec_buf: Vec<u8> = vec![];
+    vec_buf.extend_from_slice(buf);
+    let mut buf = vec_buf.as_slice();
+    let column_name = column.name();
+    let passed_custom_type = custom_types
+        .as_ref()
+        .ok_or(RustPSQLDriverError::RustToPyValueConversionError(
+            format!("Cannot convert custom PostgreSQL type <{column_name}>, please pass Python class into custom_types parameter"),
+        ))?
+        .get(column_name)
+        .ok_or(RustPSQLDriverError::RustToPyValueConversionError(
+            format!("Cannot convert custom PostgreSQL type <{column_name}>, please pass Python class into custom_types parameter"),
+        ))?;
+
+    let mut result_py_args: Vec<Py<PyAny>> = vec![];
+
+    let num_fields = postgres_types::private::read_be_i32(&mut buf)?;
+    if num_fields as usize != fields.len() {
+        return Err(RustPSQLDriverError::RustToPyValueConversionError(format!(
+            "invalid field count: {} vs {}",
+            num_fields,
+            fields.len()
+        )));
+    }
+
+    let mut idx = 0;
+    for field in fields {
+        let oid = postgres_types::private::read_be_i32(&mut buf).unwrap() as u32;
+        if oid != field.type_().oid() {
+            return Err(RustPSQLDriverError::RustToPyValueConversionError(
+                "unexpected OID".into(),
+            ));
+        }
+
+        if idx == 0 {
+            let a: String = postgres_types::private::read_value(field.type_(), &mut buf).unwrap();
+            println!("123123213123123123123123123123123123       {}", a);
+            result_py_args.push(a.to_object(py));
+        } else {
+            let a: i32 = postgres_types::private::read_value(field.type_(), &mut buf).unwrap();
+            println!("123123213123123123123123123123123123       {}", a);
+            result_py_args.push(a.to_object(py));
+        }
+        idx += 1;
+    }
+
+    let tuple = PyTuple::new_bound(py, result_py_args);
+    let b = passed_custom_type.call_bound(py, tuple, None).unwrap();
+
+    Ok(b)
+}
+
+/// Convert type from postgres to python type.
+///
+/// # Errors
+///
+/// May return Err Result if cannot convert postgres
+/// type into rust one.
+pub fn postgres_to_py(
+    py: Python<'_>,
+    row: &Row,
+    column: &Column,
+    column_i: usize,
+    custom_types: &Option<HashMap<String, Py<PyAny>>>,
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    let column_type = column.type_();
+    println!("{:?}", row.col_buffer(column_i).unwrap());
+
+    match column_type.kind() {
+        Kind::Simple => simple_postgres_to_py(py, row, column, column_i),
+        Kind::Composite(fields) => composite_postgres_to_py(
+            py,
+            row,
+            column,
+            column_i,
+            custom_types,
+            fields,
+            row.col_buffer(column_i).unwrap(),
+        ),
+        // Kind::Composite(fields) => Ok(py.None()),
+        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
+            column.type_().to_string(),
+        )),
+    }
+}
+
+/// Convert python List of Dict type or just Dict into serde `Value`.
 ///
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
