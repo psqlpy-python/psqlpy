@@ -37,8 +37,8 @@ pub enum RustPSQLDriverError {
     UUIDConvertError(#[from] uuid::Error),
     #[error("Cannot convert provided string to MacAddr6")]
     MacAddr6ConversionError(#[from] macaddr::ParseError),
-    #[error("Error: {0}")]
-    BadPizedc(#[from] JoinError),
+    #[error("Cannot execute future in Rust: {0}")]
+    RuntimeJoinError(#[from] JoinError),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -50,7 +50,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             | RustPSQLDriverError::DBEnginePoolError(_)
             | RustPSQLDriverError::MacAddr6ConversionError(_)
             | RustPSQLDriverError::DBEngineBuildError(_)
-            | RustPSQLDriverError::BadPizedc(_) => {
+            | RustPSQLDriverError::RuntimeJoinError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
