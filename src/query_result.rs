@@ -57,6 +57,7 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python or set new key-value pair
     /// in python dict.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn result(
         &self,
         py: Python<'_>,
