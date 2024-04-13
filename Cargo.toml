@@ -9,21 +9,12 @@ name = "psqlpy"
 crate-type = ["cdylib"]
 
 [dependencies]
-# deadpool-postgres = { version = "0.13.0" }
-deadpool-postgres = { path = "./external_crates/deadpool/postgres", version = "0.13.0" }
+deadpool-postgres = { git = "https://github.com/chandr-andr/deadpool.git", version = "0.13.0" }
 pyo3 = { version = "*", features = ["chrono", "experimental-async"] }
 pyo3-asyncio = { path = "./external_crates/pyo3-asyncio", version = "0.20.0", features = [
     "tokio-runtime",
 ] }
 tokio = { version = "1.35.1", features = ["full"] }
-# tokio-postgres = { version = "0.7.10", features = [
-#     "with-serde_json-1",
-#     "array-impls",
-#     "with-chrono-0_4",
-#     "with-uuid-1",
-# ] }
-# postgres-protocol = "0.6.6"
-# postgres-types = { version = "0.2.6", features = ["derive"] }
 thiserror = "1.0.56"
 bytes = "1.5.0"
 byteorder = "1.5.0"
@@ -33,13 +24,13 @@ uuid = { version = "1.7.0", features = ["v4"] }
 serde_json = "1.0.113"
 futures-util = "0.3.30"
 macaddr = "1.0.1"
-tokio-postgres = { path = "./external_crates/rust-postgres/tokio-postgres", version = "0.7.10", features = [
+tokio-postgres = { git = "https://github.com/chandr-andr/rust-postgres.git", version = "0.7.10", features = [
     "with-serde_json-1",
     "array-impls",
     "with-chrono-0_4",
     "with-uuid-1",
 ] }
-postgres-types = { path = "./external_crates/rust-postgres/postgres-types", version = "0.2.6", features = [
+postgres-types = { git = "https://github.com/chandr-andr/rust-postgres.git", version = "0.2.6", features = [
     "derive",
 ] }
-postgres-protocol = { path = "./external_crates/rust-postgres/postgres-protocol", version = "*" }
+postgres-protocol = { git = "https://github.com/chandr-andr/rust-postgres.git", version = "*" }
