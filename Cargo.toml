@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 deadpool-postgres = { git = "https://github.com/chandr-andr/deadpool.git", version = "0.13.0" }
 pyo3 = { version = "*", features = ["chrono", "experimental-async"] }
-pyo3-asyncio = { path = "./external_crates/pyo3-asyncio", version = "0.20.0", features = [
+pyo3-asyncio = { git = "https://github.com/chandr-andr/pyo3-asyncio.git", version = "0.20.0", features = [
     "tokio-runtime",
 ] }
 tokio = { version = "1.35.1", features = ["full"] }

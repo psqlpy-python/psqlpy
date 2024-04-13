@@ -257,7 +257,7 @@ impl Connection {
         };
 
         Python::with_gil(|gil| match result.columns().first() {
-            Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
+            Some(first_column) => postgres_to_py(gil, &result, first_column, 0),
             None => Ok(gil.None()),
         })
     }

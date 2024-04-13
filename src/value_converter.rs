@@ -2,7 +2,7 @@ use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind};
 use serde_json::{json, Map, Value};
-use std::{collections::HashMap, fmt::Debug, net::IpAddr};
+use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -12,7 +12,7 @@ use pyo3::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
         PyList, PyListMethods, PyString, PyTime, PyTuple,
     },
-    Py, PyAny, Python, ToPyObject,
+    Bound, Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, ToSql, Type},
@@ -667,26 +667,14 @@ fn postgres_bytes_to_py(
 #[allow(clippy::cast_sign_loss)]
 pub fn composite_postgres_to_py(
     py: Python<'_>,
-    column: &Column,
-    custom_types: &Option<HashMap<String, Py<PyAny>>>,
     fields: &Vec<Field>,
     buf: &[u8],
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let mut vec_buf: Vec<u8> = vec![];
     vec_buf.extend_from_slice(buf);
     let mut buf: &[u8] = vec_buf.as_slice();
-    let column_name = column.name();
-    let passed_custom_type = custom_types
-        .as_ref()
-        .ok_or(RustPSQLDriverError::RustToPyValueConversionError(
-            format!("Cannot convert custom PostgreSQL type <{column_name}>, please pass Python class into custom_types parameter"),
-        ))?
-        .get(column_name)
-        .ok_or(RustPSQLDriverError::RustToPyValueConversionError(
-            format!("Cannot convert custom PostgreSQL type <{column_name}>, please pass Python class into custom_types parameter"),
-        ))?;
 
-    let mut result_py_args: Vec<Py<PyAny>> = vec![];
+    let result_py_dict: Bound<'_, PyDict> = PyDict::new_bound(py);
 
     let num_fields = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
         RustPSQLDriverError::RustToPyValueConversionError(format!(
@@ -713,11 +701,13 @@ pub fn composite_postgres_to_py(
             ));
         }
 
-        result_py_args
-            .push(postgres_bytes_to_py(py, field.type_(), &mut buf, false)?.to_object(py));
+        result_py_dict.set_item(
+            field.name(),
+            postgres_bytes_to_py(py, field.type_(), &mut buf, false)?.to_object(py),
+        )?;
     }
 
-    Ok(passed_custom_type.call_bound(py, PyTuple::new_bound(py, result_py_args), None)?)
+    Ok(result_py_dict.to_object(py))
 }
 
 /// Convert type from postgres to python type.
@@ -732,7 +722,6 @@ pub fn postgres_to_py(
     row: &Row,
     column: &Column,
     column_i: usize,
-    custom_types: &Option<HashMap<String, Py<PyAny>>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let column_type = column.type_();
     let raw_bytes_data = row.col_buffer(column_i);
@@ -741,9 +730,7 @@ pub fn postgres_to_py(
             Kind::Simple | Kind::Array(_) => {
                 postgres_bytes_to_py(py, column.type_(), &mut raw_bytes_data, true)
             }
-            Kind::Composite(fields) => {
-                composite_postgres_to_py(py, column, custom_types, fields, raw_bytes_data)
-            }
+            Kind::Composite(fields) => composite_postgres_to_py(py, fields, raw_bytes_data),
             _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
                 column.type_().to_string(),
             )),

@@ -734,6 +734,7 @@ dependencies = [
 [[package]]
 name = "pyo3-asyncio"
 version = "0.20.0"
+source = "git+https://github.com/chandr-andr/pyo3-asyncio.git#15752a639b1948b03768d4a3e016ec55feaca1b7"
 dependencies = [
  "futures",
  "once_cell",
