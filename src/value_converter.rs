@@ -1,8 +1,8 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
-use postgres_types::{Field, Kind};
+use postgres_types::{Field, FromSql, Kind};
 use serde_json::{json, Map, Value};
-use std::{collections::HashMap, fmt::Debug, net::IpAddr};
+use std::{collections::HashMap, fmt::Debug, net::IpAddr, os::macos::raw};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -524,18 +524,198 @@ pub fn simple_postgres_to_py(
     }
 }
 
+fn _composite_field_postgres_to_py<'a, T: FromSql<'a> + ToPyObject>(
+    py: Python<'_>,
+    type_: &Type,
+    buf: &mut &'a [u8],
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    Ok(
+        postgres_types::private::read_value::<Option<T>>(&type_, buf)
+            .map_err(|_| {
+                RustPSQLDriverError::RustToPyValueConversionError(format!(
+                    "Cannot convert PostgreSQL type {} into Python type",
+                    type_.to_string(),
+                ))
+            })?
+            .to_object(py),
+    )
+}
+
+fn composite_field_postgres_to_py<'a>(
+    py: Python<'_>,
+    type_: &Type,
+    buf: &mut &'a [u8],
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    match *type_ {
+        // ---------- Bytes Types ----------
+        // Convert BYTEA type into Vector<u8>, then into PyBytes
+        Type::BYTEA => _composite_field_postgres_to_py::<Option<Vec<u8>>>(py, type_, buf),
+        // // ---------- String Types ----------
+        // // Convert TEXT and VARCHAR type into String, then into str
+        Type::TEXT | Type::VARCHAR => {
+            _composite_field_postgres_to_py::<Option<String>>(py, type_, buf)
+        }
+        // ---------- Boolean Types ----------
+        // Convert BOOL type into bool
+        Type::BOOL => _composite_field_postgres_to_py::<Option<bool>>(py, type_, buf),
+        // ---------- Number Types ----------
+        // Convert SmallInt into i16, then into int
+        Type::INT2 => _composite_field_postgres_to_py::<Option<i16>>(py, type_, buf),
+        // Convert Integer into i32, then into int
+        Type::INT4 => _composite_field_postgres_to_py::<Option<i32>>(py, type_, buf),
+        // Convert BigInt into i64, then into int
+        Type::INT8 => _composite_field_postgres_to_py::<Option<i64>>(py, type_, buf),
+        // Convert REAL into f32, then into float
+        Type::FLOAT4 => _composite_field_postgres_to_py::<Option<f32>>(py, type_, buf),
+        // Convert DOUBLE PRECISION into f64, then into float
+        Type::FLOAT8 => _composite_field_postgres_to_py::<Option<f64>>(py, type_, buf),
+        // ---------- Date Types ----------
+        // Convert DATE into NaiveDate, then into datetime.date
+        Type::DATE => _composite_field_postgres_to_py::<Option<NaiveDate>>(py, type_, buf),
+        // Convert Time into NaiveTime, then into datetime.time
+        Type::TIME => _composite_field_postgres_to_py::<Option<NaiveTime>>(py, type_, buf),
+        // Convert TIMESTAMP into NaiveDateTime, then into datetime.datetime
+        Type::TIMESTAMP => _composite_field_postgres_to_py::<Option<NaiveDateTime>>(py, type_, buf),
+        // Convert TIMESTAMP into NaiveDateTime, then into datetime.datetime
+        Type::TIMESTAMPTZ => {
+            _composite_field_postgres_to_py::<Option<DateTime<FixedOffset>>>(py, type_, buf)
+        }
+        // ---------- UUID Types ----------
+        // Convert UUID into Uuid type, then into String if possible
+        Type::UUID => {
+            let rust_uuid = postgres_types::private::read_value::<Option<Uuid>>(&type_, buf)
+                .map_err(|_| {
+                    RustPSQLDriverError::RustToPyValueConversionError(format!(
+                        "Cannot convert PostgreSQL type {} into Python type",
+                        type_.name()
+                    ))
+                })?;
+            match rust_uuid {
+                Some(rust_uuid) => {
+                    return Ok(PyString::new_bound(py, &rust_uuid.to_string()).to_object(py))
+                }
+                None => Ok(py.None()),
+            }
+        }
+        // ---------- IpAddress Types ----------
+        Type::INET => _composite_field_postgres_to_py::<Option<IpAddr>>(py, type_, buf),
+        // ---------- Array Text Types ----------
+        // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => {
+            _composite_field_postgres_to_py::<Option<Vec<String>>>(py, type_, buf)
+        }
+        // ---------- Array Integer Types ----------
+        // Convert ARRAY of SmallInt into Vec<i16>, then into list[int]
+        Type::INT2_ARRAY => _composite_field_postgres_to_py::<Option<Vec<i16>>>(py, type_, buf),
+        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
+        Type::INT4_ARRAY => _composite_field_postgres_to_py::<Option<Vec<i32>>>(py, type_, buf),
+        // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
+        Type::INT8_ARRAY => _composite_field_postgres_to_py::<Option<Vec<i64>>>(py, type_, buf),
+        // Convert ARRAY of Float4 into Vec<f32>, then into list[float]
+        Type::FLOAT4_ARRAY => _composite_field_postgres_to_py::<Option<Vec<f32>>>(py, type_, buf),
+        // Convert ARRAY of Float8 into Vec<f64>, then into list[float]
+        Type::FLOAT8_ARRAY => _composite_field_postgres_to_py::<Option<Vec<f64>>>(py, type_, buf),
+        // Convert ARRAY of Date into Vec<NaiveDate>, then into list[datetime.date]
+        Type::DATE_ARRAY => {
+            _composite_field_postgres_to_py::<Option<Vec<NaiveDate>>>(py, type_, buf)
+        }
+        // Convert ARRAY of Time into Vec<NaiveTime>, then into list[datetime.date]
+        Type::TIME_ARRAY => {
+            _composite_field_postgres_to_py::<Option<Vec<NaiveTime>>>(py, type_, buf)
+        }
+        // Convert ARRAY of TIMESTAMP into Vec<NaiveDateTime>, then into list[datetime.date]
+        Type::TIMESTAMP_ARRAY => {
+            _composite_field_postgres_to_py::<Option<Vec<NaiveDateTime>>>(py, type_, buf)
+        }
+        // Convert ARRAY of TIMESTAMPTZ into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        Type::TIMESTAMPTZ_ARRAY => {
+            _composite_field_postgres_to_py::<Option<Vec<DateTime<FixedOffset>>>>(py, type_, buf)
+        }
+        // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        Type::UUID_ARRAY => {
+            let uuid_array = postgres_types::private::read_value::<Option<Vec<Uuid>>>(&type_, buf)
+                .map_err(|_| {
+                    RustPSQLDriverError::RustToPyValueConversionError(format!(
+                        "Cannot convert PostgreSQL type {} into Python type",
+                        type_.name()
+                    ))
+                })?;
+            match uuid_array {
+                Some(rust_uuid_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        rust_uuid_vec
+                            .iter()
+                            .map(|rust_uuid| rust_uuid.to_string().as_str().to_object(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                }
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
+        Type::INET_ARRAY => _composite_field_postgres_to_py::<Option<Vec<IpAddr>>>(py, type_, buf),
+        // Convert JSON/JSONB into Serde Value, then into list or dict
+        Type::JSONB | Type::JSON => {
+            let db_json = postgres_types::private::read_value::<Option<Value>>(&type_, buf)
+                .map_err(|_| {
+                    RustPSQLDriverError::RustToPyValueConversionError(format!(
+                        "Cannot convert PostgreSQL type {} into Python type",
+                        type_.to_string()
+                    ))
+                })?;
+
+            match db_json {
+                Some(value) => Ok(build_python_from_serde_value(py, value)?),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        // Convert MACADDR into inner type for macaddr6, then into str
+        Type::MACADDR => {
+            let macaddr_ = postgres_types::private::read_value::<Option<RustMacAddr6>>(&type_, buf)
+                .map_err(|_| {
+                    RustPSQLDriverError::RustToPyValueConversionError(format!(
+                        "Cannot convert PostgreSQL type {} into Python type",
+                        type_.name()
+                    ))
+                })?;
+            if let Some(macaddr_) = macaddr_ {
+                Ok(macaddr_.inner().to_string().to_object(py))
+            } else {
+                Ok(py.None().to_object(py))
+            }
+        }
+        Type::MACADDR8 => {
+            let macaddr_ = postgres_types::private::read_value::<Option<RustMacAddr8>>(&type_, buf)
+                .map_err(|_| {
+                    RustPSQLDriverError::RustToPyValueConversionError(format!(
+                        "Cannot convert PostgreSQL type {} into Python type",
+                        type_.name()
+                    ))
+                })?;
+            if let Some(macaddr_) = macaddr_ {
+                Ok(macaddr_.inner().to_string().to_object(py))
+            } else {
+                Ok(py.None().to_object(py))
+            }
+        }
+        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
+            type_.name().to_string(),
+        )),
+    }
+}
+
 pub fn composite_postgres_to_py(
     py: Python<'_>,
-    row: &Row,
     column: &Column,
-    column_i: usize,
     custom_types: &Option<HashMap<String, Py<PyAny>>>,
     fields: &Vec<Field>,
     buf: &[u8],
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let mut vec_buf: Vec<u8> = vec![];
     vec_buf.extend_from_slice(buf);
-    let mut buf = vec_buf.as_slice();
+    let mut buf: &[u8] = vec_buf.as_slice();
     let column_name = column.name();
     let passed_custom_type = custom_types
         .as_ref()
@@ -549,7 +729,11 @@ pub fn composite_postgres_to_py(
 
     let mut result_py_args: Vec<Py<PyAny>> = vec![];
 
-    let num_fields = postgres_types::private::read_be_i32(&mut buf)?;
+    let num_fields = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
+        RustPSQLDriverError::RustToPyValueConversionError(format!(
+            "Cannot read bytes data from PostgreSQL: {err}"
+        ))
+    })?;
     if num_fields as usize != fields.len() {
         return Err(RustPSQLDriverError::RustToPyValueConversionError(format!(
             "invalid field count: {} vs {}",
@@ -558,7 +742,6 @@ pub fn composite_postgres_to_py(
         )));
     }
 
-    let mut idx = 0;
     for field in fields {
         let oid = postgres_types::private::read_be_i32(&mut buf).unwrap() as u32;
         if oid != field.type_().oid() {
@@ -567,22 +750,11 @@ pub fn composite_postgres_to_py(
             ));
         }
 
-        if idx == 0 {
-            let a: String = postgres_types::private::read_value(field.type_(), &mut buf).unwrap();
-            println!("123123213123123123123123123123123123       {}", a);
-            result_py_args.push(a.to_object(py));
-        } else {
-            let a: i32 = postgres_types::private::read_value(field.type_(), &mut buf).unwrap();
-            println!("123123213123123123123123123123123123       {}", a);
-            result_py_args.push(a.to_object(py));
-        }
-        idx += 1;
+        result_py_args
+            .push(composite_field_postgres_to_py(py, field.type_(), &mut buf)?.to_object(py));
     }
 
-    let tuple = PyTuple::new_bound(py, result_py_args);
-    let b = passed_custom_type.call_bound(py, tuple, None).unwrap();
-
-    Ok(b)
+    Ok(passed_custom_type.call_bound(py, PyTuple::new_bound(py, result_py_args), None)?)
 }
 
 /// Convert type from postgres to python type.
@@ -599,23 +771,20 @@ pub fn postgres_to_py(
     custom_types: &Option<HashMap<String, Py<PyAny>>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let column_type = column.type_();
-    println!("{:?}", row.col_buffer(column_i).unwrap());
+    let raw_bytes_data = row.col_buffer(column_i);
+    println!("{:?}", raw_bytes_data);
 
-    match column_type.kind() {
-        Kind::Simple => simple_postgres_to_py(py, row, column, column_i),
-        Kind::Composite(fields) => composite_postgres_to_py(
-            py,
-            row,
-            column,
-            column_i,
-            custom_types,
-            fields,
-            row.col_buffer(column_i).unwrap(),
-        ),
-        // Kind::Composite(fields) => Ok(py.None()),
-        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
-            column.type_().to_string(),
-        )),
+    match raw_bytes_data {
+        Some(raw_bytes_data) => match column_type.kind() {
+            Kind::Simple => simple_postgres_to_py(py, row, column, column_i),
+            Kind::Composite(fields) => {
+                return composite_postgres_to_py(py, column, custom_types, fields, raw_bytes_data);
+            }
+            _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
+                column.type_().to_string(),
+            )),
+        },
+        None => Ok(py.None()),
     }
 }
 
