@@ -663,7 +663,6 @@ fn postgres_bytes_to_py(
 ///
 /// # Errors
 /// May return error if there is any problem with bytes.
-#[allow(clippy::implicit_hasher)]
 #[allow(clippy::cast_sign_loss)]
 pub fn composite_postgres_to_py(
     py: Python<'_>,
@@ -716,7 +715,6 @@ pub fn composite_postgres_to_py(
 ///
 /// May return Err Result if cannot convert postgres
 /// type into rust one.
-#[allow(clippy::implicit_hasher)]
 pub fn postgres_to_py(
     py: Python<'_>,
     row: &Row,
