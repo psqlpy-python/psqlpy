@@ -380,7 +380,7 @@ async def test_deserialization_composite_into_python(
     )
 
     class ValidateModelForCustomType(BaseModel):
-        bytea_: list[int]
+        bytea_: List[int]
         varchar_: str
         text_: str
         bool_: bool
