@@ -1,0 +1,771 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {},
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT percentile(\"time-took\", 99) FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [
+                  95
+                ],
+                "type": "percentile"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=~",
+              "value": "/^$tag_key$/"
+            }
+          ]
+        }
+      ],
+      "title": "PERCENTILE /  99",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {},
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT percentile(\"time-took\", 95) FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [
+                  95
+                ],
+                "type": "percentile"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=~",
+              "value": "/^$tag_key$/"
+            }
+          ]
+        }
+      ],
+      "title": "PERCENTILE /  95",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {},
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT percentile(\"time-took\", 90) FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [
+                  95
+                ],
+                "type": "percentile"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=~",
+              "value": "/^$tag_key$/"
+            }
+          ]
+        }
+      ],
+      "title": "PERCENTILE /  90",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "10s"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT count(\"time-took\") FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY time(10s), \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "count"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "condition": "OR",
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "psqlpy"
+            }
+          ]
+        }
+      ],
+      "title": "RPS / 10s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "10s"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT count(\"time-took\") FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY time(10s), \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "count"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "asyncpg"
+            },
+            {
+              "condition": "OR",
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "psqlpy"
+            },
+            {
+              "condition": "OR",
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "psycopg"
+            }
+          ]
+        }
+      ],
+      "title": "TOTAL REQUESTS / 10s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "fdhwfv82f9pfka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fdhwfv82f9pfka"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "10s"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "stress-test-timings-tag::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "stress-test-timings",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT mean(\"time-took\") FROM \"stress-test-timings\" WHERE (\"stress-test-timings-tag\"::tag = '$tag_key') AND $timeFilter GROUP BY time(10s), \"stress-test-timings-tag\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "time-took"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "psqlpy"
+            },
+            {
+              "condition": "OR",
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "asyncpg"
+            },
+            {
+              "condition": "OR",
+              "key": "stress-test-timings-tag::tag",
+              "operator": "=",
+              "value": "psycopg"
+            }
+          ]
+        }
+      ],
+      "title": "MEAN LATENCY / 10s",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "psqlpy",
+          "value": "psqlpy"
+        },
+        "description": "tag to query from",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "tag_key",
+        "options": [
+          {
+            "selected": true,
+            "text": "psqlpy",
+            "value": "psqlpy"
+          },
+          {
+            "selected": false,
+            "text": "asyncpg",
+            "value": "asyncpg"
+          },
+          {
+            "selected": false,
+            "text": "psycopg",
+            "value": "psycopg"
+          }
+        ],
+        "query": "psqlpy, asyncpg, psycopg",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PSQLPY STRESS TEST",
+  "uid": "cdhwqeqloyscge",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,4 +1,5 @@
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::exceptions::python_errors::{
     DBPoolConfigurationError, DBPoolError, PyToRustValueMappingError, RustPSQLDriverPyBaseError,
@@ -27,7 +28,7 @@ pub enum RustPSQLDriverError {
     #[error("Python exception: {0}.")]
     PyError(#[from] pyo3::PyErr),
     #[error("Database engine exception: {0}.")]
-    DBEngineError(#[from] tokio_postgres::Error),
+    DBEngineError(#[from] deadpool_postgres::tokio_postgres::Error),
     #[error("Database engine pool exception: {0}")]
     DBEnginePoolError(#[from] deadpool_postgres::PoolError),
     #[error("Database engine build failed: {0}")]
@@ -36,6 +37,8 @@ pub enum RustPSQLDriverError {
     UUIDConvertError(#[from] uuid::Error),
     #[error("Cannot convert provided string to MacAddr6")]
     MacAddr6ConversionError(#[from] macaddr::ParseError),
+    #[error("Cannot execute future in Rust: {0}")]
+    RuntimeJoinError(#[from] JoinError),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -46,7 +49,8 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::DBEngineError(_)
             | RustPSQLDriverError::DBEnginePoolError(_)
             | RustPSQLDriverError::MacAddr6ConversionError(_)
-            | RustPSQLDriverError::DBEngineBuildError(_) => {
+            | RustPSQLDriverError::DBEngineBuildError(_)
+            | RustPSQLDriverError::RuntimeJoinError(_) => {
                 RustPSQLDriverPyBaseError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {

@@ -1,7 +1,11 @@
 use std::str::FromStr;
 
 use macaddr::{MacAddr6, MacAddr8};
-use pyo3::{pyclass, pymethods, types::PyModule, PyAny, PyResult, Python};
+use pyo3::{
+    pyclass, pymethods,
+    types::{PyModule, PyModuleMethods},
+    Bound, Py, PyAny, PyResult, Python,
+};
 use geo_types::{Point, Rect, Line, LineString, Polygon};
 use serde_json::Value;
 use uuid::Uuid;
@@ -56,6 +60,54 @@ impl PyUUID {
     }
 }
 
+#[pyclass]
+#[derive(Clone)]
+pub struct PyText {
+    inner: String,
+}
+
+impl PyText {
+    #[must_use]
+    pub fn inner(&self) -> String {
+        self.inner.clone()
+    }
+}
+
+#[pymethods]
+impl PyText {
+    /// Create new PyText from Python str.
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    #[must_use]
+    pub fn new_pytext(text_value: String) -> Self {
+        Self { inner: text_value }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyVarChar {
+    inner: String,
+}
+
+impl PyVarChar {
+    #[must_use]
+    pub fn inner(&self) -> String {
+        self.inner.clone()
+    }
+}
+
+#[pymethods]
+impl PyVarChar {
+    /// Create new PyVarChar from Python str.
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    #[must_use]
+    pub fn new_varchar(text_value: String) -> Self {
+        Self { inner: text_value }
+    }
+}
+
 #[pymethods]
 impl PyUUID {
     /// Create new uuid from Python str.
@@ -72,29 +124,41 @@ impl PyUUID {
     }
 }
 
-#[pyclass]
-#[derive(Clone)]
-pub struct PyJSON {
-    inner: Value,
+macro_rules! build_json_py_type {
+    ($st_name:ident, $rust_type:ty) => {
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct $st_name {
+            inner: $rust_type,
+        }
+
+        impl $st_name {
+            #[must_use]
+            pub fn inner(&self) -> &$rust_type {
+                &self.inner
+            }
+        }
+
+        #[pymethods]
+        impl $st_name {
+            #[new]
+            #[allow(clippy::missing_errors_doc)]
+            pub fn new_class(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+                Ok(Self {
+                    inner: build_serde_value(value)?,
+                })
+            }
+
+            #[must_use]
+            pub fn __str__(&self) -> String {
+                format!("{}, {}", stringify!($st_name), self.inner)
+            }
+        }
+    };
 }
 
-impl PyJSON {
-    #[must_use]
-    pub fn inner(&self) -> &Value {
-        &self.inner
-    }
-}
-
-#[pymethods]
-impl PyJSON {
-    #[new]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn new_json(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
-        Ok(Self {
-            inner: build_serde_value(value)?,
-        })
-    }
-}
+build_json_py_type!(PyJSONB, Value);
+build_json_py_type!(PyJSON, Value);
 
 macro_rules! build_macaddr_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -126,50 +190,6 @@ macro_rules! build_macaddr_type {
 
 build_macaddr_type!(PyMacAddr6, MacAddr6);
 build_macaddr_type!(PyMacAddr8, MacAddr8);
-
-// #[pyclass]
-// #[derive(Clone)]
-// pub struct PyMacAddr6 {
-//     inner: MacAddr6,
-// }
-
-// impl PyMacAddr6 {
-//     #[must_use]
-//     pub fn inner(self) -> MacAddr6 {
-//         self.inner
-//     }
-// }
-
-// #[pymethods]
-// impl PyMacAddr6 {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_macaddr6(value: &str) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: MacAddr6::from_str(value)?,
-//         })
-//     }
-// }
-
-// #[pyclass]
-// #[derive(Clone)]
-// pub struct PyMacAddr8 {
-//     inner: MacAddr8,
-// }
-
-// impl PyMacAddr8 {
-//     #[must_use]
-//     pub fn inner(self) -> MacAddr8 {
-//         self.inner
-//     }
-// }
-
-// #[pymethods]
-// impl PyMacAddr8 {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_macaddr8(value: &str) -> RustPSQLDriverPyResult<Self> {}
-// }
 
 macro_rules! build_geo_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -275,11 +295,14 @@ build_geo_type!(PyPolygon, Polygon);
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
-pub fn extra_types_module(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;
     pymod.add_class::<PyUUID>()?;
+    pymod.add_class::<PyText>()?;
+    pymod.add_class::<PyVarChar>()?;
+    pymod.add_class::<PyJSONB>()?;
     pymod.add_class::<PyJSON>()?;
     pymod.add_class::<PyMacAddr6>()?;
     pymod.add_class::<PyMacAddr8>()?;

@@ -1,21 +1,23 @@
-from ._internal import (
+from psqlpy._internal import (
     Connection,
+    ConnectionPool,
     ConnRecyclingMethod,
     Cursor,
     IsolationLevel,
-    PSQLPool,
     QueryResult,
     ReadVariant,
+    SingleQueryResult,
     Transaction,
 )
 
 __all__ = [
-    "PSQLPool",
-    "QueryResult",
+    "ConnectionPool",
     "Transaction",
-    "IsolationLevel",
-    "ReadVariant",
     "Connection",
     "Cursor",
+    "QueryResult",
+    "SingleQueryResult",
     "ConnRecyclingMethod",
+    "IsolationLevel",
+    "ReadVariant",
 ]
