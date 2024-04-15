@@ -394,8 +394,8 @@ async def test_deserialization_composite_into_python(
         timestampz_: datetime.datetime
         uuid_: uuid.UUID
         inet_: IPv4Address
-        jsonb_: Dict[str, List[Union[str, int]]]
-        json_: Dict[str, List[Union[str, int]]]
+        jsonb_: Dict[str, List[Union[str, int, List[str]]]]
+        json_: Dict[str, List[Union[str, int, List[str]]]]
 
         varchar_arr: List[str]
         text_arr: List[str]
@@ -410,8 +410,8 @@ async def test_deserialization_composite_into_python(
         timestampz_arr: List[datetime.datetime]
         uuid_arr: List[uuid.UUID]
         inet_arr: List[IPv4Address]
-        jsonb_arr: Dict[str, List[Union[str, int]]]
-        json_arr: Dict[str, List[Union[str, int]]]
+        jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
+        json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
 
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType
