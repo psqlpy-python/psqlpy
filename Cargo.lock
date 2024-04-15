@@ -81,9 +81,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.21.7"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
+checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
 
 [[package]]
 name = "bitflags"
@@ -193,11 +193,9 @@ dependencies = [
 
 [[package]]
 name = "deadpool"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb84100978c1c7b37f09ed3ce3e5f843af02c2a2c431bae5b19230dad2c1b490"
+version = "0.11.2"
+source = "git+https://github.com/chandr-andr/deadpool.git#77a6b1d81a2471bee46ca8fcecca6dab3c290449"
 dependencies = [
- "async-trait",
  "deadpool-runtime",
  "num_cpus",
  "tokio",
@@ -205,9 +203,8 @@ dependencies = [
 
 [[package]]
 name = "deadpool-postgres"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bda39fa1cfff190d8924d447ad04fd22772c250438ca5ce1dfb3c80621c05aaa"
+version = "0.13.0"
+source = "git+https://github.com/chandr-andr/deadpool.git#77a6b1d81a2471bee46ca8fcecca6dab3c290449"
 dependencies = [
  "deadpool",
  "tokio",
@@ -218,8 +215,7 @@ dependencies = [
 [[package]]
 name = "deadpool-runtime"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63dfa964fe2a66f3fde91fc70b267fe193d822c7e603e2a675a49a7f46ad3f49"
+source = "git+https://github.com/chandr-andr/deadpool.git#77a6b1d81a2471bee46ca8fcecca6dab3c290449"
 dependencies = [
  "tokio",
 ]
@@ -368,6 +364,12 @@ name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
+
+[[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
@@ -630,10 +632,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
 
 [[package]]
+name = "postgres-derive"
+version = "0.4.5"
+source = "git+https://github.com/chandr-andr/rust-postgres.git#918c1000c6261b63fb891490a28bcb0ca8188a41"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "postgres-protocol"
 version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b6c5ef183cd3ab4ba005f1ca64c21e8bd97ce4699cfea9e8d9a2c4958ca520"
+source = "git+https://github.com/chandr-andr/rust-postgres.git#918c1000c6261b63fb891490a28bcb0ca8188a41"
 dependencies = [
  "base64",
  "byteorder",
@@ -650,13 +662,13 @@ dependencies = [
 [[package]]
 name = "postgres-types"
 version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d2234cdee9408b523530a9b6d2d6b373d1db34f6a8e51dc03ded1828d7fb67c"
+source = "git+https://github.com/chandr-andr/rust-postgres.git#918c1000c6261b63fb891490a28bcb0ca8188a41"
 dependencies = [
  "array-init",
  "bytes",
  "chrono",
  "fallible-iterator",
+ "postgres-derive",
  "postgres-protocol",
  "serde",
  "serde_json",
@@ -680,7 +692,7 @@ dependencies = [
 
 [[package]]
 name = "psqlpy"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "byteorder",
  "bytes",
@@ -690,6 +702,7 @@ dependencies = [
  "futures-util",
  "macaddr",
  "postgres-protocol",
+ "postgres-types",
  "pyo3",
  "pyo3-asyncio",
  "serde_json",
@@ -721,6 +734,7 @@ dependencies = [
 [[package]]
 name = "pyo3-asyncio"
 version = "0.20.0"
+source = "git+https://github.com/chandr-andr/pyo3-asyncio.git#15752a639b1948b03768d4a3e016ec55feaca1b7"
 dependencies = [
  "futures",
  "once_cell",
@@ -767,7 +781,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fbbfd7eb553d10036513cb122b888dcd362a945a00b06c165f2ab480d4cc3b"
 dependencies = [
- "heck",
+ "heck 0.4.1",
  "proc-macro2",
  "pyo3-build-config",
  "quote",
@@ -1053,8 +1067,7 @@ dependencies = [
 [[package]]
 name = "tokio-postgres"
 version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d340244b32d920260ae7448cb72b6e238bddc3d4f7603394e7dd46ed8e48f5b8"
+source = "git+https://github.com/chandr-andr/rust-postgres.git#918c1000c6261b63fb891490a28bcb0ca8188a41"
 dependencies = [
  "async-trait",
  "byteorder",
