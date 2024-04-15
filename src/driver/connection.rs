@@ -15,7 +15,7 @@ use super::{
 
 #[pyclass]
 pub struct Connection {
-    pub db_client: Arc<Object>,
+    db_client: Arc<Object>,
 }
 
 impl Connection {

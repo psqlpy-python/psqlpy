@@ -44,15 +44,56 @@ class PyUUID:
         - `inner_value`: str object.
         """
 
-class PyJSON:
-    """Represent JSON/JSONB field in PostgreSQL and Value in Rust."""
+class PyVarChar:
+    """Represent VarChar in PostgreSQL and String in Rust."""
+
+    def __init__(self: Self, inner_value: str) -> None:
+        """Create new instance of class.
+
+        You need to pass uuid as a str.
+
+        ### Parameters:
+        - `inner_value`: str object.
+        """
+
+class PyText:
+    """Represent TEXT in PostgreSQL and String ins Rust."""
+
+    def __init__(self: Self, inner_value: str) -> None:
+        """Create new instance of class.
+
+        You need to pass uuid as a str.
+
+        ### Parameters:
+        - `inner_value`: str object.
+        """
+
+class PyJSONB:
+    """Represent JSONB field in PostgreSQL and Value in Rust."""
 
     def __init__(
         self: Self,
         value: Union[
             dict[str, Any],
             list[dict[str, Any]],
-            list[Any],
+        ],
+    ) -> None:
+        """Create new instance of PyJSON.B.
+
+        It accepts structure that can be used in JSON/JSONB fields.
+
+        ### Parameters:
+        - `value`: value for the JSONB field.
+        """
+
+class PyJSON:
+    """Represent JSON field in PostgreSQL and Value in Rust."""
+
+    def __init__(
+        self: Self,
+        value: Union[
+            dict[str, Any],
+            list[dict[str, Any]],
         ],
     ) -> None:
         """Create new instance of PyJSON.
@@ -60,7 +101,7 @@ class PyJSON:
         It accepts structure that can be used in JSON/JSONB fields.
 
         ### Parameters:
-        - `value`: value for the JSON/JSONB field.
+        - `value`: value for the JSONB field.
         """
 
 class PyMacAddr6:
