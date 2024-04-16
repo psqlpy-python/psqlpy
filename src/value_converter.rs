@@ -818,3 +818,36 @@ pub fn build_python_from_serde_value(
         Value::Null => Ok(py.None()),
     }
 }
+
+pub fn box_from_sql(mut buf: &[u8]) -> Result<Box, StdBox<dyn Error + Sync + Send>> {
+    let x1 = buf.read_f64::<BigEndian>()?;
+    let y1 = buf.read_f64::<BigEndian>()?;
+    let x2 = buf.read_f64::<BigEndian>()?;
+    let y2 = buf.read_f64::<BigEndian>()?;
+    if !buf.is_empty() {
+        return Err("invalid buffer size".into());
+    }
+    let num_fields = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
+        RustPSQLDriverError::RustToPyValueConversionError(format!(
+            "Cannot read bytes data from PostgreSQL: {err}"
+        ))
+    })?;
+    Ok(Box {
+        upper_right: Point { x: x1, y: y1 },
+        lower_left: Point { x: x2, y: y2 },
+    })
+}
+
+pub fn box_from_sql(mut buf: &[u8]) -> Result<Box, StdBox<dyn Error + Sync + Send>> {
+    let x1 = buf.read_f64::<BigEndian>()?;
+    let y1 = buf.read_f64::<BigEndian>()?;
+    let x2 = buf.read_f64::<BigEndian>()?;
+    let y2 = buf.read_f64::<BigEndian>()?;
+    if !buf.is_empty() {
+        return Err("invalid buffer size".into());
+    }
+    Ok(Box {
+        upper_right: Point { x: x1, y: y1 },
+        lower_left: Point { x: x2, y: y2 },
+    })
+}
