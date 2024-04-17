@@ -8,6 +8,7 @@ from psqlpy._internal import (
     ReadVariant,
     SingleQueryResult,
     Transaction,
+    connect,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ConnRecyclingMethod",
     "IsolationLevel",
     "ReadVariant",
+    "connect",
 ]
