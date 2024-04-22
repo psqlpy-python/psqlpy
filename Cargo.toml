@@ -36,3 +36,4 @@ postgres-types = { git = "https://github.com/chandr-andr/rust-postgres.git", ver
     "derive",
 ] }
 postgres-protocol = { git = "https://github.com/chandr-andr/rust-postgres.git", version = "*" }
+itertools = "0.12.1"

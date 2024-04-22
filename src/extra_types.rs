@@ -10,7 +10,14 @@ use geo_types::{Point, Rect, Line, LineString, Polygon};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::build_serde_value};
+use crate::{
+    additional_types::Circle,
+    exceptions::rust_errors::RustPSQLDriverPyResult, 
+    value_converter::{
+        build_serde_value,
+        build_point,
+    }
+};
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -214,15 +221,15 @@ build_geo_type!(PyPath, LineString);
 build_geo_type!(PyLine, Line);
 build_geo_type!(PyLineSegment, Line);
 build_geo_type!(PyPolygon, Polygon);
-// build_geo_type!(PyCircle, );
+build_geo_type!(PyCircle, Circle);
 
 // #[pymethods]
 // impl PyPoint {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_point(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
-//             inner: build_serde_value(value)?,
+//             inner: build_point(value)?,
 //         })
 //     }
 // }
@@ -231,7 +238,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyBox {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_box(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -242,7 +249,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyPath {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_path(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -253,7 +260,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyLine {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_line(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -264,7 +271,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyLineSegment {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_line_segment(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -275,7 +282,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyPolygon {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_polygon(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_polygon(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -286,7 +293,7 @@ build_geo_type!(PyPolygon, Polygon);
 // impl PyCircle {
 //     #[new]
 //     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_circle(value: &PyAny) -> RustPSQLDriverPyResult<Self> {
+//     pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
 //         Ok(Self {
 //             inner: build_serde_value(value)?,
 //         })
@@ -312,6 +319,6 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyLine>()?;
     pymod.add_class::<PyLineSegment>()?;
     pymod.add_class::<PyPolygon>()?;
-    // pymod.add_class::<PyCircle>()?;
+    pymod.add_class::<PyCircle>()?;
     Ok(())
 }

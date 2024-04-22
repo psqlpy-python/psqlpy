@@ -1,8 +1,6 @@
-use std::{f64::consts::PI, fmt::Debug};
-
-use macaddr::{MacAddr6, MacAddr8};
 use itertools::Itertools;
-use geo_types::{coord, Coord, CoordNum, Line, Polygon};
+use macaddr::{MacAddr6, MacAddr8};
+use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Polygon};
 use byteorder::{ReadBytesExt, BigEndian};
 use tokio_postgres::types::{FromSql, Type};
 
@@ -75,13 +73,13 @@ impl<'a> FromSql<'a> for RustLine {
         raw: &'a [u8],
     ) -> Result<RustLine, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() == 4 {
-            let mut vec_raw: Vec<u8> = vec![];
+            let mut vec_raw= vec![];
             vec_raw.extend_from_slice(raw);
-            let mut buf: &[u8] = vec_raw.as_slice();
+            let mut buf = vec_raw.as_slice();
 
             let x1 = buf.read_f64::<BigEndian>()?;
             let y1 = buf.read_f64::<BigEndian>()?;
-            let first_coord: Coord<f64> = coord!(x: x1, y: y1);
+            let first_coord = coord!(x: x1, y: y1);
 
             let x2 = buf.read_f64::<BigEndian>()?;
             let y2 = buf.read_f64::<BigEndian>()?;
@@ -98,34 +96,40 @@ impl<'a> FromSql<'a> for RustLine {
     }
 }
 
-// impl<'a> FromSql<'a> for RustPolygon {
-//     fn from_sql(
-//         _ty: &Type,
-//         raw: &'a [u8],
-//     ) -> Result<RustPolygon, Box<dyn std::error::Error + Sync + Send>> {
-//         if raw.len() % 2 == 0 {
-//             let mut vec_raw: Vec<u8> = vec![];
-//             vec_raw.extend_from_slice(raw);
+impl<'a> FromSql<'a> for RustPolygon {
+    fn from_sql(
+        _ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<RustPolygon, Box<dyn std::error::Error + Sync + Send>> {
+        if raw.len() % 2 == 0 {
+            let mut vec_raw = vec![];
+            vec_raw.extend_from_slice(raw);
+            let mut buf = vec_raw.as_slice();
+
+            let mut vec_raw_coord = vec![];
+            buf.read_f64_into::<BigEndian>(&mut vec_raw_coord);
         
-//             for (x, y) in vec_raw.tuple_windows() {
-//                 let coord = coord!(x: x, y: y);
-//             }
+            let mut vec_coord = vec![];
+            for (x1, y1) in vec_raw_coord.into_iter().tuples() {
+                vec_coord.push(coord!(x: x1, y: y1));
+            }
 
-//             let new_polygon  = Polygon::new(exterior, interiors)
-//             return Ok(RustPolygon::new(new_polygon));
-//         }
-//         Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into())
-//     }
+            let polygon_exterior = LineString::new(vec_coord);
+            let new_polygon  = Polygon::new(polygon_exterior, vec![]);
+            return Ok(RustPolygon::new(new_polygon));
+        }
+        Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into())
+    }
 
-//     fn accepts(_ty: &Type) -> bool {
-//         true
-//     }
-// }
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
 
 
 // add macro for creating circles
 
-#[derive(Eq, PartialEq, Clone, Copy, Debug,Hash)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Circle<T: CoordNum = f64> {
     center: Coord<T>,
@@ -134,7 +138,7 @@ pub struct Circle<T: CoordNum = f64> {
 
 impl<T: CoordNum> Circle<T> {
     pub fn new(x: T, y: T, r: T) -> Self {
-        Self {center: Coord::new(x, y), radius: r}
+        Self {center: coord!(x: x, y: y), radius: r}
     }
 
     pub fn center(self) -> Coord<T> {
@@ -164,27 +168,25 @@ impl<T: CoordNum> Circle<T> {
     }
 }
 
-impl<T: CoordNum> Circle<T> {
-    pub fn area(self) -> T {
-        PI * self.radius * self.radius
-    }
-    pub fn perimeter(self) -> T {
-        2.0 * PI * self.radius
+impl<T: CoordFloat> Circle<T> {
+    pub fn distance_from_center_to(self, point: &Coord<T>) -> T {
+        let dx = self.center.x - point.x;
+        let dy = self.center.y - point.y;
+        dx.hypot(dy)
     }
 
     pub fn contains(self, point: &Coord<T>) -> bool {
-        self.center.distance_to(point) <= self.radius
+        self.distance_from_center_to(&point) <= self.radius
     }
 
     pub fn intersects(self, other: &Self) -> bool {
-        self.center.distance_to(&other.center) <= self.radius + other.radius
+        self.distance_from_center_to(&other.center) <= self.radius + other.radius
     }
 }
 
 impl<T: CoordNum> Default for Circle<T> {
     fn default() -> Self {
-        let default_center = Coord::default();
-        Self {center: default_center, radius: 0.0}
+        Self {center: coord! {x: T::zero(), y: T::zero()}, radius: T::zero()}
     }
 }
 
@@ -194,9 +196,9 @@ impl<'a> FromSql<'a> for Circle {
         raw: &'a [u8],
     ) -> Result<Circle, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() == 3 {
-            let mut vec_raw: Vec<u8> = vec![];
+            let mut vec_raw = vec![];
             vec_raw.extend_from_slice(raw);
-            let mut buf: &[u8] = vec_raw.as_slice();
+            let mut buf = vec_raw.as_slice();
 
             let x = buf.read_f64::<BigEndian>()?;
             let y = buf.read_f64::<BigEndian>()?;
