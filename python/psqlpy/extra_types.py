@@ -1,20 +1,20 @@
 from ._internal.extra_types import (
     BigInt,
     Integer,
+    PyBox,
     PyJSON,
     PyJSONB,
+    PyLine,
+    PyLineSegment,
     PyMacAddr6,
     PyMacAddr8,
+    PyPath,
+    PyPoint,
+    PyPolygon,
     PyText,
     PyUUID,
     PyVarChar,
     SmallInt,
-    PyPoint,
-    PyBox,
-    PyPath,
-    PyLine,
-    PyLineSegment,
-    PyPolygon,
 )
 
 __all__ = [

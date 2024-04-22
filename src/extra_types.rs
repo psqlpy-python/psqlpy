@@ -1,22 +1,19 @@
 use std::str::FromStr;
 
+use geo_types::{Line, LineString, Point, Polygon, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{
     pyclass, pymethods,
     types::{PyModule, PyModuleMethods},
     Bound, Py, PyAny, PyResult, Python,
 };
-use geo_types::{Point, Rect, Line, LineString, Polygon};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
     additional_types::Circle,
-    exceptions::rust_errors::RustPSQLDriverPyResult, 
-    value_converter::{
-        build_serde_value,
-        build_point,
-    }
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    value_converter::{build_point, build_serde_value},
 };
 
 macro_rules! build_python_type {
@@ -223,16 +220,16 @@ build_geo_type!(PyLineSegment, Line);
 build_geo_type!(PyPolygon, Polygon);
 build_geo_type!(PyCircle, Circle);
 
-// #[pymethods]
-// impl PyPoint {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_point(value)?,
-//         })
-//     }
-// }
+#[pymethods]
+impl PyPoint {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        Ok(Self {
+            inner: build_point(value)?,
+        })
+    }
+}
 
 // #[pymethods]
 // impl PyBox {

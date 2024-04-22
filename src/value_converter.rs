@@ -1,4 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+use geo_types::Point;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind};
 use serde_json::{json, Map, Value};
@@ -9,8 +10,8 @@ use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PyString, PyTime, PyTuple,
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods,
+        PyFloat, PyInt, PyList, PyListMethods, PySet, PyString, PyTime, PyTuple
     },
     Bound, Py, PyAny, Python, ToPyObject,
 };
@@ -23,8 +24,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID, PyVarChar,
-        SmallInt,
+        BigInt, Integer, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
+        PyVarChar, SmallInt,
     },
 };
 
@@ -108,6 +109,37 @@ impl PythonDTO {
     /// # Errors
     /// May return Err Result if cannot convert python type into rust.
     pub fn to_serde_value(&self) -> RustPSQLDriverPyResult<Value> {
+        match self {
+            PythonDTO::PyNone => Ok(Value::Null),
+            PythonDTO::PyBool(pybool) => Ok(json!(pybool)),
+            PythonDTO::PyString(pystring)
+            | PythonDTO::PyText(pystring)
+            | PythonDTO::PyVarChar(pystring) => Ok(json!(pystring)),
+            PythonDTO::PyIntI32(pyint) => Ok(json!(pyint)),
+            PythonDTO::PyIntI64(pyint) => Ok(json!(pyint)),
+            PythonDTO::PyIntU64(pyint) => Ok(json!(pyint)),
+            PythonDTO::PyFloat64(pyfloat) => Ok(json!(pyfloat)),
+            PythonDTO::PyList(pylist) => {
+                let mut vec_serde_values: Vec<Value> = vec![];
+
+                for py_object in pylist {
+                    vec_serde_values.push(py_object.to_serde_value()?);
+                }
+
+                Ok(json!(vec_serde_values))
+            }
+            PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
+            _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Cannot convert your type into Rust type".into(),
+            )),
+        }
+    }
+
+    /// Get value from DTO
+    ///
+    /// # Errors
+    /// May return Err Result if cannot convert python type into rust.
+    pub fn get_value(&self) -> RustPSQLDriverPyResult<Value> {
         match self {
             PythonDTO::PyNone => Ok(Value::Null),
             PythonDTO::PyBool(pybool) => Ok(json!(pybool)),
@@ -819,35 +851,38 @@ pub fn build_python_from_serde_value(
     }
 }
 
-pub fn box_from_sql(mut buf: &[u8]) -> Result<Box, StdBox<dyn Error + Sync + Send>> {
-    let x1 = buf.read_f64::<BigEndian>()?;
-    let y1 = buf.read_f64::<BigEndian>()?;
-    let x2 = buf.read_f64::<BigEndian>()?;
-    let y2 = buf.read_f64::<BigEndian>()?;
-    if !buf.is_empty() {
-        return Err("invalid buffer size".into());
-    }
-    let num_fields = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
-        RustPSQLDriverError::RustToPyValueConversionError(format!(
-            "Cannot read bytes data from PostgreSQL: {err}"
-        ))
-    })?;
-    Ok(Box {
-        upper_right: Point { x: x1, y: y1 },
-        lower_left: Point { x: x2, y: y2 },
-    })
-}
+/// Convert python List or Tuple into geo `Point`.
+///
+/// # Errors
+/// May return error if cannot convert Python type into Rust one.
+#[allow(clippy::needless_pass_by_value)]
+pub fn build_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Point> {
+    Python::with_gil(|gil| {
+        let bind_value = value.bind(gil);
+        if bind_value.is_instance_of::<PyList>()
+            | bind_value.is_instance_of::<PyTuple>()
+            | bind_value.is_instance_of::<PySet>()
+        {
+            let mut result_vec = vec![];
+            let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
 
-pub fn box_from_sql(mut buf: &[u8]) -> Result<Box, StdBox<dyn Error + Sync + Send>> {
-    let x1 = buf.read_f64::<BigEndian>()?;
-    let y1 = buf.read_f64::<BigEndian>()?;
-    let x2 = buf.read_f64::<BigEndian>()?;
-    let y2 = buf.read_f64::<BigEndian>()?;
-    if !buf.is_empty() {
-        return Err("invalid buffer size".into());
-    }
-    Ok(Box {
-        upper_right: Point { x: x1, y: y1 },
-        lower_left: Point { x: x2, y: y2 },
+            for inner in params {
+                let inner_bind = inner.bind(gil);
+                if inner_bind.is_instance_of::<PyFloat>() | inner_bind.is_instance_of::<PyInt>() {
+                    let python_dto = py_to_rust(inner_bind)?;
+                    let mut bu = BytesMut::with_capacity(64);
+                    python_dto.to_sql(postgres_types::, &mut bu)
+                } else {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "PyJSON supports only list/tuple/set of two int or two float.".to_string(),
+                    ));
+                }
+            }
+            Ok(point!(result_vec))
+        } else {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "PyPoint must have two int or float values passed in tuple, list or set.".to_string(),
+            ));
+        }
     })
 }
