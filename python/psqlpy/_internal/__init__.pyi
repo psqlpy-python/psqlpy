@@ -11,7 +11,10 @@ _CustomClass = TypeVar(
 class QueryResult:
     """Result."""
 
-    def result(self: Self) -> list[dict[Any, Any]]:
+    def result(
+        self: Self,
+        custom_decoders: dict[str, Callable[[list[int]], Any]] | None = None,
+    ) -> list[dict[Any, Any]]:
         """Return result from database as a list of dicts."""
     def as_class(
         self: Self,

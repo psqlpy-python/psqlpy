@@ -652,10 +652,9 @@ fn postgres_bytes_to_py(
                 None => Ok(py.None().to_object(py)),
             }
         }
-        _ => Ok(
-            _composite_field_postgres_to_py::<Option<Vec<u8>>>(type_, buf, is_simple)?
-                .to_object(py),
-        ),
+        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
+            format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
+        )),
     }
 }
 
@@ -720,9 +719,21 @@ pub fn postgres_to_py(
     row: &Row,
     column: &Column,
     column_i: usize,
+    custom_decoders: &Option<Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-    let column_type = column.type_();
     let raw_bytes_data = row.col_buffer(column_i);
+
+    if let Some(custom_decoders) = custom_decoders {
+        let py_encoder_func = custom_decoders
+            .bind(py)
+            .get_item(column.name().to_lowercase());
+
+        if let Ok(Some(py_encoder_func)) = py_encoder_func {
+            return Ok(py_encoder_func.call((raw_bytes_data,), None)?.unbind());
+        }
+    }
+
+    let column_type = column.type_();
     match raw_bytes_data {
         Some(mut raw_bytes_data) => match column_type.kind() {
             Kind::Simple | Kind::Array(_) => {
