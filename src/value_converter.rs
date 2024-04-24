@@ -23,8 +23,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID, PyVarChar,
-        SmallInt,
+        BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
+        PyVarChar, SmallInt,
     },
 };
 
@@ -62,6 +62,7 @@ pub enum PythonDTO {
     PyJson(Value),
     PyMacAddr6(MacAddr6),
     PyMacAddr8(MacAddr8),
+    PyCustomType(Vec<u8>),
 }
 
 impl PythonDTO {
@@ -174,6 +175,9 @@ impl ToSql for PythonDTO {
 
         match self {
             PythonDTO::PyNone => {}
+            PythonDTO::PyCustomType(some_bytes) => {
+                <&[u8] as ToSql>::to_sql(&some_bytes.as_slice(), ty, out)?;
+            }
             PythonDTO::PyBytes(pybytes) => {
                 <Vec<u8> as ToSql>::to_sql(pybytes, ty, out)?;
             }
@@ -282,6 +286,12 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
+    }
+
+    if parameter.is_instance_of::<PyCustomType>() {
+        return Ok(PythonDTO::PyCustomType(
+            parameter.extract::<PyCustomType>()?.inner(),
+        ));
     }
 
     if parameter.is_instance_of::<PyBool>() {
