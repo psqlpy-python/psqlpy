@@ -1,4 +1,4 @@
-from typing import Any, Sequence, Union
+import typing
 
 from typing_extensions import Self
 
@@ -73,9 +73,9 @@ class PyJSONB:
 
     def __init__(
         self: Self,
-        value: Union[
-            dict[str, Any],
-            list[dict[str, Any]],
+        value: typing.Union[
+            dict[str, typing.Any],
+            list[dict[str, typing.Any]],
         ],
     ) -> None:
         """Create new instance of PyJSON.B.
@@ -91,9 +91,9 @@ class PyJSON:
 
     def __init__(
         self: Self,
-        value: Union[
-            dict[str, Any],
-            list[dict[str, Any]],
+        value: typing.Union[
+            dict[str, typing.Any],
+            list[dict[str, typing.Any]],
         ],
     ) -> None:
         """Create new instance of PyJSON.
@@ -124,19 +124,26 @@ class PyMacAddr8:
         - `value`: value for MACADDR8 field.
         """
 
+Coordinates: typing.TypeAlias = typing.Union[
+    list[int | float],
+    set[int | float],
+    tuple[int | float],
+]
+
 class PyPoint:
     """Represent point field in PostgreSQL and Point in Rust."""
 
     def __init__(
         self: Self,
-        value: Sequence[float],
+        value: Coordinates,
     ) -> None:
         """Create new instance of PyPoint.
 
-        It accepts any sequence of two float numbers.
+        It accepts any pair(List, Tuple or Set)
+            of int/float numbers in every combination.
 
         ### Parameters:
-        - `value`: sequence of two float numbers.
+        - `value`: pair of int/float numbers in every combination.
         """
 
 class PyBox:
@@ -144,19 +151,21 @@ class PyBox:
 
     def __init__(
         self: Self,
-        value: Union[
-            Sequence[Sequence[float]],
-            Sequence[float],
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
         ],
     ) -> None:
         """Create new instance of PyBox.
 
         You need to pass any of this structures:
-        - sequence of two sequences, each with pair of float numbers
-        - sequence of two pairs of float
+        - sequence of two sequences,
+            each with pair of int/float numbers in every combination
+        - sequence of two pairs of int/float in every combination
 
         ### Parameters:
-        - `value`: any valid sequence with two pairs of float numbers.
+        - `value`: any valid sequence with two pairs
+            of int/float numbers in every combination.
         """
 
 class PyPath:
@@ -164,19 +173,19 @@ class PyPath:
 
     def __init__(
         self: Self,
-        value: Union[
-            Sequence[Sequence[float]],
-            Sequence[float],
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
         ],
     ) -> None:
         """Create new instance of PyPath.
 
         You need to pass any of this structures:
-        - sequence of sequences, each with pair of float numbers
-        - sequence with pairs of float numbers
+        - sequence of sequences, each with pair of int/float numbers in every combination
+        - sequence with pairs of int/float numbers in every combination
 
         ### Parameters:
-        - `value`: any valid structure with float numbers.
+        - `value`: any valid structure with int/float numbers in every combination.
         """
 
 class PyLine:
@@ -184,17 +193,18 @@ class PyLine:
 
     def __init__(
         self: Self,
-        value: Union[
-            Sequence[Sequence[float]],
-            Sequence[float],
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
         ],
     ) -> None:
         """Create new instance of PyLine.
 
         You need to pass any of this structures:
-        - sequence of three float numbers
-        - sequence of two sequences, each with pair of float numbers
-        - sequence with two pairs of float numbers
+        - sequence of three int/float numbers
+        - sequence of two sequences,
+            each with pair of int/float numbers in every combination
+        - sequence with two pairs of int/float numbers in every combination
 
         ### Parameters:
         - `value`: any valid structure with float numbers.
@@ -205,19 +215,20 @@ class PyLineSegment:
 
     def __init__(
         self: Self,
-        value: Union[
-            Sequence[Sequence[float]],
-            Sequence[float],
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
         ],
     ) -> None:
         """Create new instance of PyLineSegment.
 
         You need to pass any of this structures:
-        - sequence of two sequences, each with pair of float numbers
-        - sequence with two pairs of float numbers
+        - sequence of two sequences,
+            each with pair of int/float numbers in every combination
+        - sequence with two pairs of int/float numbers in every combination
 
         ### Parameters:
-        - `value`: any valid structure with float numbers.
+        - `value`: any valid structure with int/float numbers in every combination.
         """
 
 class PyPolygon:
@@ -225,17 +236,17 @@ class PyPolygon:
 
     def __init__(
         self: Self,
-        value: Union[
-            Sequence[Sequence[float]],
-            Sequence[float],
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
         ],
     ) -> None:
         """Create new instance of PyPolygon.
 
         You need to pass any of this structures:
-        - sequence of sequences, each with pair of float numbers
-        - sequence with pairs of float numbers
+        - sequence of sequences, each with pair of int/float numbers in every combination
+        - sequence with pairs of int/float numbers in every combination
 
         ### Parameters:
-        - `value`: any valid structure with float numbers.
+        - `value`: any valid structure with int/float numbers in every combination.
         """

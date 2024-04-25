@@ -1,7 +1,7 @@
+use byteorder::{BigEndian, ReadBytesExt};
+use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Polygon};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
-use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Polygon};
-use byteorder::{ReadBytesExt, BigEndian};
 use tokio_postgres::types::{FromSql, Type};
 
 macro_rules! build_additional_rust_type {
@@ -73,7 +73,7 @@ impl<'a> FromSql<'a> for RustLine {
         raw: &'a [u8],
     ) -> Result<RustLine, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() == 4 {
-            let mut vec_raw= vec![];
+            let mut vec_raw = vec![];
             vec_raw.extend_from_slice(raw);
             let mut buf = vec_raw.as_slice();
 
@@ -108,14 +108,14 @@ impl<'a> FromSql<'a> for RustPolygon {
 
             let mut vec_raw_coord = vec![];
             buf.read_f64_into::<BigEndian>(&mut vec_raw_coord);
-        
+
             let mut vec_coord = vec![];
             for (x1, y1) in vec_raw_coord.into_iter().tuples() {
                 vec_coord.push(coord!(x: x1, y: y1));
             }
 
             let polygon_exterior = LineString::new(vec_coord);
-            let new_polygon  = Polygon::new(polygon_exterior, vec![]);
+            let new_polygon = Polygon::new(polygon_exterior, vec![]);
             return Ok(RustPolygon::new(new_polygon));
         }
         Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into())
@@ -125,7 +125,6 @@ impl<'a> FromSql<'a> for RustPolygon {
         true
     }
 }
-
 
 // add macro for creating circles
 
@@ -138,7 +137,10 @@ pub struct Circle<T: CoordNum = f64> {
 
 impl<T: CoordNum> Circle<T> {
     pub fn new(x: T, y: T, r: T) -> Self {
-        Self {center: coord!(x: x, y: y), radius: r}
+        Self {
+            center: coord!(x: x, y: y),
+            radius: r,
+        }
     }
 
     pub fn center(self) -> Coord<T> {
@@ -186,7 +188,10 @@ impl<T: CoordFloat> Circle<T> {
 
 impl<T: CoordNum> Default for Circle<T> {
     fn default() -> Self {
-        Self {center: coord! {x: T::zero(), y: T::zero()}, radius: T::zero()}
+        Self {
+            center: coord! {x: T::zero(), y: T::zero()},
+            radius: T::zero(),
+        }
     }
 }
 

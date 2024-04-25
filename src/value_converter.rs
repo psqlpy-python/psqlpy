@@ -1,5 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use geo_types::Point;
+use geo_types::{point, Point};
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind};
 use serde_json::{json, Map, Value};
@@ -10,8 +10,8 @@ use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods,
-        PyFloat, PyInt, PyList, PyListMethods, PySet, PyString, PyTime, PyTuple
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
+        PyList, PyListMethods, PySet, PyString, PyTime, PyTuple,
     },
     Bound, Py, PyAny, Python, ToPyObject,
 };
@@ -24,8 +24,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
-        PyVarChar, SmallInt,
+        BigInt, Integer, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID, PyVarChar,
+        SmallInt,
     },
 };
 
@@ -851,7 +851,7 @@ pub fn build_python_from_serde_value(
     }
 }
 
-/// Convert python List or Tuple into geo `Point`.
+/// Convert python List, Tuple or Set into geo `Point`.
 ///
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
@@ -863,25 +863,58 @@ pub fn build_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Point> {
             | bind_value.is_instance_of::<PyTuple>()
             | bind_value.is_instance_of::<PySet>()
         {
-            let mut result_vec = vec![];
+            let mut result_vec: Vec<f64> = vec![];
             let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
+
+            if params.len() != 2 {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "PyPoint supports only pair of int/float combination.".to_string(),
+                ));
+            }
 
             for inner in params {
                 let inner_bind = inner.bind(gil);
+
                 if inner_bind.is_instance_of::<PyFloat>() | inner_bind.is_instance_of::<PyInt>() {
                     let python_dto = py_to_rust(inner_bind)?;
-                    let mut bu = BytesMut::with_capacity(64);
-                    python_dto.to_sql(postgres_types::, &mut bu)
+                    match python_dto {
+                        PythonDTO::PyIntI16(pyint) => result_vec.push(pyint.try_into().unwrap()),
+                        PythonDTO::PyIntI32(pyint) => result_vec.push(pyint.try_into().unwrap()),
+                        PythonDTO::PyIntI64(_) => {
+                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                                "Not implemented this type yet".into(),
+                            ))
+                        }
+                        PythonDTO::PyIntU32(pyint) => result_vec.push(pyint.try_into().unwrap()),
+                        PythonDTO::PyIntU64(_) => {
+                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                                "Not implemented this type yet".into(),
+                            ))
+                        }
+                        PythonDTO::PyFloat32(pyfloat) => {
+                            result_vec.push(pyfloat.try_into().unwrap())
+                        }
+                        PythonDTO::PyFloat64(pyfloat) => result_vec.push(pyfloat),
+                        _ => {
+                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                                "Incorrect types of point coordinates. It must be int or float"
+                                    .into(),
+                            ))
+                        }
+                    };
                 } else {
                     return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "PyJSON supports only list/tuple/set of two int or two float.".to_string(),
+                        "PyPoint supports only list/tuple/set pair of int/float combination."
+                            .to_string(),
                     ));
                 }
             }
-            Ok(point!(result_vec))
+
+            Ok(point!(x: result_vec[0], y: result_vec[1]))
         } else {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyPoint must have two int or float values passed in tuple, list or set.".to_string(),
+                "PyPoint must have pair int/float values combination passed in tuple, list or set."
+                    .to_string(),
             ));
         }
     })
