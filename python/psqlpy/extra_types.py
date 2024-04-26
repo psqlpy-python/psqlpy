@@ -1,6 +1,7 @@
 from ._internal.extra_types import (
     BigInt,
     Integer,
+    PyCustomType,
     PyJSON,
     PyJSONB,
     PyMacAddr6,
@@ -22,4 +23,5 @@ __all__ = [
     "PyMacAddr8",
     "PyVarChar",
     "PyText",
+    "PyCustomType",
 ]
