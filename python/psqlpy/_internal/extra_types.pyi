@@ -123,3 +123,6 @@ class PyMacAddr8:
         ### Parameters:
         - `value`: value for MACADDR8 field.
         """
+
+class PyCustomType:
+    def __init__(self, value: bytes) -> None: ...

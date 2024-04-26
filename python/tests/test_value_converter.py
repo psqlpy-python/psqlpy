@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
 from psqlpy import ConnectionPool
+from psqlpy._internal.extra_types import PyCustomType
 from psqlpy.extra_types import (
     BigInt,
     Integer,
@@ -425,3 +426,52 @@ async def test_deserialization_composite_into_python(
     )
 
     assert isinstance(model_result[0], TopLevelModel)
+
+
+async def test_custom_type_as_parameter(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Tests that we can use `PyCustomType`."""
+    await psql_pool.execute("DROP TABLE IF EXISTS for_test")
+    await psql_pool.execute(
+        "CREATE TABLE for_test (nickname VARCHAR)",
+    )
+
+    await psql_pool.execute(
+        querystring="INSERT INTO for_test VALUES ($1)",
+        parameters=[PyCustomType(b"Some Real Nickname")],
+    )
+
+    qs_result = await psql_pool.execute(
+        "SELECT * FROM for_test",
+    )
+
+    result = qs_result.result()
+    assert result[0]["nickname"] == "Some Real Nickname"
+
+
+async def test_custom_decoder(
+    psql_pool: ConnectionPool,
+) -> None:
+    await psql_pool.execute("DROP TABLE IF EXISTS for_test")
+    await psql_pool.execute(
+        "CREATE TABLE for_test (geo_point POINT)",
+    )
+
+    await psql_pool.execute(
+        "INSERT INTO for_test VALUES ('(1, 1)')",
+    )
+
+    def point_encoder(point_bytes: bytes) -> str:
+        return "Just An Example"
+
+    qs_result = await psql_pool.execute(
+        "SELECT * FROM for_test",
+    )
+    result = qs_result.result(
+        custom_decoders={
+            "geo_point": point_encoder,
+        },
+    )
+
+    assert result[0]["geo_point"] == "Just An Example"
