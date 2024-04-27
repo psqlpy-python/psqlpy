@@ -10,7 +10,10 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
-use super::{common_options::ConnRecyclingMethod, connection::Connection};
+use super::{
+    common_options::ConnRecyclingMethod,
+    connection::{Connection, ConnectionVar},
+};
 
 /// Make new connection pool.
 ///
@@ -186,7 +189,7 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(db_connection))
+        Ok(Connection::new(ConnectionVar::Pool(db_connection)))
     }
 
     /// Return new single connection.

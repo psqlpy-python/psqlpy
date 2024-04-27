@@ -1,6 +1,8 @@
 use deadpool_postgres::Object;
+use postgres_types::ToSql;
 use pyo3::{pyclass, pymethods, Py, PyAny, Python};
 use std::{collections::HashSet, sync::Arc, vec};
+use tokio_postgres::Client;
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -13,16 +15,121 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant},
 };
 
+pub enum ConnectionVar {
+    Pool(Object),
+    SingleConn(Client),
+}
+
+impl ConnectionVar {
+    async fn prepare_stmt_cached(
+        &self,
+        query: &str,
+    ) -> Result<tokio_postgres::Statement, tokio_postgres::Error> {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.prepare(query).await,
+            ConnectionVar::SingleConn(single_conn) => single_conn.prepare(query).await,
+        }
+    }
+
+    async fn query_qs<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, tokio_postgres::Error>
+    where
+        T: ?Sized + tokio_postgres::ToStatement,
+    {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.query(statement, params).await,
+            ConnectionVar::SingleConn(single_conn) => single_conn.query(statement, params).await,
+        }
+    }
+
+    async fn query_qs_one<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<tokio_postgres::Row, tokio_postgres::Error>
+    where
+        T: ?Sized + tokio_postgres::ToStatement,
+    {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.query_one(statement, params).await,
+            ConnectionVar::SingleConn(single_conn) => {
+                single_conn.query_one(statement, params).await
+            }
+        }
+    }
+
+    async fn batch_execute_qs(&self, query: &str) -> Result<(), tokio_postgres::Error> {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.batch_execute(query).await,
+            ConnectionVar::SingleConn(single_conn) => single_conn.batch_execute(query).await,
+        }
+    }
+
+    async fn start_transaction(
+        &self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> RustPSQLDriverPyResult<()> {
+        let mut querystring = "START TRANSACTION".to_string();
+
+        if let Some(level) = isolation_level {
+            let level = &level.to_str_level();
+            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
+        };
+
+        querystring.push_str(match read_variant {
+            Some(ReadVariant::ReadOnly) => " READ ONLY",
+            Some(ReadVariant::ReadWrite) => " READ WRITE",
+            None => "",
+        });
+
+        querystring.push_str(match deferrable {
+            Some(true) => " DEFERRABLE",
+            Some(false) => " NOT DEFERRABLE",
+            None => "",
+        });
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.batch_execute(&querystring).await?,
+            ConnectionVar::SingleConn(single_conn) => {
+                single_conn.batch_execute(&querystring).await?
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn commit(&self) -> RustPSQLDriverPyResult<()> {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.batch_execute("COMMIT;").await?,
+            ConnectionVar::SingleConn(single_conn) => single_conn.batch_execute("COMMIT;").await?,
+        };
+        Ok(())
+    }
+    async fn rollback(&self) -> RustPSQLDriverPyResult<()> {
+        match self {
+            ConnectionVar::Pool(pool_conn) => pool_conn.batch_execute("ROLLBACK;").await?,
+            ConnectionVar::SingleConn(single_conn) => {
+                single_conn.batch_execute("ROLLBACK;").await?
+            }
+        };
+        Ok(())
+    }
+}
+
 #[pyclass]
 pub struct Connection {
-    db_client: Arc<Object>,
+    connection: Arc<ConnectionVar>,
 }
 
 impl Connection {
     #[must_use]
-    pub fn new(db_client: Object) -> Self {
+    pub fn new(connection: ConnectionVar) -> Self {
         Connection {
-            db_client: Arc::new(db_client),
+            connection: Arc::new(connection),
         }
     }
 }
@@ -43,7 +150,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).connection.clone());
 
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
@@ -53,8 +160,8 @@ impl Connection {
 
         let result = if prepared {
             db_client
-                .query(
-                    &db_client.prepare_cached(&querystring).await?,
+                .query_qs(
+                    &db_client.prepare_stmt_cached(&querystring).await?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
@@ -64,7 +171,7 @@ impl Connection {
                 .await?
         } else {
             db_client
-                .query(
+                .query_qs(
                     &querystring,
                     &params
                         .iter()
@@ -94,7 +201,7 @@ impl Connection {
         parameters: Option<Vec<Py<PyAny>>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<()> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).connection.clone());
         let mut params: Vec<Vec<PythonDTO>> = vec![];
         if let Some(parameters) = parameters {
             for vec_of_py_any in parameters {
@@ -103,22 +210,22 @@ impl Connection {
         }
         let prepared = prepared.unwrap_or(true);
 
-        db_client.batch_execute("BEGIN;").await.map_err(|err| {
+        db_client.batch_execute_qs("BEGIN;").await.map_err(|err| {
             RustPSQLDriverError::DataBaseTransactionError(format!(
                 "Cannot start transaction to run execute_many: {err}"
             ))
         })?;
         for param in params {
             let querystring_result = if prepared {
-                let prepared_stmt = &db_client.prepare_cached(&querystring).await;
+                let prepared_stmt = &db_client.prepare_stmt_cached(&querystring).await;
                 if let Err(error) = prepared_stmt {
                     return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
                         "Cannot prepare statement in execute_many, operation rolled back {error}",
                     )));
                 }
                 db_client
-                    .query(
-                        &db_client.prepare_cached(&querystring).await?,
+                    .query_qs(
+                        &db_client.prepare_stmt_cached(&querystring).await?,
                         &param
                             .iter()
                             .map(|param| param as &QueryParameter)
@@ -128,7 +235,7 @@ impl Connection {
                     .await
             } else {
                 db_client
-                    .query(
+                    .query_qs(
                         &querystring,
                         &param
                             .iter()
@@ -140,14 +247,14 @@ impl Connection {
             };
 
             if let Err(error) = querystring_result {
-                db_client.batch_execute("ROLLBACK;").await?;
+                db_client.batch_execute_qs("ROLLBACK;").await?;
                 return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
                     "Error occured in `execute_many` statement, transaction is rolled back: {error}"
                 )));
             }
         }
 
-        db_client.batch_execute("COMMIT;").await?;
+        db_client.batch_execute_qs("COMMIT;").await?;
 
         Ok(())
     }
@@ -172,7 +279,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).connection.clone());
 
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
@@ -182,8 +289,8 @@ impl Connection {
 
         let result = if prepared {
             db_client
-                .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                .query_qs_one(
+                    &db_client.prepare_stmt_cached(&querystring).await?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
@@ -193,7 +300,7 @@ impl Connection {
                 .await?
         } else {
             db_client
-                .query_one(
+                .query_qs_one(
                     &querystring,
                     &params
                         .iter()
@@ -224,7 +331,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).connection.clone());
 
         let mut params: Vec<PythonDTO> = vec![];
         if let Some(parameters) = parameters {
@@ -234,8 +341,8 @@ impl Connection {
 
         let result = if prepared {
             db_client
-                .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                .query_qs_one(
+                    &db_client.prepare_stmt_cached(&querystring).await?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
@@ -245,7 +352,7 @@ impl Connection {
                 .await?
         } else {
             db_client
-                .query_one(
+                .query_qs_one(
                     &querystring,
                     &params
                         .iter()
@@ -262,21 +369,21 @@ impl Connection {
         })
     }
 
-    #[must_use]
-    pub fn transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
-    ) -> Transaction {
-        Transaction::new(
-            self.db_client.clone(),
-            false,
-            false,
-            isolation_level,
-            read_variant,
-            deferrable,
-            HashSet::new(),
-        )
-    }
+    // #[must_use]
+    // pub fn transaction(
+    //     &self,
+    //     isolation_level: Option<IsolationLevel>,
+    //     read_variant: Option<ReadVariant>,
+    //     deferrable: Option<bool>,
+    // ) -> Transaction {
+    //     Transaction::new(
+    //         self.pool_connection.clone(),
+    //         false,
+    //         false,
+    //         isolation_level,
+    //         read_variant,
+    //         deferrable,
+    //         HashSet::new(),
+    //     )
+    // }
 }
