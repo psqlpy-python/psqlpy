@@ -1,6 +1,6 @@
 import types
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar
 
 from typing_extensions import Self
 
@@ -103,6 +103,14 @@ class IsolationLevel(Enum):
     ReadCommitted = 2
     RepeatableRead = 3
     Serializable = 4
+
+class ConnLoadBalanceHosts(Enum):
+    """Load balancing configuration."""
+
+    # Make connection attempts to hosts in the order provided.
+    Disable = (1,)
+    # Make connection attempts to hosts in a random order.
+    Random = (2,)
 
 class ReadVariant(Enum):
     """Class for Read Variant for transaction."""
@@ -869,8 +877,23 @@ class ConnectionPool:
         username: Optional[str] = None,
         password: Optional[str] = None,
         host: Optional[str] = None,
+        hosts: Optional[List[str]] = None,
         port: Optional[int] = None,
+        ports: Optional[List[int]] = None,
         db_name: Optional[str] = None,
+        options: Optional[str] = None,
+        application_name: Optional[str] = None,
+        connect_timeout_sec: Optional[int] = None,
+        connect_timeout_nanosec: Optional[int] = None,
+        tcp_user_timeout_sec: Optional[int] = None,
+        tcp_user_timeout_nanosec: Optional[int] = None,
+        keepalives: Optional[bool] = None,
+        keepalives_idle_sec: Optional[int] = None,
+        keepalives_idle_nanosec: Optional[int] = None,
+        keepalives_interval_sec: Optional[int] = None,
+        keepalives_interval_nanosec: Optional[int] = None,
+        keepalives_retries: Optional[int] = None,
+        load_balance_hosts: Optional[ConnLoadBalanceHosts] = None,
         max_db_pool_size: int = 2,
         conn_recycling_method: Optional[ConnRecyclingMethod] = None,
     ) -> None:
@@ -879,22 +902,67 @@ class ConnectionPool:
         It connects to the database and create pool.
 
         You cannot set the minimum size for the connection
-        pool, by default it is 1.
+        pool, by it is 0.
+        `ConnectionPool` doesn't create connections on startup.
+        It makes new connection on demand.
 
-        This connection pool can:
-        - Startup itself with `startup` method
-        - Execute queries and return `QueryResult` class as a result
-        - Create new instance of `Transaction`
+        If you specify `dsn` parameter then `username`, `password`,
+        `host`, `hosts`, `port`, `ports`, `db_name` and `target_session_attrs`
+        parameters will be ignored.
 
         ### Parameters:
-        - `dsn`: full dsn connection string.
+        - `dsn`: Full dsn connection string.
             `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
-        - `username`: username of the user in postgres
-        - `password`: password of the user in postgres
-        - `host`: host of postgres
-        - `port`: port of postgres
-        - `db_name`: name of the database in postgres
-        - `max_db_pool_size`: maximum size of the connection pool
+        - `username`: Username of the user in the PostgreSQL
+        - `password`: Password of the user in the PostgreSQL
+        - `host`: Host of the PostgreSQL
+        - `hosts`: Hosts of the PostgreSQL
+        - `port`: Port of the PostgreSQL
+        - `ports`: Ports of the PostgreSQL
+        - `db_name`: Name of the database in PostgreSQL
+        - `target_session_attrs`: Specifies requirements of the session.
+        - `options`: Command line options used to configure the server
+        - `application_name`: Sets the application_name parameter on the server.
+        - `connect_timeout_sec`: The time limit in seconds applied to each socket-level
+            connection attempt.
+            Note that hostnames can resolve to multiple IP addresses,
+            and this limit is applied to each address. Defaults to no timeout.
+        - `connect_timeout_nanosec`: nanosec for connection timeout,
+            can be used only with connect_timeout_sec.
+        - `tcp_user_timeout_sec`: The time limit that
+            transmitted data may remain unacknowledged
+            before a connection is forcibly closed.
+            This is ignored for Unix domain socket connections.
+            It is only supported on systems where TCP_USER_TIMEOUT
+            is available and will default to the system default if omitted
+            or set to 0; on other systems, it has no effect.
+        - `tcp_user_timeout_nanosec`: nanosec for cp_user_timeout,
+            can be used only with tcp_user_timeout_sec.
+        - `keepalives`: Controls the use of TCP keepalive.
+            This option is ignored when connecting with Unix sockets.
+            Defaults to on.
+        - `keepalives_idle_sec`: The number of seconds of inactivity after
+            which a keepalive message is sent to the server.
+            This option is ignored when connecting with Unix sockets.
+            Defaults to 2 hours.
+        - `keepalives_idle_nanosec`: Nanosec for keepalives_idle_sec.
+        - `keepalives_interval_sec`: The time interval between TCP keepalive probes.
+            This option is ignored when connecting with Unix sockets.
+        - `keepalives_interval_nanosec`: Nanosec for keepalives_interval_sec.
+        - `keepalives_retries`: The maximum number of TCP keepalive probes
+            that will be sent before dropping a connection.
+            This option is ignored when connecting with Unix sockets.
+        - `load_balance_hosts`: Controls the order in which the client tries to connect
+            to the available hosts and addresses.
+            Once a connection attempt is successful no other
+            hosts and addresses will be tried.
+            This parameter is typically used in combination with multiple host names
+            or a DNS record that returns multiple IPs.
+            If set to disable, hosts and addresses will be tried in the order provided.
+            If set to random, hosts will be tried in a random order, and the IP addresses
+            resolved from a hostname will also be tried in a random order.
+            Defaults to disable.
+        - `max_db_pool_size`: maximum size of the connection pool.
         - `conn_recycling_method`: how a connection is recycled.
         """
     async def execute(
@@ -945,21 +1013,91 @@ def connect(
     username: Optional[str] = None,
     password: Optional[str] = None,
     host: Optional[str] = None,
+    hosts: Optional[List[str]] = None,
     port: Optional[int] = None,
+    ports: Optional[List[int]] = None,
     db_name: Optional[str] = None,
+    options: Optional[str] = None,
+    application_name: Optional[str] = None,
+    connect_timeout_sec: Optional[int] = None,
+    connect_timeout_nanosec: Optional[int] = None,
+    tcp_user_timeout_sec: Optional[int] = None,
+    tcp_user_timeout_nanosec: Optional[int] = None,
+    keepalives: Optional[bool] = None,
+    keepalives_idle_sec: Optional[int] = None,
+    keepalives_idle_nanosec: Optional[int] = None,
+    keepalives_interval_sec: Optional[int] = None,
+    keepalives_interval_nanosec: Optional[int] = None,
+    keepalives_retries: Optional[int] = None,
+    load_balance_hosts: Optional[ConnLoadBalanceHosts] = None,
     max_db_pool_size: int = 2,
     conn_recycling_method: Optional[ConnRecyclingMethod] = None,
 ) -> ConnectionPool:
-    """Create new connection pool.
+    """Create new PostgreSQL connection pool.
+
+    It connects to the database and create pool.
+
+    You cannot set the minimum size for the connection
+    pool, by it is 0.
+    `ConnectionPool` doesn't create connections on startup.
+    It makes new connection on demand.
+
+    If you specify `dsn` parameter then `username`, `password`,
+    `host`, `hosts`, `port`, `ports`, `db_name` and `target_session_attrs`
+    parameters will be ignored.
 
     ### Parameters:
-    - `dsn`: full dsn connection string.
+    - `dsn`: Full dsn connection string.
         `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
-    - `username`: username of the user in postgres
-    - `password`: password of the user in postgres
-    - `host`: host of postgres
-    - `port`: port of postgres
-    - `db_name`: name of the database in postgres
-    - `max_db_pool_size`: maximum size of the connection pool
+    - `username`: Username of the user in the PostgreSQL
+    - `password`: Password of the user in the PostgreSQL
+    - `host`: Host of the PostgreSQL
+    - `hosts`: Hosts of the PostgreSQL
+    - `port`: Port of the PostgreSQL
+    - `ports`: Ports of the PostgreSQL
+    - `db_name`: Name of the database in PostgreSQL
+    - `target_session_attrs`: Specifies requirements of the session.
+    - `options`: Command line options used to configure the server
+    - `application_name`: Sets the application_name parameter on the server.
+    - `connect_timeout_sec`: The time limit in seconds applied to each socket-level
+        connection attempt.
+        Note that hostnames can resolve to multiple IP addresses,
+        and this limit is applied to each address. Defaults to no timeout.
+    - `connect_timeout_nanosec`: nanosec for connection timeout,
+        can be used only with connect_timeout_sec.
+    - `tcp_user_timeout_sec`: The time limit that
+        transmitted data may remain unacknowledged
+        before a connection is forcibly closed.
+        This is ignored for Unix domain socket connections.
+        It is only supported on systems where TCP_USER_TIMEOUT
+        is available and will default to the system default if omitted
+        or set to 0; on other systems, it has no effect.
+    - `tcp_user_timeout_nanosec`: nanosec for cp_user_timeout,
+        can be used only with tcp_user_timeout_sec.
+    - `keepalives`: Controls the use of TCP keepalive.
+        This option is ignored when connecting with Unix sockets.
+        Defaults to on.
+    - `keepalives_idle_sec`: The number of seconds of inactivity after
+        which a keepalive message is sent to the server.
+        This option is ignored when connecting with Unix sockets.
+        Defaults to 2 hours.
+    - `keepalives_idle_nanosec`: Nanosec for keepalives_idle_sec.
+    - `keepalives_interval_sec`: The time interval between TCP keepalive probes.
+        This option is ignored when connecting with Unix sockets.
+    - `keepalives_interval_nanosec`: Nanosec for keepalives_interval_sec.
+    - `keepalives_retries`: The maximum number of TCP keepalive probes
+        that will be sent before dropping a connection.
+        This option is ignored when connecting with Unix sockets.
+    - `load_balance_hosts`: Controls the order in which the client tries to connect
+        to the available hosts and addresses.
+        Once a connection attempt is successful no other
+        hosts and addresses will be tried.
+        This parameter is typically used in combination with multiple host names
+        or a DNS record that returns multiple IPs.
+        If set to disable, hosts and addresses will be tried in the order provided.
+        If set to random, hosts will be tried in a random order, and the IP addresses
+        resolved from a hostname will also be tried in a random order.
+        Defaults to disable.
+    - `max_db_pool_size`: maximum size of the connection pool.
     - `conn_recycling_method`: how a connection is recycled.
     """

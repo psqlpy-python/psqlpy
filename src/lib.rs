@@ -23,6 +23,8 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::transaction_options::IsolationLevel>()?;
     pymod.add_class::<driver::transaction_options::ReadVariant>()?;
     pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
+    pymod.add_class::<driver::common_options::ConnLoadBalanceHosts>()?;
+    pymod.add_class::<driver::common_options::ConnTargetSessionAttrs>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;

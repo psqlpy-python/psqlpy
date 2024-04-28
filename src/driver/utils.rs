@@ -1,8 +1,8 @@
 use std::{str::FromStr, time::Duration};
 
-use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
+use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::common_options::ConnLoadBalanceHosts;
+use super::common_options::{ConnLoadBalanceHosts, ConnTargetSessionAttrs};
 
 /// Create new config.
 ///
@@ -14,38 +14,88 @@ pub fn build_connection_config(
     username: Option<String>,
     password: Option<String>,
     host: Option<String>,
+    hosts: Option<Vec<String>>,
     port: Option<u16>,
+    ports: Option<Vec<u16>>,
     db_name: Option<String>,
+    target_session_attrs: Option<ConnTargetSessionAttrs>,
     options: Option<String>,
     application_name: Option<String>,
-    connect_timeout: Option<Duration>,
-    tcp_user_timeout: Option<Duration>,
+    connect_timeout_sec: Option<u64>,
+    connect_timeout_nanosec: Option<u32>,
+    tcp_user_timeout_sec: Option<u64>,
+    tcp_user_timeout_nanosec: Option<u32>,
     keepalives: Option<bool>,
-    keepalives_idle: Option<Duration>,
-    keepalives_interval: Option<Duration>,
+    keepalives_idle_sec: Option<u64>,
+    keepalives_idle_nanosec: Option<u32>,
+    keepalives_interval_sec: Option<u64>,
+    keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
     load_balance_hosts: Option<ConnLoadBalanceHosts>,
 ) -> RustPSQLDriverPyResult<tokio_postgres::Config> {
+    if tcp_user_timeout_nanosec.is_some() && tcp_user_timeout_sec.is_none() {
+        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+            "tcp_user_timeout_nanosec must be used with tcp_user_timeout_sec param.".into(),
+        ));
+    }
+
+    if connect_timeout_nanosec.is_some() && connect_timeout_sec.is_none() {
+        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+            "connect_timeout_nanosec must be used with connect_timeout_sec param.".into(),
+        ));
+    }
+
+    if keepalives_idle_nanosec.is_some() && keepalives_idle_sec.is_none() {
+        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+            "keepalives_idle_nanosec must be used with keepalives_idle_sec param.".into(),
+        ));
+    }
+
+    if keepalives_interval_nanosec.is_some() && keepalives_interval_sec.is_none() {
+        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+            "keepalives_interval_nanosec must be used with keepalives_interval_sec param.".into(),
+        ));
+    }
+
+    let mut pg_config: tokio_postgres::Config;
+
     if let Some(dsn_string) = dsn {
-        return Ok(tokio_postgres::Config::from_str(&dsn_string)?);
-    }
+        pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
+    } else {
+        pg_config = tokio_postgres::Config::new();
 
-    let mut pg_config = tokio_postgres::Config::new();
+        if let (Some(password), Some(username)) = (password, username) {
+            pg_config.password(&password);
+            pg_config.user(&username);
+        }
 
-    if let (Some(password), Some(username)) = (password, username) {
-        pg_config.password(&password);
-        pg_config.user(&username);
-    }
-    if let Some(host) = host {
-        pg_config.host(&host);
-    }
+        if let Some(hosts) = hosts {
+            for single_host in hosts {
+                pg_config.host(&single_host);
+            }
+        }
 
-    if let Some(port) = port {
-        pg_config.port(port);
-    }
+        if let Some(host) = host {
+            pg_config.host(&host);
+        }
 
-    if let Some(db_name) = db_name {
-        pg_config.dbname(&db_name);
+        if let Some(ports) = ports {
+            for single_port in ports {
+                pg_config.port(single_port);
+            }
+        }
+
+        if let Some(port) = port {
+            pg_config.port(port);
+        }
+
+        if let Some(db_name) = db_name {
+            pg_config.dbname(&db_name);
+        }
+
+        if let Some(target_session_attrs) = target_session_attrs {
+            pg_config.target_session_attrs(target_session_attrs.to_internal());
+        }
     }
 
     if let Some(options) = options {
@@ -56,24 +106,36 @@ pub fn build_connection_config(
         pg_config.application_name(&application_name);
     }
 
-    if let Some(connect_timeout) = connect_timeout {
-        pg_config.connect_timeout(connect_timeout);
+    if let Some(connect_timeout_sec) = connect_timeout_sec {
+        pg_config.connect_timeout(Duration::new(
+            connect_timeout_sec,
+            connect_timeout_nanosec.unwrap_or_default(),
+        ));
     }
 
-    if let Some(tcp_user_timeout) = tcp_user_timeout {
-        pg_config.tcp_user_timeout(tcp_user_timeout);
+    if let Some(tcp_user_timeout_sec) = tcp_user_timeout_sec {
+        pg_config.tcp_user_timeout(Duration::new(
+            tcp_user_timeout_sec,
+            tcp_user_timeout_nanosec.unwrap_or_default(),
+        ));
     }
 
     if let Some(keepalives) = keepalives {
         if keepalives {
             pg_config.keepalives(keepalives);
 
-            if let Some(keepalives_idle) = keepalives_idle {
-                pg_config.keepalives_idle(keepalives_idle);
+            if let Some(keepalives_idle_sec) = keepalives_idle_sec {
+                pg_config.keepalives_idle(Duration::new(
+                    keepalives_idle_sec,
+                    keepalives_idle_nanosec.unwrap_or_default(),
+                ));
             }
 
-            if let Some(keepalives_interval) = keepalives_interval {
-                pg_config.keepalives_interval(keepalives_interval);
+            if let Some(keepalives_interval_sec) = keepalives_interval_sec {
+                pg_config.keepalives_interval(Duration::new(
+                    keepalives_interval_sec,
+                    keepalives_interval_nanosec.unwrap_or_default(),
+                ));
             }
 
             if let Some(keepalives_retries) = keepalives_retries {
