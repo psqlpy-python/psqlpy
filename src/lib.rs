@@ -16,8 +16,12 @@ use pyo3::{pymodule, types::PyModule, wrap_pyfunction, Bound, PyResult, Python};
 #[pyo3(name = "_internal")]
 fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::ConnectionPool>()?;
-    pymod.add_function(wrap_pyfunction!(driver::connection_pool::connect, pymod)?)?;
+    pymod.add_function(wrap_pyfunction!(
+        driver::connection_pool::create_pool,
+        pymod
+    )?)?;
     pymod.add_class::<driver::connection::Connection>()?;
+    pymod.add_function(wrap_pyfunction!(driver::connection::connect, pymod)?)?;
     pymod.add_class::<driver::transaction::Transaction>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
     pymod.add_class::<driver::transaction_options::IsolationLevel>()?;

@@ -12,6 +12,8 @@ use crate::{
     runtime::rustdriver_future,
 };
 
+use super::connection::ConnectionVar;
+
 /// Additional implementation for the `Object` type.
 trait CursorObjectTrait {
     async fn cursor_start(
@@ -84,7 +86,7 @@ impl CursorObjectTrait for Object {
 
 #[pyclass]
 pub struct Cursor {
-    db_transaction: Arc<Object>,
+    db_transaction: Arc<ConnectionVar>,
     querystring: String,
     parameters: Option<Py<PyAny>>,
     cursor_name: String,
@@ -98,7 +100,7 @@ pub struct Cursor {
 impl Cursor {
     #[must_use]
     pub fn new(
-        db_transaction: Arc<Object>,
+        db_transaction: Arc<ConnectionVar>,
         querystring: String,
         parameters: Option<Py<PyAny>>,
         cursor_name: String,

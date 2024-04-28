@@ -1,7 +1,7 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
-use std::{str::FromStr, vec};
+use std::vec;
 use tokio_postgres::{NoTls, Row};
 
 use crate::{
@@ -10,7 +10,11 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
-use super::{common_options::ConnRecyclingMethod, connection::Connection};
+use super::{
+    common_options::ConnRecyclingMethod,
+    connection::{Connection, ConnectionVar},
+    utils::build_connection_config,
+};
 
 /// Make new connection pool.
 ///
@@ -18,7 +22,7 @@ use super::{common_options::ConnRecyclingMethod, connection::Connection};
 /// May return error if cannot build new connection pool.
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
-pub fn connect(
+pub fn create_pool(
     dsn: Option<String>,
     username: Option<String>,
     password: Option<String>,
@@ -36,27 +40,7 @@ pub fn connect(
         }
     }
 
-    let mut pg_config: tokio_postgres::Config;
-    if let Some(dsn_string) = dsn {
-        pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
-    } else {
-        pg_config = tokio_postgres::Config::new();
-        if let (Some(password), Some(username)) = (password, username) {
-            pg_config.password(&password);
-            pg_config.user(&username);
-        }
-        if let Some(host) = host {
-            pg_config.host(&host);
-        }
-
-        if let Some(port) = port {
-            pg_config.port(port);
-        }
-
-        if let Some(db_name) = db_name {
-            pg_config.dbname(&db_name);
-        }
-    }
+    let conn_config = build_connection_config(dsn, username, password, host, port, db_name)?;
 
     let mgr_config: ManagerConfig;
     if let Some(conn_recycling_method) = conn_recycling_method {
@@ -68,7 +52,7 @@ pub fn connect(
             recycling_method: RecyclingMethod::Fast,
         };
     }
-    let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+    let mgr = Manager::from_config(conn_config, NoTls, mgr_config);
 
     let mut db_pool_builder = Pool::builder(mgr);
     if let Some(max_db_pool_size) = max_db_pool_size {
@@ -101,7 +85,7 @@ impl ConnectionPool {
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> RustPSQLDriverPyResult<Self> {
-        connect(
+        create_pool(
             dsn,
             username,
             password,
@@ -186,7 +170,7 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(db_connection))
+        Ok(Connection::new(ConnectionVar::Pool(db_connection)))
     }
 
     /// Return new single connection.
