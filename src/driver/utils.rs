@@ -64,8 +64,11 @@ pub fn build_connection_config(
     } else {
         pg_config = tokio_postgres::Config::new();
 
-        if let (Some(password), Some(username)) = (password, username) {
+        if let Some(password) = password {
             pg_config.password(&password);
+        }
+
+        if let Some(username) = username {
             pg_config.user(&username);
         }
 
