@@ -965,9 +965,21 @@ def create_pool(
     """
 
 async def connect(
+    dsn: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
     host: Optional[str] = None,
     port: Optional[int] = None,
     db_name: Optional[str] = None,
-) -> Connection: ...
+) -> Connection:
+    """Create new single connection.
+
+    ### Parameters:
+    - `dsn`: full dsn connection string.
+        `postgres://postgres:postgres@localhost:5432/postgres?target_session_attrs=read-write`
+    - `username`: username of the user in the PostgreSQL
+    - `password`: password of the user in PostgreSQL
+    - `host`: host of the PostgreSQL
+    - `port`: port of the PostgreSQL
+    - `db_name`: name of the database in PostgreSQL
+    """

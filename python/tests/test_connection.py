@@ -5,7 +5,7 @@ import typing
 import pytest
 from tests.helpers import count_rows_in_test_table
 
-from psqlpy import ConnectionPool, QueryResult, Transaction
+from psqlpy import ConnectionPool, QueryResult, Transaction, connect
 from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
 
 pytestmark = pytest.mark.anyio
@@ -113,3 +113,12 @@ async def test_connection_fetch_val_more_than_one_row(
             f"SELECT * FROM  {table_name}",
             [],
         )
+
+
+async def test_connect_method() -> None:
+    connection = await connect(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+    )
+
+    res = await connection.execute("SELECT 1")
+    assert res.result()
