@@ -940,7 +940,7 @@ class ConnectionPool:
     def close(self: Self) -> None:
         """Close the connection pool."""
 
-def connect(
+def create_pool(
     dsn: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
@@ -963,3 +963,11 @@ def connect(
     - `max_db_pool_size`: maximum size of the connection pool
     - `conn_recycling_method`: how a connection is recycled.
     """
+
+async def connect(
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    db_name: Optional[str] = None,
+) -> Connection: ...

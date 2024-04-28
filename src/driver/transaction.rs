@@ -1,4 +1,3 @@
-use deadpool_postgres::Object;
 use futures_util::future;
 use pyo3::{
     prelude::*,
@@ -13,66 +12,15 @@ use crate::{
 };
 
 use super::{
+    connection::ConnectionVar,
     cursor::Cursor,
     transaction_options::{IsolationLevel, ReadVariant},
 };
-use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
-
-#[allow(clippy::module_name_repetitions)]
-pub trait TransactionObjectTrait {
-    fn start_transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        defferable: Option<bool>,
-    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
-    fn commit(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
-    fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
-}
-
-impl TransactionObjectTrait for Object {
-    async fn start_transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
-    ) -> RustPSQLDriverPyResult<()> {
-        let mut querystring = "START TRANSACTION".to_string();
-
-        if let Some(level) = isolation_level {
-            let level = &level.to_str_level();
-            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
-        };
-
-        querystring.push_str(match read_variant {
-            Some(ReadVariant::ReadOnly) => " READ ONLY",
-            Some(ReadVariant::ReadWrite) => " READ WRITE",
-            None => "",
-        });
-
-        querystring.push_str(match deferrable {
-            Some(true) => " DEFERRABLE",
-            Some(false) => " NOT DEFERRABLE",
-            None => "",
-        });
-        self.batch_execute(&querystring).await?;
-
-        Ok(())
-    }
-    async fn commit(&self) -> RustPSQLDriverPyResult<()> {
-        self.batch_execute("COMMIT;").await?;
-        Ok(())
-    }
-    async fn rollback(&self) -> RustPSQLDriverPyResult<()> {
-        self.batch_execute("ROLLBACK;").await?;
-        Ok(())
-    }
-}
 
 #[pyclass]
 pub struct Transaction {
-    pub db_client: Arc<Object>,
+    pub db_client: Arc<ConnectionVar>,
     is_started: bool,
     is_done: bool,
 
@@ -191,7 +139,7 @@ impl Transaction {
     /// 3) Can not execute ROLLBACK command
     pub async fn rollback(&mut self) -> RustPSQLDriverPyResult<()> {
         self.check_is_transaction_ready()?;
-        self.db_client.batch_execute("ROLLBACK").await?;
+        self.db_client.batch_execute_qs("ROLLBACK;").await?;
         self.is_done = true;
         Ok(())
     }
@@ -254,8 +202,8 @@ impl Transaction {
 
         let result = if prepared.unwrap_or(true) {
             db_client
-                .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                .query_qs_one(
+                    &db_client.prepare_stmt_cached(&querystring).await?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
@@ -265,7 +213,7 @@ impl Transaction {
                 .await?
         } else {
             db_client
-                .query_one(
+                .query_qs_one(
                     &querystring,
                     &params
                         .iter()
@@ -308,8 +256,8 @@ impl Transaction {
 
         let result = if prepared.unwrap_or(true) {
             db_client
-                .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                .query_qs_one(
+                    &db_client.prepare_stmt_cached(&querystring).await?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
@@ -319,7 +267,7 @@ impl Transaction {
                 .await?
         } else {
             db_client
-                .query_one(
+                .query_qs_one(
                     &querystring,
                     &params
                         .iter()
@@ -367,15 +315,15 @@ impl Transaction {
 
         for param in params {
             let is_query_result_ok = if prepared {
-                let prepared_stmt = &db_client.prepare_cached(&querystring).await;
+                let prepared_stmt = &db_client.prepare_stmt_cached(&querystring).await;
                 if let Err(error) = prepared_stmt {
                     return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
                         "Cannot prepare statement in execute_many, operation rolled back {error}",
                     )));
                 }
                 db_client
-                    .query(
-                        &db_client.prepare_cached(&querystring).await?,
+                    .query_qs(
+                        &db_client.prepare_stmt_cached(&querystring).await?,
                         &param
                             .iter()
                             .map(|param| param as &QueryParameter)
@@ -385,7 +333,7 @@ impl Transaction {
                     .await
             } else {
                 db_client
-                    .query(
+                    .query_qs(
                         &querystring,
                         &param
                             .iter()
@@ -478,7 +426,7 @@ impl Transaction {
         }
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         db_client
-            .batch_execute(format!("SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute_qs(format!("SAVEPOINT {savepoint_name}").as_str())
             .await?;
 
         pyo3::Python::with_gil(|gil| {
@@ -516,7 +464,7 @@ impl Transaction {
         }
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         db_client
-            .batch_execute(format!("RELEASE SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute_qs(format!("RELEASE SAVEPOINT {savepoint_name}").as_str())
             .await?;
 
         pyo3::Python::with_gil(|gil| {
@@ -554,7 +502,7 @@ impl Transaction {
         }
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         db_client
-            .batch_execute(format!("ROLLBACK TO SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute_qs(format!("ROLLBACK TO SAVEPOINT {savepoint_name}").as_str())
             .await?;
 
         pyo3::Python::with_gil(|gil| {
@@ -639,7 +587,7 @@ impl Transaction {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn new(
-        db_client: Arc<Object>,
+        db_client: Arc<ConnectionVar>,
         is_started: bool,
         is_done: bool,
         isolation_level: Option<IsolationLevel>,

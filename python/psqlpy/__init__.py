@@ -9,6 +9,7 @@ from psqlpy._internal import (
     SingleQueryResult,
     Transaction,
     connect,
+    create_pool,
 )
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "ConnRecyclingMethod",
     "IsolationLevel",
     "ReadVariant",
+    "create_pool",
     "connect",
 ]

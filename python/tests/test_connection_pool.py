@@ -1,6 +1,12 @@
 import pytest
 
-from psqlpy import Connection, ConnectionPool, ConnRecyclingMethod, QueryResult, connect
+from psqlpy import (
+    Connection,
+    ConnectionPool,
+    ConnRecyclingMethod,
+    QueryResult,
+    create_pool,
+)
 from psqlpy.exceptions import RustPSQLDriverPyBaseError
 
 pytestmark = pytest.mark.anyio
@@ -8,7 +14,7 @@ pytestmark = pytest.mark.anyio
 
 async def test_connect_func() -> None:
     """Test that connect function makes new connection pool."""
-    pg_pool = connect(
+    pg_pool = create_pool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
