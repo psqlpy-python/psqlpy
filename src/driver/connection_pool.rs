@@ -1,7 +1,7 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
-use std::{str::FromStr, vec};
+use std::{time::Duration, vec};
 use tokio_postgres::{NoTls, Row};
 
 use crate::{
@@ -10,7 +10,11 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
-use super::{common_options::ConnRecyclingMethod, connection::Connection};
+use super::{
+    common_options::{ConnLoadBalanceHosts, ConnRecyclingMethod},
+    connection::Connection,
+    utils::build_connection_config,
+};
 
 /// Make new connection pool.
 ///
@@ -25,6 +29,16 @@ pub fn connect(
     host: Option<String>,
     port: Option<u16>,
     db_name: Option<String>,
+    options: Option<String>,
+    application_name: Option<String>,
+    connect_timeout: Option<Duration>,
+    tcp_user_timeout: Option<Duration>,
+    keepalives: Option<bool>,
+    keepalives_idle: Option<Duration>,
+    keepalives_interval: Option<Duration>,
+    keepalives_retries: Option<u32>,
+    load_balance_hosts: Option<ConnLoadBalanceHosts>,
+
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
 ) -> RustPSQLDriverPyResult<ConnectionPool> {
@@ -36,27 +50,23 @@ pub fn connect(
         }
     }
 
-    let mut pg_config: tokio_postgres::Config;
-    if let Some(dsn_string) = dsn {
-        pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
-    } else {
-        pg_config = tokio_postgres::Config::new();
-        if let (Some(password), Some(username)) = (password, username) {
-            pg_config.password(&password);
-            pg_config.user(&username);
-        }
-        if let Some(host) = host {
-            pg_config.host(&host);
-        }
-
-        if let Some(port) = port {
-            pg_config.port(port);
-        }
-
-        if let Some(db_name) = db_name {
-            pg_config.dbname(&db_name);
-        }
-    }
+    let pg_config = build_connection_config(
+        dsn,
+        username,
+        password,
+        host,
+        port,
+        db_name,
+        options,
+        application_name,
+        connect_timeout,
+        tcp_user_timeout,
+        keepalives,
+        keepalives_idle,
+        keepalives_interval,
+        keepalives_retries,
+        load_balance_hosts,
+    )?;
 
     let mgr_config: ManagerConfig;
     if let Some(conn_recycling_method) = conn_recycling_method {
@@ -98,6 +108,15 @@ impl ConnectionPool {
         host: Option<String>,
         port: Option<u16>,
         db_name: Option<String>,
+        options: Option<String>,
+        application_name: Option<String>,
+        connect_timeout: Option<Duration>,
+        tcp_user_timeout: Option<Duration>,
+        keepalives: Option<bool>,
+        keepalives_idle: Option<Duration>,
+        keepalives_interval: Option<Duration>,
+        keepalives_retries: Option<u32>,
+        load_balance_hosts: Option<ConnLoadBalanceHosts>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> RustPSQLDriverPyResult<Self> {
@@ -108,6 +127,15 @@ impl ConnectionPool {
             host,
             port,
             db_name,
+            options,
+            application_name,
+            connect_timeout,
+            tcp_user_timeout,
+            keepalives,
+            keepalives_idle,
+            keepalives_interval,
+            keepalives_retries,
+            load_balance_hosts,
             max_db_pool_size,
             conn_recycling_method,
         )
