@@ -108,9 +108,19 @@ class ConnLoadBalanceHosts(Enum):
     """Load balancing configuration."""
 
     # Make connection attempts to hosts in the order provided.
-    Disable = (1,)
+    Disable = 1
     # Make connection attempts to hosts in a random order.
-    Random = (2,)
+    Random = 2
+
+class ConnTargetSessionAttrs(Enum):
+    """Properties required of a session."""
+
+    # No special properties are required.
+    Any = 1
+    # The session must allow writes.
+    ReadWrite = 2
+    # The session allow only reads.
+    ReadOnly = 3
 
 class ReadVariant(Enum):
     """Class for Read Variant for transaction."""
