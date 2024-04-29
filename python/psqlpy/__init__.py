@@ -4,9 +4,11 @@ from psqlpy._internal import (
     ConnRecyclingMethod,
     Cursor,
     IsolationLevel,
+    LoadBalanceHosts,
     QueryResult,
     ReadVariant,
     SingleQueryResult,
+    TargetSessionAttrs,
     Transaction,
     connect,
 )
@@ -22,4 +24,6 @@ __all__ = [
     "IsolationLevel",
     "ReadVariant",
     "connect",
+    "LoadBalanceHosts",
+    "TargetSessionAttrs",
 ]

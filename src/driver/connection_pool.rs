@@ -1,7 +1,7 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
-use std::{str::FromStr, vec};
+use std::vec;
 use tokio_postgres::{NoTls, Row};
 
 use crate::{
@@ -10,7 +10,11 @@ use crate::{
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
-use super::{common_options::ConnRecyclingMethod, connection::Connection};
+use super::{
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, TargetSessionAttrs},
+    connection::Connection,
+    utils::build_connection_config,
+};
 
 /// Make new connection pool.
 ///
@@ -23,8 +27,25 @@ pub fn connect(
     username: Option<String>,
     password: Option<String>,
     host: Option<String>,
+    hosts: Option<Vec<String>>,
     port: Option<u16>,
+    ports: Option<Vec<u16>>,
     db_name: Option<String>,
+    target_session_attrs: Option<TargetSessionAttrs>,
+    options: Option<String>,
+    application_name: Option<String>,
+    connect_timeout_sec: Option<u64>,
+    connect_timeout_nanosec: Option<u32>,
+    tcp_user_timeout_sec: Option<u64>,
+    tcp_user_timeout_nanosec: Option<u32>,
+    keepalives: Option<bool>,
+    keepalives_idle_sec: Option<u64>,
+    keepalives_idle_nanosec: Option<u32>,
+    keepalives_interval_sec: Option<u64>,
+    keepalives_interval_nanosec: Option<u32>,
+    keepalives_retries: Option<u32>,
+    load_balance_hosts: Option<LoadBalanceHosts>,
+
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
 ) -> RustPSQLDriverPyResult<ConnectionPool> {
@@ -36,27 +57,30 @@ pub fn connect(
         }
     }
 
-    let mut pg_config: tokio_postgres::Config;
-    if let Some(dsn_string) = dsn {
-        pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
-    } else {
-        pg_config = tokio_postgres::Config::new();
-        if let (Some(password), Some(username)) = (password, username) {
-            pg_config.password(&password);
-            pg_config.user(&username);
-        }
-        if let Some(host) = host {
-            pg_config.host(&host);
-        }
-
-        if let Some(port) = port {
-            pg_config.port(port);
-        }
-
-        if let Some(db_name) = db_name {
-            pg_config.dbname(&db_name);
-        }
-    }
+    let pg_config = build_connection_config(
+        dsn,
+        username,
+        password,
+        host,
+        hosts,
+        port,
+        ports,
+        db_name,
+        target_session_attrs,
+        options,
+        application_name,
+        connect_timeout_sec,
+        connect_timeout_nanosec,
+        tcp_user_timeout_sec,
+        tcp_user_timeout_nanosec,
+        keepalives,
+        keepalives_idle_sec,
+        keepalives_idle_nanosec,
+        keepalives_interval_sec,
+        keepalives_interval_nanosec,
+        keepalives_retries,
+        load_balance_hosts,
+    )?;
 
     let mgr_config: ManagerConfig;
     if let Some(conn_recycling_method) = conn_recycling_method {
@@ -96,8 +120,24 @@ impl ConnectionPool {
         username: Option<String>,
         password: Option<String>,
         host: Option<String>,
+        hosts: Option<Vec<String>>,
         port: Option<u16>,
+        ports: Option<Vec<u16>>,
         db_name: Option<String>,
+        target_session_attrs: Option<TargetSessionAttrs>,
+        options: Option<String>,
+        application_name: Option<String>,
+        connect_timeout_sec: Option<u64>,
+        connect_timeout_nanosec: Option<u32>,
+        tcp_user_timeout_sec: Option<u64>,
+        tcp_user_timeout_nanosec: Option<u32>,
+        keepalives: Option<bool>,
+        keepalives_idle_sec: Option<u64>,
+        keepalives_idle_nanosec: Option<u32>,
+        keepalives_interval_sec: Option<u64>,
+        keepalives_interval_nanosec: Option<u32>,
+        keepalives_retries: Option<u32>,
+        load_balance_hosts: Option<LoadBalanceHosts>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> RustPSQLDriverPyResult<Self> {
@@ -106,8 +146,24 @@ impl ConnectionPool {
             username,
             password,
             host,
+            hosts,
             port,
+            ports,
             db_name,
+            target_session_attrs,
+            options,
+            application_name,
+            connect_timeout_sec,
+            connect_timeout_nanosec,
+            tcp_user_timeout_sec,
+            tcp_user_timeout_nanosec,
+            keepalives,
+            keepalives_idle_sec,
+            keepalives_idle_nanosec,
+            keepalives_interval_sec,
+            keepalives_interval_nanosec,
+            keepalives_retries,
+            load_balance_hosts,
             max_db_pool_size,
             conn_recycling_method,
         )
