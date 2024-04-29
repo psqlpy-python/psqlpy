@@ -2,7 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::common_options::{ConnLoadBalanceHosts, ConnTargetSessionAttrs};
+use super::common_options::{LoadBalanceHosts, TargetSessionAttrs};
 
 /// Create new config.
 ///
@@ -18,7 +18,7 @@ pub fn build_connection_config(
     port: Option<u16>,
     ports: Option<Vec<u16>>,
     db_name: Option<String>,
-    target_session_attrs: Option<ConnTargetSessionAttrs>,
+    target_session_attrs: Option<TargetSessionAttrs>,
     options: Option<String>,
     application_name: Option<String>,
     connect_timeout_sec: Option<u64>,
@@ -31,7 +31,7 @@ pub fn build_connection_config(
     keepalives_interval_sec: Option<u64>,
     keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
-    load_balance_hosts: Option<ConnLoadBalanceHosts>,
+    load_balance_hosts: Option<LoadBalanceHosts>,
 ) -> RustPSQLDriverPyResult<tokio_postgres::Config> {
     if tcp_user_timeout_nanosec.is_some() && tcp_user_timeout_sec.is_none() {
         return Err(RustPSQLDriverError::DataBasePoolConfigurationError(

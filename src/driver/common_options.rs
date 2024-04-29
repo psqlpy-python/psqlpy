@@ -1,6 +1,5 @@
 use deadpool_postgres::RecyclingMethod;
 use pyo3::pyclass;
-use tokio_postgres::config::{LoadBalanceHosts, TargetSessionAttrs};
 
 #[pyclass]
 #[derive(Clone, Copy)]
@@ -23,26 +22,26 @@ impl ConnRecyclingMethod {
 
 #[pyclass]
 #[derive(Clone, Copy)]
-pub enum ConnLoadBalanceHosts {
+pub enum LoadBalanceHosts {
     /// Make connection attempts to hosts in the order provided.
     Disable,
     /// Make connection attempts to hosts in a random order.
     Random,
 }
 
-impl ConnLoadBalanceHosts {
+impl LoadBalanceHosts {
     #[must_use]
-    pub fn to_internal(&self) -> LoadBalanceHosts {
+    pub fn to_internal(&self) -> tokio_postgres::config::LoadBalanceHosts {
         match self {
-            ConnLoadBalanceHosts::Disable => LoadBalanceHosts::Disable,
-            ConnLoadBalanceHosts::Random => LoadBalanceHosts::Random,
+            LoadBalanceHosts::Disable => tokio_postgres::config::LoadBalanceHosts::Disable,
+            LoadBalanceHosts::Random => tokio_postgres::config::LoadBalanceHosts::Random,
         }
     }
 }
 
 #[pyclass]
 #[derive(Clone, Copy)]
-pub enum ConnTargetSessionAttrs {
+pub enum TargetSessionAttrs {
     /// No special properties are required.
     Any,
     /// The session must allow writes.
@@ -51,13 +50,13 @@ pub enum ConnTargetSessionAttrs {
     ReadOnly,
 }
 
-impl ConnTargetSessionAttrs {
+impl TargetSessionAttrs {
     #[must_use]
-    pub fn to_internal(&self) -> TargetSessionAttrs {
+    pub fn to_internal(&self) -> tokio_postgres::config::TargetSessionAttrs {
         match self {
-            ConnTargetSessionAttrs::Any => TargetSessionAttrs::Any,
-            ConnTargetSessionAttrs::ReadWrite => TargetSessionAttrs::ReadWrite,
-            ConnTargetSessionAttrs::ReadOnly => TargetSessionAttrs::ReadOnly,
+            TargetSessionAttrs::Any => tokio_postgres::config::TargetSessionAttrs::Any,
+            TargetSessionAttrs::ReadWrite => tokio_postgres::config::TargetSessionAttrs::ReadWrite,
+            TargetSessionAttrs::ReadOnly => tokio_postgres::config::TargetSessionAttrs::ReadOnly,
         }
     }
 }

@@ -3,10 +3,10 @@ import pytest
 from psqlpy import (
     Connection,
     ConnectionPool,
-    ConnLoadBalanceHosts,
     ConnRecyclingMethod,
-    ConnTargetSessionAttrs,
+    LoadBalanceHosts,
     QueryResult,
+    TargetSessionAttrs,
     connect,
 )
 from psqlpy.exceptions import DBPoolConfigurationError, RustPSQLDriverPyBaseError
@@ -102,13 +102,13 @@ async def test_build_pool_failure() -> None:
 @pytest.mark.parametrize(
     "target_session_attrs",
     [
-        ConnTargetSessionAttrs.Any,
-        ConnTargetSessionAttrs.ReadWrite,
-        ConnTargetSessionAttrs.ReadOnly,
+        TargetSessionAttrs.Any,
+        TargetSessionAttrs.ReadWrite,
+        TargetSessionAttrs.ReadOnly,
     ],
 )
 async def test_pool_target_session_attrs(
-    target_session_attrs: ConnTargetSessionAttrs,
+    target_session_attrs: TargetSessionAttrs,
 ) -> None:
     pg_pool = ConnectionPool(
         db_name="psqlpy_test",
@@ -118,7 +118,7 @@ async def test_pool_target_session_attrs(
         target_session_attrs=target_session_attrs,
     )
 
-    if target_session_attrs == ConnTargetSessionAttrs.ReadOnly:
+    if target_session_attrs == TargetSessionAttrs.ReadOnly:
         with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
             await pg_pool.execute("SELECT 1")
     else:
@@ -128,12 +128,12 @@ async def test_pool_target_session_attrs(
 @pytest.mark.parametrize(
     "load_balance_hosts",
     [
-        ConnLoadBalanceHosts.Disable,
-        ConnLoadBalanceHosts.Random,
+        LoadBalanceHosts.Disable,
+        LoadBalanceHosts.Random,
     ],
 )
 async def test_pool_load_balance_hosts(
-    load_balance_hosts: ConnLoadBalanceHosts,
+    load_balance_hosts: LoadBalanceHosts,
 ) -> None:
     pg_pool = ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",

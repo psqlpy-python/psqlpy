@@ -104,7 +104,7 @@ class IsolationLevel(Enum):
     RepeatableRead = 3
     Serializable = 4
 
-class ConnLoadBalanceHosts(Enum):
+class LoadBalanceHosts(Enum):
     """Load balancing configuration."""
 
     # Make connection attempts to hosts in the order provided.
@@ -112,7 +112,7 @@ class ConnLoadBalanceHosts(Enum):
     # Make connection attempts to hosts in a random order.
     Random = 2
 
-class ConnTargetSessionAttrs(Enum):
+class TargetSessionAttrs(Enum):
     """Properties required of a session."""
 
     # No special properties are required.
@@ -891,7 +891,7 @@ class ConnectionPool:
         port: Optional[int] = None,
         ports: Optional[List[int]] = None,
         db_name: Optional[str] = None,
-        target_session_attrs: Optional[ConnTargetSessionAttrs] = None,
+        target_session_attrs: Optional[TargetSessionAttrs] = None,
         options: Optional[str] = None,
         application_name: Optional[str] = None,
         connect_timeout_sec: Optional[int] = None,
@@ -904,7 +904,7 @@ class ConnectionPool:
         keepalives_interval_sec: Optional[int] = None,
         keepalives_interval_nanosec: Optional[int] = None,
         keepalives_retries: Optional[int] = None,
-        load_balance_hosts: Optional[ConnLoadBalanceHosts] = None,
+        load_balance_hosts: Optional[LoadBalanceHosts] = None,
         max_db_pool_size: int = 2,
         conn_recycling_method: Optional[ConnRecyclingMethod] = None,
     ) -> None:
@@ -1028,7 +1028,7 @@ def connect(
     port: Optional[int] = None,
     ports: Optional[List[int]] = None,
     db_name: Optional[str] = None,
-    target_session_attrs: Optional[ConnTargetSessionAttrs] = None,
+    target_session_attrs: Optional[TargetSessionAttrs] = None,
     options: Optional[str] = None,
     application_name: Optional[str] = None,
     connect_timeout_sec: Optional[int] = None,
@@ -1041,7 +1041,7 @@ def connect(
     keepalives_interval_sec: Optional[int] = None,
     keepalives_interval_nanosec: Optional[int] = None,
     keepalives_retries: Optional[int] = None,
-    load_balance_hosts: Optional[ConnLoadBalanceHosts] = None,
+    load_balance_hosts: Optional[LoadBalanceHosts] = None,
     max_db_pool_size: int = 2,
     conn_recycling_method: Optional[ConnRecyclingMethod] = None,
 ) -> ConnectionPool:

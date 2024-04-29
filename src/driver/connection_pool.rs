@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnLoadBalanceHosts, ConnRecyclingMethod, ConnTargetSessionAttrs},
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, TargetSessionAttrs},
     connection::Connection,
     utils::build_connection_config,
 };
@@ -31,7 +31,7 @@ pub fn connect(
     port: Option<u16>,
     ports: Option<Vec<u16>>,
     db_name: Option<String>,
-    target_session_attrs: Option<ConnTargetSessionAttrs>,
+    target_session_attrs: Option<TargetSessionAttrs>,
     options: Option<String>,
     application_name: Option<String>,
     connect_timeout_sec: Option<u64>,
@@ -44,7 +44,7 @@ pub fn connect(
     keepalives_interval_sec: Option<u64>,
     keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
-    load_balance_hosts: Option<ConnLoadBalanceHosts>,
+    load_balance_hosts: Option<LoadBalanceHosts>,
 
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
@@ -124,7 +124,7 @@ impl ConnectionPool {
         port: Option<u16>,
         ports: Option<Vec<u16>>,
         db_name: Option<String>,
-        target_session_attrs: Option<ConnTargetSessionAttrs>,
+        target_session_attrs: Option<TargetSessionAttrs>,
         options: Option<String>,
         application_name: Option<String>,
         connect_timeout_sec: Option<u64>,
@@ -137,7 +137,7 @@ impl ConnectionPool {
         keepalives_interval_sec: Option<u64>,
         keepalives_interval_nanosec: Option<u32>,
         keepalives_retries: Option<u32>,
-        load_balance_hosts: Option<ConnLoadBalanceHosts>,
+        load_balance_hosts: Option<LoadBalanceHosts>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
     ) -> RustPSQLDriverPyResult<Self> {
