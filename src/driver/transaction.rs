@@ -221,6 +221,33 @@ impl Transaction {
             .psqlpy_query(querystring, parameters, prepared)
             .await
     }
+
+    /// Fetch result from the database.
+    ///
+    /// It converts incoming parameters to rust readable
+    /// and then execute the query with them.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Cannot convert python parameters
+    /// 2) Cannot execute querystring.
+    pub async fn fetch(
+        self_: Py<Self>,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+        db_client
+            .psqlpy_query(querystring, parameters, prepared)
+            .await
+    }
+
     /// Fetch exaclty single row from query.
     ///
     /// Method doesn't acquire lock on any structure fields.
