@@ -265,7 +265,8 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
     result_vec = Python::with_gil(|gil| {
         let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
             RustPSQLDriverError::PyToRustValueConversionError(
-                "Cannot convert you parameters argument for an array in Rust, please use List/Set/Tuple".into(),
+                "Cannot convert you parameters argument into Rust type, please use List/Tuple"
+                    .into(),
             )
         })?;
         for parameter in params {

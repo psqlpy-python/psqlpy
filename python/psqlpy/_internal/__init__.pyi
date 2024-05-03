@@ -1,6 +1,6 @@
 import types
 from enum import Enum
-from typing import Any, Callable, List, Optional, TypeVar
+from typing import Any, Callable, List, Optional, Sequence, TypeVar
 
 from typing_extensions import Self
 
@@ -337,7 +337,7 @@ class Transaction:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
@@ -375,7 +375,7 @@ class Transaction:
     async def execute_many(
         self: Self,
         querystring: str,
-        parameters: list[list[Any]] | None = None,
+        parameters: Sequence[Sequence[Any]] | None = None,
         prepared: bool = True,
     ) -> None: ...
     """Execute query multiple times with different parameters.
@@ -410,10 +410,30 @@ class Transaction:
             await transaction.commit()
         ```
         """
+    async def fetch(
+        self: Self,
+        querystring: str,
+        parameters: Sequence[Any] | None = None,
+        prepared: bool = True,
+    ) -> QueryResult:
+        """Fetch the result from database.
+
+        It's the same as `execute` method, we made it because people are used
+        to `fetch` method name.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+        """
     async def fetch_row(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> SingleQueryResult:
         """Fetch exaclty single row from query.
@@ -453,7 +473,7 @@ class Transaction:
     async def fetch_val(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> Any | None:
         """Execute the query and return first value of the first row.
@@ -661,7 +681,7 @@ class Transaction:
     def cursor(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         fetch_number: int | None = None,
         scroll: bool | None = None,
         prepared: bool = True,
@@ -717,7 +737,7 @@ class Connection:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
@@ -784,10 +804,30 @@ class Connection:
             )
         ```
         """
+    async def fetch(
+        self: Self,
+        querystring: str,
+        parameters: Sequence[Any] | None = None,
+        prepared: bool = True,
+    ) -> QueryResult:
+        """Fetch the result from database.
+
+        It's the same as `execute` method, we made it because people are used
+        to `fetch` method name.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+        """
     async def fetch_row(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> SingleQueryResult:
         """Fetch exaclty single row from query.
@@ -824,7 +864,7 @@ class Connection:
     async def fetch_val(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> Any:
         """Execute the query and return first value of the first row.
@@ -979,7 +1019,7 @@ class ConnectionPool:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: list[Any] | None = None,
+        parameters: Sequence[Any] | None = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
@@ -1010,6 +1050,26 @@ class ConnectionPool:
             # you don't need to close the pool,
             # it will be dropped on Rust side.
         ```
+        """
+    async def fetch(
+        self: Self,
+        querystring: str,
+        parameters: Sequence[Any] | None = None,
+        prepared: bool = True,
+    ) -> QueryResult:
+        """Fetch the result from database.
+
+        It's the same as `execute` method, we made it because people are used
+        to `fetch` method name.
+
+        Querystring can contain `$<number>` parameters
+        for converting them in the driver side.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
         """
     async def connection(self: Self) -> Connection:
         """Create new connection.

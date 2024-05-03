@@ -230,6 +230,70 @@ impl ConnectionPool {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Fetch result from the database.
+    ///
+    /// It's the same as `execute`, we made it for people who prefer
+    /// `fetch()`.
+    ///
+    /// Prepare statement and cache it, then execute.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot retrieve new connection
+    /// or prepare statement or execute statement.
+    pub async fn fetch<'a>(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        prepared: Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
+
+        let db_pool_manager = tokio_runtime()
+            .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
+            .await??;
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+        let result = if prepared {
+            tokio_runtime()
+                .spawn(async move {
+                    Ok::<Vec<Row>, RustPSQLDriverError>(
+                        db_pool_manager
+                            .query(
+                                &db_pool_manager.prepare_cached(&querystring).await?,
+                                &params
+                                    .iter()
+                                    .map(|param| param as &QueryParameter)
+                                    .collect::<Vec<&QueryParameter>>()
+                                    .into_boxed_slice(),
+                            )
+                            .await?,
+                    )
+                })
+                .await??
+        } else {
+            tokio_runtime()
+                .spawn(async move {
+                    Ok::<Vec<Row>, RustPSQLDriverError>(
+                        db_pool_manager
+                            .query(
+                                &querystring,
+                                &params
+                                    .iter()
+                                    .map(|param| param as &QueryParameter)
+                                    .collect::<Vec<&QueryParameter>>()
+                                    .into_boxed_slice(),
+                            )
+                            .await?,
+                    )
+                })
+                .await??
+        };
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
     /// Return new single connection.
     ///
     /// # Errors

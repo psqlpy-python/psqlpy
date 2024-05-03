@@ -152,6 +152,55 @@ impl Connection {
         Ok(())
     }
 
+    /// Fetch result from the database.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if
+    /// 1) Cannot convert incoming parameters
+    /// 2) Cannot prepare statement
+    /// 3) Cannot execute query
+    pub async fn fetch(
+        self_: pyo3::Py<Self>,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+
+        let mut params: Vec<PythonDTO> = vec![];
+        if let Some(parameters) = parameters {
+            params = convert_parameters(parameters)?;
+        }
+        let prepared = prepared.unwrap_or(true);
+
+        let result = if prepared {
+            db_client
+                .query(
+                    &db_client.prepare_cached(&querystring).await?,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        } else {
+            db_client
+                .query(
+                    &querystring,
+                    &params
+                        .iter()
+                        .map(|param| param as &QueryParameter)
+                        .collect::<Vec<&QueryParameter>>()
+                        .into_boxed_slice(),
+                )
+                .await?
+        };
+
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
     /// Fetch exaclty single row from query.
     ///
     /// Method doesn't acquire lock on any structure fields.
