@@ -72,23 +72,24 @@ impl<'a> FromSql<'a> for RustLine {
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<RustLine, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() == 4 {
-            let mut vec_raw = vec![];
-            vec_raw.extend_from_slice(raw);
-            let mut buf = vec_raw.as_slice();
-
-            let x1 = buf.read_f64::<BigEndian>()?;
-            let y1 = buf.read_f64::<BigEndian>()?;
-            let first_coord = coord!(x: x1, y: y1);
-
-            let x2 = buf.read_f64::<BigEndian>()?;
-            let y2 = buf.read_f64::<BigEndian>()?;
-            let second_coord = coord!(x: x2, y: y2);
-
-            let new_line = Line::new(first_coord, second_coord);
-            return Ok(RustLine::new(new_line));
+        if raw.len() != 4 {
+            return Err("Cannot convert PostgreSQL LINE into rust Line".into());
         }
-        Err("Cannot convert PostgreSQL LINE into rust Line".into())
+
+        let mut vec_raw = vec![];
+        vec_raw.extend_from_slice(raw);
+        let mut buf = vec_raw.as_slice();
+
+        let x1 = buf.read_f64::<BigEndian>()?;
+        let y1 = buf.read_f64::<BigEndian>()?;
+        let first_coord = coord!(x: x1, y: y1);
+
+        let x2 = buf.read_f64::<BigEndian>()?;
+        let y2 = buf.read_f64::<BigEndian>()?;
+        let second_coord = coord!(x: x2, y: y2);
+
+        let new_line = Line::new(first_coord, second_coord);
+        return Ok(RustLine::new(new_line));        
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -101,24 +102,25 @@ impl<'a> FromSql<'a> for RustPolygon {
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<RustPolygon, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() % 2 == 0 {
-            let mut vec_raw = vec![];
-            vec_raw.extend_from_slice(raw);
-            let mut buf = vec_raw.as_slice();
-
-            let mut vec_raw_coord = vec![];
-            buf.read_f64_into::<BigEndian>(&mut vec_raw_coord);
-
-            let mut vec_coord = vec![];
-            for (x1, y1) in vec_raw_coord.into_iter().tuples() {
-                vec_coord.push(coord!(x: x1, y: y1));
-            }
-
-            let polygon_exterior = LineString::new(vec_coord);
-            let new_polygon = Polygon::new(polygon_exterior, vec![]);
-            return Ok(RustPolygon::new(new_polygon));
+        if raw.len() % 2 != 0 {
+            return Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into());
         }
-        Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into())
+
+        let mut vec_raw = vec![];
+        vec_raw.extend_from_slice(raw);
+        let mut buf = vec_raw.as_slice();
+
+        let mut vec_raw_coord = vec![];
+        buf.read_f64_into::<BigEndian>(&mut vec_raw_coord)?;
+
+        let mut vec_coord = vec![];
+        for (x1, y1) in vec_raw_coord.into_iter().tuples() {
+            vec_coord.push(coord!(x: x1, y: y1));
+        }
+
+        let polygon_exterior = LineString::new(vec_coord);
+        let new_polygon = Polygon::new(polygon_exterior, vec![]);
+        return Ok(RustPolygon::new(new_polygon));
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -178,7 +180,7 @@ impl<T: CoordFloat> Circle<T> {
     }
 
     pub fn contains(self, point: &Coord<T>) -> bool {
-        self.distance_from_center_to(&point) <= self.radius
+        self.distance_from_center_to(point) <= self.radius
     }
 
     pub fn intersects(self, other: &Self) -> bool {
@@ -200,19 +202,20 @@ impl<'a> FromSql<'a> for Circle {
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<Circle, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() == 3 {
-            let mut vec_raw = vec![];
-            vec_raw.extend_from_slice(raw);
-            let mut buf = vec_raw.as_slice();
-
-            let x = buf.read_f64::<BigEndian>()?;
-            let y = buf.read_f64::<BigEndian>()?;
-            let r = buf.read_f64::<BigEndian>()?;
-
-            let new_circle = Circle::new(x, y, r);
-            return Ok(new_circle);
+        if raw.len() != 3 {
+            return Err("Cannot convert PostgreSQL CIRCLE into rust Circle".into());
         }
-        Err("Cannot convert PostgreSQL CIRCLE into rust Circle".into())
+
+        let mut vec_raw = vec![];
+        vec_raw.extend_from_slice(raw);
+        let mut buf = vec_raw.as_slice();
+
+        let x = buf.read_f64::<BigEndian>()?;
+        let y = buf.read_f64::<BigEndian>()?;
+        let r = buf.read_f64::<BigEndian>()?;
+
+        let new_circle = Circle::new(x, y, r);
+        return Ok(new_circle);        
     }
 
     fn accepts(_ty: &Type) -> bool {

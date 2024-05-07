@@ -134,37 +134,6 @@ impl PythonDTO {
             )),
         }
     }
-
-    /// Get value from DTO
-    ///
-    /// # Errors
-    /// May return Err Result if cannot convert python type into rust.
-    pub fn get_value(&self) -> RustPSQLDriverPyResult<Value> {
-        match self {
-            PythonDTO::PyNone => Ok(Value::Null),
-            PythonDTO::PyBool(pybool) => Ok(json!(pybool)),
-            PythonDTO::PyString(pystring)
-            | PythonDTO::PyText(pystring)
-            | PythonDTO::PyVarChar(pystring) => Ok(json!(pystring)),
-            PythonDTO::PyIntI32(pyint) => Ok(json!(pyint)),
-            PythonDTO::PyIntI64(pyint) => Ok(json!(pyint)),
-            PythonDTO::PyIntU64(pyint) => Ok(json!(pyint)),
-            PythonDTO::PyFloat64(pyfloat) => Ok(json!(pyfloat)),
-            PythonDTO::PyList(pylist) => {
-                let mut vec_serde_values: Vec<Value> = vec![];
-
-                for py_object in pylist {
-                    vec_serde_values.push(py_object.to_serde_value()?);
-                }
-
-                Ok(json!(vec_serde_values))
-            }
-            PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
-            _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "Cannot convert your type into Rust type".into(),
-            )),
-        }
-    }
 }
 
 /// Implement `ToSql` trait.
@@ -910,12 +879,12 @@ pub fn build_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Point> {
                 }
             }
 
-            Ok(point!(x: result_vec[0], y: result_vec[1]))
-        } else {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyPoint must have pair int/float values combination passed in tuple, list or set."
-                    .to_string(),
-            ));
+            return Ok(point!(x: result_vec[0], y: result_vec[1]));
         }
+
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "PyPoint must have pair int/float values combination passed in tuple, list or set."
+                .to_string(),
+        ));
     })
 }
