@@ -89,7 +89,7 @@ impl<'a> FromSql<'a> for RustLine {
         let second_coord = coord!(x: x2, y: y2);
 
         let new_line = Line::new(first_coord, second_coord);
-        return Ok(RustLine::new(new_line));        
+        return Ok(RustLine::new(new_line));
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -215,7 +215,7 @@ impl<'a> FromSql<'a> for Circle {
         let r = buf.read_f64::<BigEndian>()?;
 
         let new_circle = Circle::new(x, y, r);
-        return Ok(new_circle);        
+        return Ok(new_circle);
     }
 
     fn accepts(_ty: &Type) -> bool {
