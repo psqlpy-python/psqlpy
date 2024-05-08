@@ -44,23 +44,22 @@ from typing import Any
 from psqlpy import ConnectionPool, QueryResult
 
 
-db_pool = ConnectionPool(
-    username="postgres",
-    password="pg_password",
-    host="localhost",
-    port=5432,
-    db_name="postgres",
-    max_db_pool_size=2,
-)
-
 async def main() -> None:
+    db_pool = ConnectionPool(
+        username="postgres",
+        password="pg_password",
+        host="localhost",
+        port=5432,
+        db_name="postgres",
+        max_db_pool_size=2,
+    )
+
     res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
 
     print(res.result())
-    # You don't need to close Database Pool by yourself,
-    # rust does it instead.
+    db_pool.close()
 
 ```
 
