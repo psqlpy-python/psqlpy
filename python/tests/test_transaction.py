@@ -205,6 +205,21 @@ async def test_transaction_cursor(
         assert isinstance(cursor, Cursor)
 
 
+async def test_transaction_fetch(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test that single connection can fetch queries."""
+    connection = await psql_pool.connection()
+
+    async with connection.transaction() as transaction:
+        conn_result = await transaction.fetch(
+            querystring=f"SELECT * FROM {table_name}",
+        )
+    assert len(conn_result.result()) == number_database_records
+
+
 @pytest.mark.parametrize(
     ("insert_values"),
     [

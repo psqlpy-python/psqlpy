@@ -35,32 +35,31 @@ Or you can build it by yourself. To do it, install stable rust and [maturin](htt
 ## Usage
 
 Usage is as easy as possible.
-Create new instance of PSQLPool and start querying.
+Create new instance of ConnectionPool and start querying.
 You don't need to startup connection pool, the connection pool will create connections as needed.
 
 ```python
 from typing import Any
 
-from psqlpy import PSQLPool, QueryResult
+from psqlpy import ConnectionPool, QueryResult
 
-
-db_pool = PSQLPool(
-    username="postgres",
-    password="pg_password",
-    host="localhost",
-    port=5432,
-    db_name="postgres",
-    max_db_pool_size=2,
-)
 
 async def main() -> None:
+    db_pool = ConnectionPool(
+        username="postgres",
+        password="pg_password",
+        host="localhost",
+        port=5432,
+        db_name="postgres",
+        max_db_pool_size=2,
+    )
+
     res: QueryResult = await db_pool.execute(
         "SELECT * FROM users",
     )
 
     print(res.result())
-    # You don't need to close Database Pool by yourself,
-    # rust does it instead.
+    db_pool.close()
 
 ```
 

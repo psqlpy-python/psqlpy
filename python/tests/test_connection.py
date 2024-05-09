@@ -26,6 +26,21 @@ async def test_connection_execute(
     assert len(conn_result.result()) == number_database_records
 
 
+async def test_connection_fetch(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test that single connection can fetch queries."""
+    connection = await psql_pool.connection()
+
+    conn_result = await connection.fetch(
+        querystring=f"SELECT * FROM {table_name}",
+    )
+    assert isinstance(conn_result, QueryResult)
+    assert len(conn_result.result()) == number_database_records
+
+
 async def test_connection_connection(
     psql_pool: ConnectionPool,
 ) -> None:

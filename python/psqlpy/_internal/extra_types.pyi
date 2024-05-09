@@ -124,6 +124,9 @@ class PyMacAddr8:
         - `value`: value for MACADDR8 field.
         """
 
+class PyCustomType:
+    def __init__(self, value: bytes) -> None: ...
+
 Coordinates: typing.TypeAlias = typing.Union[
     list[int | float],
     set[int | float],

@@ -1,9 +1,26 @@
 import pytest
 
-from psqlpy import Connection, ConnectionPool, ConnRecyclingMethod, QueryResult
-from psqlpy.exceptions import RustPSQLDriverPyBaseError
+from psqlpy import (
+    Connection,
+    ConnectionPool,
+    ConnRecyclingMethod,
+    LoadBalanceHosts,
+    QueryResult,
+    TargetSessionAttrs,
+    connect,
+)
+from psqlpy.exceptions import DBPoolConfigurationError, RustPSQLDriverPyBaseError
 
 pytestmark = pytest.mark.anyio
+
+
+async def test_connect_func() -> None:
+    """Test that connect function makes new connection pool."""
+    pg_pool = connect(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+    )
+
+    await pg_pool.execute("SELECT 1")
 
 
 async def test_pool_dsn_startup() -> None:
@@ -22,6 +39,23 @@ async def test_pool_execute(
 ) -> None:
     """Test that ConnectionPool can execute queries."""
     select_result = await psql_pool.execute(
+        f"SELECT * FROM {table_name}",
+    )
+
+    assert type(select_result) == QueryResult
+
+    inner_result = select_result.result()
+    assert isinstance(inner_result, list)
+    assert len(inner_result) == number_database_records
+
+
+async def test_pool_fetch(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test that ConnectionPool can fetch queries."""
+    select_result = await psql_pool.fetch(
         f"SELECT * FROM {table_name}",
     )
 
@@ -54,6 +88,73 @@ async def test_pool_conn_recycling_method(
     pg_pool = ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
         conn_recycling_method=conn_recycling_method,
+    )
+
+    await pg_pool.execute("SELECT 1")
+
+
+async def test_build_pool_failure() -> None:
+    with pytest.raises(expected_exception=DBPoolConfigurationError):
+        ConnectionPool(
+            dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+            connect_timeout_nanosec=12,
+        )
+    with pytest.raises(expected_exception=DBPoolConfigurationError):
+        ConnectionPool(
+            dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+            connect_timeout_nanosec=12,
+        )
+    with pytest.raises(expected_exception=DBPoolConfigurationError):
+        ConnectionPool(
+            dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+            keepalives_idle_nanosec=12,
+        )
+    with pytest.raises(expected_exception=DBPoolConfigurationError):
+        ConnectionPool(
+            dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+            keepalives_interval_nanosec=12,
+        )
+
+
+@pytest.mark.parametrize(
+    "target_session_attrs",
+    [
+        TargetSessionAttrs.Any,
+        TargetSessionAttrs.ReadWrite,
+        TargetSessionAttrs.ReadOnly,
+    ],
+)
+async def test_pool_target_session_attrs(
+    target_session_attrs: TargetSessionAttrs,
+) -> None:
+    pg_pool = ConnectionPool(
+        db_name="psqlpy_test",
+        host="localhost",
+        username="postgres",
+        password="postgres",  # noqa: S106
+        target_session_attrs=target_session_attrs,
+    )
+
+    if target_session_attrs == TargetSessionAttrs.ReadOnly:
+        with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
+            await pg_pool.execute("SELECT 1")
+    else:
+        await pg_pool.execute("SELECT 1")
+
+
+@pytest.mark.parametrize(
+    "load_balance_hosts",
+    [
+        LoadBalanceHosts.Disable,
+        LoadBalanceHosts.Random,
+    ],
+)
+async def test_pool_load_balance_hosts(
+    load_balance_hosts: LoadBalanceHosts,
+) -> None:
+    pg_pool = ConnectionPool(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+        load_balance_hosts=load_balance_hosts,
     )
 
     await pg_pool.execute("SELECT 1")

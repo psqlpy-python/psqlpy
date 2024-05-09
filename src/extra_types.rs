@@ -195,6 +195,27 @@ macro_rules! build_macaddr_type {
 build_macaddr_type!(PyMacAddr6, MacAddr6);
 build_macaddr_type!(PyMacAddr8, MacAddr8);
 
+#[pyclass]
+#[derive(Clone, Debug)]
+pub struct PyCustomType {
+    inner: Vec<u8>,
+}
+
+impl PyCustomType {
+    #[must_use]
+    pub fn inner(&self) -> Vec<u8> {
+        self.inner.clone()
+    }
+}
+
+#[pymethods]
+impl PyCustomType {
+    #[new]
+    fn new_class(type_bytes: Vec<u8>) -> Self {
+        PyCustomType { inner: type_bytes }
+    }
+}
+
 macro_rules! build_geo_type {
     ($st_name:ident, $rust_type:ty) => {
         #[pyclass]
@@ -310,6 +331,7 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyJSON>()?;
     pymod.add_class::<PyMacAddr6>()?;
     pymod.add_class::<PyMacAddr8>()?;
+    pymod.add_class::<PyCustomType>()?;
     pymod.add_class::<PyPoint>()?;
     pymod.add_class::<PyBox>()?;
     pymod.add_class::<PyPath>()?;
