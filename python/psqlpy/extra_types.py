@@ -1,8 +1,8 @@
 from ._internal.extra_types import (
     BigInt,
     Integer,
-    PyCustomType,
     PyBox,
+    PyCustomType,
     PyJSON,
     PyJSONB,
     PyLine,
