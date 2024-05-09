@@ -89,7 +89,7 @@ impl<'a> FromSql<'a> for RustLine {
         let second_coord = coord!(x: x2, y: y2);
 
         let new_line = Line::new(first_coord, second_coord);
-        return Ok(RustLine::new(new_line));
+        Ok(RustLine::new(new_line))
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -120,7 +120,7 @@ impl<'a> FromSql<'a> for RustPolygon {
 
         let polygon_exterior = LineString::new(vec_coord);
         let new_polygon = Polygon::new(polygon_exterior, vec![]);
-        return Ok(RustPolygon::new(new_polygon));
+        Ok(RustPolygon::new(new_polygon))
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -188,15 +188,6 @@ impl<T: CoordFloat> Circle<T> {
     }
 }
 
-impl<T: CoordNum> Default for Circle<T> {
-    fn default() -> Self {
-        Self {
-            center: coord! {x: T::zero(), y: T::zero()},
-            radius: T::zero(),
-        }
-    }
-}
-
 impl<'a> FromSql<'a> for Circle {
     fn from_sql(
         _ty: &Type,
@@ -215,7 +206,7 @@ impl<'a> FromSql<'a> for Circle {
         let r = buf.read_f64::<BigEndian>()?;
 
         let new_circle = Circle::new(x, y, r);
-        return Ok(new_circle);
+        Ok(new_circle)
     }
 
     fn accepts(_ty: &Type) -> bool {
