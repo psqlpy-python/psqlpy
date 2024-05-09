@@ -2,18 +2,62 @@ use thiserror::Error;
 use tokio::task::JoinError;
 
 use crate::exceptions::python_errors::{
-    DBPoolConfigurationError, DBPoolError, PyToRustValueMappingError, RustPSQLDriverPyBaseError,
-    RustToPyValueMappingError, TransactionError,
+    DBPoolConfigurationError, DBPoolError, PyToRustValueMappingError, RustToPyValueMappingError,
+    TransactionError,
 };
 
-use super::python_errors::{CursorError, UUIDValueConvertError};
+use super::python_errors::{
+    BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseTransactionError,
+    ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolExecuteError, CursorCloseError,
+    CursorError, CursorFetchError, CursorStartError, DriverError, MacAddrParseError,
+    RuntimeJoinError, TransactionBeginError, TransactionCommitError, TransactionExecuteError,
+    TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
+};
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
 
 #[derive(Error, Debug)]
 pub enum RustPSQLDriverError {
+    // ConnectionPool errors
+    #[error("Connection pool error: {0}.")]
+    BaseConnectionPoolError(String),
+    #[error("Connection pool build error: {0}.")]
+    ConnectionPoolBuildError(String),
+    #[error("Connection pool execute error: {0}.")]
+    ConnectionPoolExecuteError(String),
+
+    // Connection Errors
+    #[error("Connection error: {0}.")]
+    BaseConnectionError(String),
+    #[error("Connection execute error: {0}.")]
+    ConnectionExecuteError(String),
+
+    // Transaction Errors
+    #[error("Transaction error: {0}")]
+    BaseTransactionError(String),
+    #[error("Transaction begin error: {0}")]
+    TransactionBeginError(String),
+    #[error("Transaction commit error: {0}")]
+    TransactionCommitError(String),
+    #[error("Transaction rollback error: {0}")]
+    TransactionRollbackError(String),
+    #[error("Transaction savepoint error: {0}")]
+    TransactionSavepointError(String),
+    #[error("Transaction execute error: {0}")]
+    TransactionExecuteError(String),
+
+    // Cursor Errors
+    #[error("Cursor error: {0}")]
+    BaseCursorError(String),
+    #[error("Cursor start error: {0}")]
+    CursorStartError(String),
+    #[error("Cursor close error: {0}")]
+    CursorCloseError(String),
+    #[error("Cursor fetch error: {0}")]
+    CursorFetchError(String),
+
     #[error("Database pool error: {0}.")]
-    DatabasePoolError(String),
+    ConnectionPoolError(String),
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
     #[error("Can't convert value from python to rust type: {0}")]
@@ -26,32 +70,32 @@ pub enum RustPSQLDriverError {
     DataBaseCursorError(String),
 
     #[error("Python exception: {0}.")]
-    PyError(#[from] pyo3::PyErr),
+    RustPyError(#[from] pyo3::PyErr),
     #[error("Database engine exception: {0}.")]
-    DBEngineError(#[from] deadpool_postgres::tokio_postgres::Error),
+    RustDriverError(#[from] deadpool_postgres::tokio_postgres::Error),
     #[error("Database engine pool exception: {0}")]
-    DBEnginePoolError(#[from] deadpool_postgres::PoolError),
+    RustConnectionPoolError(#[from] deadpool_postgres::PoolError),
     #[error("Database engine build failed: {0}")]
-    DBEngineBuildError(#[from] deadpool_postgres::BuildError),
+    RustDriverBuildError(#[from] deadpool_postgres::BuildError),
     #[error("Value convert has failed: {0}")]
-    UUIDConvertError(#[from] uuid::Error),
+    RustUUIDConvertError(#[from] uuid::Error),
     #[error("Cannot convert provided string to MacAddr6")]
-    MacAddr6ConversionError(#[from] macaddr::ParseError),
+    RustMacAddrConversionError(#[from] macaddr::ParseError),
     #[error("Cannot execute future in Rust: {0}")]
-    RuntimeJoinError(#[from] JoinError),
+    RustRuntimeJoinError(#[from] JoinError),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
     fn from(error: RustPSQLDriverError) -> Self {
         let error_desc = error.to_string();
         match error {
-            RustPSQLDriverError::PyError(err) => err,
-            RustPSQLDriverError::DBEngineError(_)
-            | RustPSQLDriverError::DBEnginePoolError(_)
-            | RustPSQLDriverError::MacAddr6ConversionError(_)
-            | RustPSQLDriverError::DBEngineBuildError(_)
-            | RustPSQLDriverError::RuntimeJoinError(_) => {
-                RustPSQLDriverPyBaseError::new_err((error_desc,))
+            RustPSQLDriverError::RustPyError(err) => err,
+            RustPSQLDriverError::RustDriverError(_) => DriverError::new_err((error_desc,)),
+            RustPSQLDriverError::RustMacAddrConversionError(_) => {
+                MacAddrParseError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::RustRuntimeJoinError(_) => {
+                RuntimeJoinError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
                 RustToPyValueMappingError::new_err((error_desc,))
@@ -59,15 +103,56 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::PyToRustValueConversionError(_) => {
                 PyToRustValueMappingError::new_err((error_desc,))
             }
-            RustPSQLDriverError::DatabasePoolError(_) => DBPoolError::new_err((error_desc,)),
+            RustPSQLDriverError::ConnectionPoolError(_) => DBPoolError::new_err((error_desc,)),
             RustPSQLDriverError::DataBaseTransactionError(_) => {
                 TransactionError::new_err((error_desc,))
             }
             RustPSQLDriverError::DataBasePoolConfigurationError(_) => {
                 DBPoolConfigurationError::new_err((error_desc,))
             }
-            RustPSQLDriverError::UUIDConvertError(_) => UUIDValueConvertError::new_err(error_desc),
+            RustPSQLDriverError::RustUUIDConvertError(_) => {
+                UUIDValueConvertError::new_err(error_desc)
+            }
             RustPSQLDriverError::DataBaseCursorError(_) => CursorError::new_err(error_desc),
+            RustPSQLDriverError::BaseConnectionPoolError(_)
+            | RustPSQLDriverError::RustConnectionPoolError(_) => {
+                BaseConnectionPoolError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::ConnectionPoolBuildError(_)
+            | RustPSQLDriverError::RustDriverBuildError(_) => {
+                ConnectionPoolBuildError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::ConnectionPoolExecuteError(_) => {
+                ConnectionPoolExecuteError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::BaseConnectionError(_) => {
+                BaseConnectionError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::ConnectionExecuteError(_) => {
+                ConnectionExecuteError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::BaseTransactionError(_) => {
+                BaseTransactionError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::TransactionBeginError(_) => {
+                TransactionBeginError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::TransactionCommitError(_) => {
+                TransactionCommitError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::TransactionRollbackError(_) => {
+                TransactionRollbackError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::TransactionSavepointError(_) => {
+                TransactionSavepointError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::TransactionExecuteError(_) => {
+                TransactionExecuteError::new_err((error_desc,))
+            }
+            RustPSQLDriverError::BaseCursorError(_) => BaseCursorError::new_err((error_desc,)),
+            RustPSQLDriverError::CursorStartError(_) => CursorStartError::new_err((error_desc,)),
+            RustPSQLDriverError::CursorCloseError(_) => CursorCloseError::new_err((error_desc,)),
+            RustPSQLDriverError::CursorFetchError(_) => CursorFetchError::new_err((error_desc,)),
         }
     }
 }

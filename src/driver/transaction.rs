@@ -153,7 +153,7 @@ impl Transaction {
             Ok(())
         } else {
             db_client.rollback().await?;
-            Err(RustPSQLDriverError::PyError(py_err))
+            Err(RustPSQLDriverError::RustPyError(py_err))
         };
 
         pyo3::Python::with_gil(|gil| {

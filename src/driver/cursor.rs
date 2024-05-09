@@ -175,7 +175,7 @@ impl Cursor {
 
         db_transaction.cursor_close(&closed, &cursor_name).await?;
         if !is_exception_none {
-            return Err(RustPSQLDriverError::PyError(py_err));
+            return Err(RustPSQLDriverError::RustPyError(py_err));
         }
         Ok(())
     }
