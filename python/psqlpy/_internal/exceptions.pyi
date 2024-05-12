@@ -1,11 +1,62 @@
 class RustPSQLDriverPyBaseError(Exception):
     """Base PSQL-Rust-Engine exception."""
 
-class DBPoolError(RustPSQLDriverPyBaseError):
-    """Error if something goes wrong with Database Pool.
+class BaseConnectionPoolError(RustPSQLDriverPyBaseError):
+    """Base error for all Connection Pool errors."""
 
-    It has verbose error message.
-    """
+class ConnectionPoolBuildError(BaseConnectionPoolError):
+    """Error for errors in building connection pool."""
+
+class ConnectionPoolConfigurationError(BaseConnectionPoolError):
+    """Error in connection pool configuration."""
+
+class ConnectionPoolExecuteError(BaseConnectionPoolError):
+    """Error in connection pool execution."""
+
+class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
+    """Error if configuration of the database pool is unacceptable."""
+
+class BaseConnectionError(RustPSQLDriverPyBaseError):
+    """Base error for Connection errors."""
+
+class ConnectionExecuteError(BaseConnectionError):
+    """Error in connection execution."""
+
+class BaseTransactionError(RustPSQLDriverPyBaseError):
+    """Base error for all transaction errors."""
+
+class TransactionBeginError(BaseTransactionError):
+    """Error in transaction begin."""
+
+class TransactionCommitError(BaseTransactionError):
+    """Error in transaction commit."""
+
+class TransactionRollbackError(BaseTransactionError):
+    """Error in transaction rollback."""
+
+class TransactionSavepointError(BaseTransactionError):
+    """Error in transaction savepoint."""
+
+class TransactionExecuteError(BaseTransactionError):
+    """Error in transaction execution."""
+
+class BaseCursorError(RustPSQLDriverPyBaseError):
+    """Base error for Cursor errors."""
+
+class CursorStartError(BaseCursorError):
+    """Error in cursor declare."""
+
+class CursorCloseError(BaseCursorError):
+    """Error in cursor close."""
+
+class CursorFetchError(BaseCursorError):
+    """Error in cursor fetch (any fetch)."""
+
+class UUIDValueConvertError(RustPSQLDriverPyBaseError):
+    """Error if it's impossible to convert py string UUID into rust UUID."""
+
+class MacAddr6ConversionError(RustPSQLDriverPyBaseError):
+    """Error if cannot convert MacAddr6 string value to rust type."""
 
 class RustToPyValueMappingError(RustPSQLDriverPyBaseError):
     """Error if it is not possible to covert rust type to python.
@@ -22,21 +73,3 @@ class PyToRustValueMappingError(RustPSQLDriverPyBaseError):
     You can get this exception when executing queries with parameters.
     So, if there are no parameters for the query, don't handle this error.
     """
-
-class TransactionError(RustPSQLDriverPyBaseError):
-    """Error if something goes wrong with `Transaction`.
-
-    It has verbose error message.
-    """
-
-class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
-    """Error if configuration of the database pool is unacceptable."""
-
-class UUIDValueConvertError(RustPSQLDriverPyBaseError):
-    """Error if it's impossible to convert py string UUID into rust UUID."""
-
-class CursorError(RustPSQLDriverPyBaseError):
-    """Error if something goes wrong with the cursor."""
-
-class MacAddr6ConversionError(RustPSQLDriverPyBaseError):
-    """Error if cannot convert MacAddr6 string value to rust type."""
