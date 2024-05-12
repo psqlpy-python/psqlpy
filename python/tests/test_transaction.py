@@ -6,7 +6,12 @@ import pytest
 from tests.helpers import count_rows_in_test_table
 
 from psqlpy import ConnectionPool, Cursor, IsolationLevel, ReadVariant
-from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
+from psqlpy.exceptions import (
+    RustPSQLDriverPyBaseError,
+    TransactionBeginError,
+    TransactionExecuteError,
+    TransactionSavepointError,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -55,7 +60,7 @@ async def test_transaction_begin(
     connection = await psql_pool.connection()
     transaction = connection.transaction()
 
-    with pytest.raises(expected_exception=TransactionError):
+    with pytest.raises(expected_exception=TransactionBeginError):
         await transaction.execute(
             f"SELECT * FROM {table_name}",
         )
@@ -157,7 +162,7 @@ async def test_transaction_rollback(
 
     await transaction.rollback()
 
-    with pytest.raises(expected_exception=TransactionError):
+    with pytest.raises(expected_exception=TransactionBeginError):
         await transaction.execute(
             f"SELECT * FROM {table_name} WHERE name = $1",
             parameters=[test_name],
@@ -184,7 +189,7 @@ async def test_transaction_release_savepoint(
 
     await transaction.create_savepoint(sp_name_1)
 
-    with pytest.raises(expected_exception=TransactionError):
+    with pytest.raises(expected_exception=TransactionSavepointError):
         await transaction.create_savepoint(sp_name_1)
 
     await transaction.create_savepoint(sp_name_2)
@@ -242,7 +247,7 @@ async def test_transaction_execute_many(
                 f"INSERT INTO {table_name} VALUES ($1, $2)",
                 insert_values,
             )
-        except TransactionError:
+        except TransactionExecuteError:
             assert not insert_values
         else:
             assert await count_rows_in_test_table(

@@ -85,7 +85,11 @@ create_exception!(
 );
 
 // Cursor exceptions
-create_exception!(psqlpy.exceptions, BaseCursorError, BaseTransactionError);
+create_exception!(
+    psqlpy.exceptions,
+    BaseCursorError,
+    RustPSQLDriverPyBaseError
+);
 create_exception!(psqlpy.exceptions, CursorStartError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorCloseError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorFetchError, BaseCursorError);
@@ -115,7 +119,7 @@ create_exception!(
 
 create_exception!(
     psqlpy.exceptions,
-    MacAddr6ConversionError,
+    MacAddrConversionError,
     RustPSQLDriverPyBaseError
 );
 
@@ -131,6 +135,63 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
         "RustPSQLDriverPyBaseError",
         py.get_type_bound::<RustPSQLDriverPyBaseError>(),
     )?;
+
+    pymod.add(
+        "BaseConnectionPoolError",
+        py.get_type_bound::<BaseConnectionPoolError>(),
+    )?;
+    pymod.add(
+        "ConnectionPoolBuildError",
+        py.get_type_bound::<ConnectionPoolBuildError>(),
+    )?;
+    pymod.add(
+        "ConnectionPoolConfigurationError",
+        py.get_type_bound::<ConnectionPoolConfigurationError>(),
+    )?;
+    pymod.add(
+        "ConnectionPoolExecuteError",
+        py.get_type_bound::<ConnectionPoolExecuteError>(),
+    )?;
+
+    pymod.add(
+        "BaseConnectionError",
+        py.get_type_bound::<BaseConnectionError>(),
+    )?;
+    pymod.add(
+        "ConnectionExecuteError",
+        py.get_type_bound::<ConnectionExecuteError>(),
+    )?;
+
+    pymod.add(
+        "BaseTransactionError",
+        py.get_type_bound::<BaseTransactionError>(),
+    )?;
+    pymod.add(
+        "TransactionBeginError",
+        py.get_type_bound::<TransactionBeginError>(),
+    )?;
+    pymod.add(
+        "TransactionCommitError",
+        py.get_type_bound::<TransactionCommitError>(),
+    )?;
+    pymod.add(
+        "TransactionRollbackError",
+        py.get_type_bound::<TransactionRollbackError>(),
+    )?;
+    pymod.add(
+        "TransactionSavepointError",
+        py.get_type_bound::<TransactionSavepointError>(),
+    )?;
+    pymod.add(
+        "TransactionExecuteError",
+        py.get_type_bound::<TransactionExecuteError>(),
+    )?;
+
+    pymod.add("BaseCursorError", py.get_type_bound::<BaseCursorError>())?;
+    pymod.add("CursorStartError", py.get_type_bound::<CursorStartError>())?;
+    pymod.add("CursorCloseError", py.get_type_bound::<CursorCloseError>())?;
+    pymod.add("CursorFetchError", py.get_type_bound::<CursorFetchError>())?;
+
     pymod.add(
         "RustToPyValueMappingError",
         py.get_type_bound::<RustToPyValueMappingError>(),
@@ -149,11 +210,11 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
     )?;
     pymod.add(
         "MacAddr6ConversionError",
-        py.get_type_bound::<MacAddr6ConversionError>(),
+        py.get_type_bound::<MacAddrConversionError>(),
     )?;
     pymod.add(
         "RustRuntimeJoinError",
-        py.get_type_bound::<MacAddr6ConversionError>(),
+        py.get_type_bound::<MacAddrConversionError>(),
     )?;
     Ok(())
 }
