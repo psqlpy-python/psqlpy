@@ -2,15 +2,14 @@ use thiserror::Error;
 use tokio::task::JoinError;
 
 use crate::exceptions::python_errors::{
-    DBPoolConfigurationError, DBPoolError, PyToRustValueMappingError, RustToPyValueMappingError,
-    TransactionError,
+    DBPoolConfigurationError, PyToRustValueMappingError, RustToPyValueMappingError,
 };
 
 use super::python_errors::{
     BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseTransactionError,
     ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolExecuteError, CursorCloseError,
-    CursorError, CursorFetchError, CursorStartError, DriverError, MacAddrParseError,
-    RuntimeJoinError, TransactionBeginError, TransactionCommitError, TransactionExecuteError,
+    CursorFetchError, CursorStartError, DriverError, MacAddrParseError, RuntimeJoinError,
+    TransactionBeginError, TransactionCommitError, TransactionExecuteError,
     TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
 };
 
@@ -23,6 +22,8 @@ pub enum RustPSQLDriverError {
     BaseConnectionPoolError(String),
     #[error("Connection pool build error: {0}.")]
     ConnectionPoolBuildError(String),
+    #[error("Connection pool configuration error: {0}.")]
+    ConnectionPoolConfigurationError(String),
     #[error("Connection pool execute error: {0}.")]
     ConnectionPoolExecuteError(String),
 
@@ -56,18 +57,10 @@ pub enum RustPSQLDriverError {
     #[error("Cursor fetch error: {0}")]
     CursorFetchError(String),
 
-    #[error("Database pool error: {0}.")]
-    ConnectionPoolError(String),
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
     #[error("Can't convert value from python to rust type: {0}")]
     PyToRustValueConversionError(String),
-    #[error("Transaction exception: {0}")]
-    DataBaseTransactionError(String),
-    #[error("Configuration database pool error: {0}")]
-    DataBasePoolConfigurationError(String),
-    #[error("Cursor error: {0}")]
-    DataBaseCursorError(String),
 
     #[error("Python exception: {0}.")]
     RustPyError(#[from] pyo3::PyErr),
@@ -103,17 +96,12 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::PyToRustValueConversionError(_) => {
                 PyToRustValueMappingError::new_err((error_desc,))
             }
-            RustPSQLDriverError::ConnectionPoolError(_) => DBPoolError::new_err((error_desc,)),
-            RustPSQLDriverError::DataBaseTransactionError(_) => {
-                TransactionError::new_err((error_desc,))
-            }
-            RustPSQLDriverError::DataBasePoolConfigurationError(_) => {
+            RustPSQLDriverError::ConnectionPoolConfigurationError(_) => {
                 DBPoolConfigurationError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustUUIDConvertError(_) => {
                 UUIDValueConvertError::new_err(error_desc)
             }
-            RustPSQLDriverError::DataBaseCursorError(_) => CursorError::new_err(error_desc),
             RustPSQLDriverError::BaseConnectionPoolError(_)
             | RustPSQLDriverError::RustConnectionPoolError(_) => {
                 BaseConnectionPoolError::new_err((error_desc,))
