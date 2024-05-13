@@ -54,14 +54,26 @@ impl Connection {
         let result = if prepared {
             db_client
                 .query(
-                    &db_client.prepare_cached(&querystring).await?,
+                    &db_client
+                        .prepare_cached(&querystring)
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot prepare statement, error - {err}"
+                            ))
+                        })?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         } else {
             db_client
                 .query(
@@ -72,7 +84,12 @@ impl Connection {
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         };
 
         Ok(PSQLDriverPyQueryResult::new(result))
@@ -104,7 +121,7 @@ impl Connection {
         let prepared = prepared.unwrap_or(true);
 
         db_client.batch_execute("BEGIN;").await.map_err(|err| {
-            RustPSQLDriverError::DataBaseTransactionError(format!(
+            RustPSQLDriverError::TransactionBeginError(format!(
                 "Cannot start transaction to run execute_many: {err}"
             ))
         })?;
@@ -112,7 +129,7 @@ impl Connection {
             let querystring_result = if prepared {
                 let prepared_stmt = &db_client.prepare_cached(&querystring).await;
                 if let Err(error) = prepared_stmt {
-                    return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                    return Err(RustPSQLDriverError::TransactionExecuteError(format!(
                         "Cannot prepare statement in execute_many, operation rolled back {error}",
                     )));
                 }
@@ -141,7 +158,7 @@ impl Connection {
 
             if let Err(error) = querystring_result {
                 db_client.batch_execute("ROLLBACK;").await?;
-                return Err(RustPSQLDriverError::DataBaseTransactionError(format!(
+                return Err(RustPSQLDriverError::TransactionExecuteError(format!(
                     "Error occured in `execute_many` statement, transaction is rolled back: {error}"
                 )));
             }
@@ -177,14 +194,26 @@ impl Connection {
         let result = if prepared {
             db_client
                 .query(
-                    &db_client.prepare_cached(&querystring).await?,
+                    &db_client
+                        .prepare_cached(&querystring)
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot prepare statement, error - {err}"
+                            ))
+                        })?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         } else {
             db_client
                 .query(
@@ -195,7 +224,12 @@ impl Connection {
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         };
 
         Ok(PSQLDriverPyQueryResult::new(result))
@@ -232,14 +266,26 @@ impl Connection {
         let result = if prepared {
             db_client
                 .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                    &db_client
+                        .prepare_cached(&querystring)
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot prepare statement, error - {err}"
+                            ))
+                        })?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         } else {
             db_client
                 .query_one(
@@ -250,7 +296,12 @@ impl Connection {
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         };
 
         Ok(PSQLDriverSinglePyQueryResult::new(result))
@@ -284,14 +335,26 @@ impl Connection {
         let result = if prepared {
             db_client
                 .query_one(
-                    &db_client.prepare_cached(&querystring).await?,
+                    &db_client
+                        .prepare_cached(&querystring)
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot prepare statement, error - {err}"
+                            ))
+                        })?,
                     &params
                         .iter()
                         .map(|param| param as &QueryParameter)
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         } else {
             db_client
                 .query_one(
@@ -302,7 +365,12 @@ impl Connection {
                         .collect::<Vec<&QueryParameter>>()
                         .into_boxed_slice(),
                 )
-                .await?
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot execute statement, error - {err}"
+                    ))
+                })?
         };
 
         Python::with_gil(|gil| match result.columns().first() {

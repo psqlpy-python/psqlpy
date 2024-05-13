@@ -6,7 +6,7 @@ import pytest
 from tests.helpers import count_rows_in_test_table
 
 from psqlpy import ConnectionPool, QueryResult, Transaction
-from psqlpy.exceptions import RustPSQLDriverPyBaseError, TransactionError
+from psqlpy.exceptions import ConnectionExecuteError, TransactionExecuteError
 
 pytestmark = pytest.mark.anyio
 
@@ -72,7 +72,7 @@ async def test_connection_execute_many(
             f"INSERT INTO {table_name} VALUES ($1, $2)",
             insert_values,
         )
-    except TransactionError:
+    except TransactionExecuteError:
         assert not insert_values
     else:
         assert await count_rows_in_test_table(
@@ -99,7 +99,7 @@ async def test_connection_fetch_row_more_than_one_row(
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
-    with pytest.raises(RustPSQLDriverPyBaseError):
+    with pytest.raises(ConnectionExecuteError):
         await connection.fetch_row(
             f"SELECT * FROM  {table_name}",
             [],
@@ -123,7 +123,7 @@ async def test_connection_fetch_val_more_than_one_row(
     table_name: str,
 ) -> None:
     connection = await psql_pool.connection()
-    with pytest.raises(RustPSQLDriverPyBaseError):
+    with pytest.raises(ConnectionExecuteError):
         await connection.fetch_row(
             f"SELECT * FROM  {table_name}",
             [],
