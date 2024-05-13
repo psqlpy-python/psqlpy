@@ -16,7 +16,6 @@ class QueryResult:
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> list[dict[Any, Any]]:
         """Return result from database as a list of dicts."""
-
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -58,7 +57,6 @@ class SingleQueryResult:
 
     def result(self: Self) -> dict[Any, Any]:
         """Return result from database as a dict."""
-
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -193,13 +191,11 @@ class Cursor:
 
         Execute DECLARE command for the cursor.
         """
-
     async def close(self: Self) -> None:
         """Close the cursor.
 
         Execute CLOSE command for the cursor.
         """
-
     async def fetch(
         self: Self,
         fetch_number: int | None = None,
@@ -214,7 +210,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_next(
         self: Self,
     ) -> QueryResult:
@@ -225,7 +220,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_prior(
         self: Self,
     ) -> QueryResult:
@@ -236,7 +230,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_first(
         self: Self,
     ) -> QueryResult:
@@ -247,7 +240,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_last(
         self: Self,
     ) -> QueryResult:
@@ -258,7 +250,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_absolute(
         self: Self,
         absolute_number: int,
@@ -270,7 +261,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_relative(
         self: Self,
         relative_number: int,
@@ -282,7 +272,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_forward_all(
         self: Self,
     ) -> QueryResult:
@@ -293,7 +282,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_backward(
         self: Self,
         backward_count: int,
@@ -305,7 +293,6 @@ class Cursor:
         ### Returns:
         result as `QueryResult`.
         """
-
     async def fetch_backward_all(
         self: Self,
     ) -> QueryResult:
@@ -340,7 +327,6 @@ class Transaction:
 
         `begin()` can be called only once per transaction.
         """
-
     async def commit(self: Self) -> None:
         """Commit the transaction.
 
@@ -348,7 +334,6 @@ class Transaction:
 
         `commit()` can be called only once per transaction.
         """
-
     async def execute(
         self: Self,
         querystring: str,
@@ -387,7 +372,6 @@ class Transaction:
             await transaction.commit()
         ```
         """
-
     async def execute_many(
         self: Self,
         querystring: str,
@@ -446,7 +430,6 @@ class Transaction:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
-
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -487,7 +470,6 @@ class Transaction:
             await transaction.commit()
         ```
         """
-
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -529,7 +511,6 @@ class Transaction:
             )
         ```
         """
-
     async def pipeline(
         self,
         queries: list[tuple[str, list[Any] | None]],
@@ -596,7 +577,6 @@ class Transaction:
 
         ```
         """
-
     async def create_savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
@@ -626,7 +606,6 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
-
     async def rollback(self: Self) -> None:
         """Rollback all queries in the transaction.
 
@@ -648,7 +627,6 @@ class Transaction:
             await transaction.rollback()
         ```
         """
-
     async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
@@ -675,7 +653,6 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
-
     async def release_savepoint(self: Self, savepoint_name: str) -> None:
         """Execute ROLLBACK TO SAVEPOINT.
 
@@ -701,7 +678,6 @@ class Transaction:
             await transaction.release_savepoint
         ```
         """
-
     def cursor(
         self: Self,
         querystring: str,
@@ -795,7 +771,6 @@ class Connection:
             dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
         """
-
     async def execute_many(
         self: Self,
         querystring: str,
@@ -849,7 +824,6 @@ class Connection:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
-
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -887,7 +861,6 @@ class Connection:
             dict_result: Dict[Any, Any] = query_result.result()
         ```
         """
-
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -928,7 +901,6 @@ class Connection:
             )
         ```
         """
-
     def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
@@ -1044,7 +1016,6 @@ class ConnectionPool:
         - `max_db_pool_size`: maximum size of the connection pool.
         - `conn_recycling_method`: how a connection is recycled.
         """
-
     async def execute(
         self: Self,
         querystring: str,
@@ -1080,7 +1051,6 @@ class ConnectionPool:
             # it will be dropped on Rust side.
         ```
         """
-
     async def fetch(
         self: Self,
         querystring: str,
@@ -1101,13 +1071,11 @@ class ConnectionPool:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
-
     async def connection(self: Self) -> Connection:
         """Create new connection.
 
         It acquires new connection from the database pool.
         """
-
     def close(self: Self) -> None:
         """Close the connection pool."""
 

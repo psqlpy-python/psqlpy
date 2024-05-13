@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::{
     additional_types::Circle,
     exceptions::rust_errors::RustPSQLDriverPyResult,
-    value_converter::{build_point, build_serde_value},
+    value_converter::{build_circle, build_geo_coords, build_serde_value},
 };
 
 macro_rules! build_python_type {
@@ -246,77 +246,89 @@ impl PyPoint {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let point_coords = build_geo_coords(value, Some(1))?;
+
         Ok(Self {
-            inner: build_point(value)?,
+            inner: Point::from(point_coords[0]),
         })
     }
 }
 
-// #[pymethods]
-// impl PyBox {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+#[pymethods]
+impl PyBox {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let box_coords = build_geo_coords(value, Some(2))?;
 
-// #[pymethods]
-// impl PyPath {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+        Ok(Self {
+            inner: Rect::new(box_coords[0], box_coords[1]),
+        })
+    }
+}
 
-// #[pymethods]
-// impl PyLine {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+#[pymethods]
+impl PyPath {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let path_coords = build_geo_coords(value, None)?;
 
-// #[pymethods]
-// impl PyLineSegment {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+        Ok(Self {
+            inner: LineString::new(path_coords),
+        })
+    }
+}
 
-// #[pymethods]
-// impl PyPolygon {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_polygon(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+#[pymethods]
+impl PyLine {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let line_coords = build_geo_coords(value, Some(2))?;
 
-// #[pymethods]
-// impl PyCircle {
-//     #[new]
-//     #[allow(clippy::missing_errors_doc)]
-//     pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-//         Ok(Self {
-//             inner: build_serde_value(value)?,
-//         })
-//     }
-// }
+        Ok(Self {
+            inner: Line::new(line_coords[0], line_coords[1]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyLineSegment {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let line_segment_coords = build_geo_coords(value, Some(2))?;
+
+        Ok(Self {
+            inner: Line::new(line_segment_coords[0], line_segment_coords[1]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyPolygon {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_polygon(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let polygon_coords = build_geo_coords(value, None)?;
+
+        Ok(Self {
+            inner: Polygon::new(LineString::new(polygon_coords), vec![]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyCircle {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        Ok(Self {
+            inner: build_circle(value)?,
+        })
+    }
+}
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]

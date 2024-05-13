@@ -162,12 +162,12 @@ class PyBox:
         """Create new instance of PyBox.
 
         You need to pass any of this structures:
-        - sequence of two sequences,
+        - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
             each with pair of int/float numbers in every combination
-        - sequence of two pairs of int/float in every combination
+        - sequence(List, Tuple or Set) of two pairs of int/float in every combination
 
         ### Parameters:
-        - `value`: any valid sequence with two pairs
+        - `value`: any valid sequence(List, Tuple or Set) with two pairs
             of int/float numbers in every combination.
         """
 
@@ -184,8 +184,10 @@ class PyPath:
         """Create new instance of PyPath.
 
         You need to pass any of this structures:
-        - sequence of sequences, each with pair of int/float numbers in every combination
-        - sequence with pairs of int/float numbers in every combination
+        - sequence(List, Tuple or Set) of sequences(List, Tuple or Set),
+            each with pair of int/float numbers in every combination
+        - sequence(List, Tuple or Set) with pairs
+            of int/float numbers in every combination
 
         ### Parameters:
         - `value`: any valid structure with int/float numbers in every combination.
@@ -204,13 +206,13 @@ class PyLine:
         """Create new instance of PyLine.
 
         You need to pass any of this structures:
-        - sequence of three int/float numbers
-        - sequence of two sequences,
+        - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
             each with pair of int/float numbers in every combination
-        - sequence with two pairs of int/float numbers in every combination
+        - sequence(List, Tuple or Set) with two pairs
+            of int/float numbers in every combination
 
         ### Parameters:
-        - `value`: any valid structure with float numbers.
+        - `value`: any valid structure with int/float numbers.
         """
 
 class PyLineSegment:
@@ -226,9 +228,10 @@ class PyLineSegment:
         """Create new instance of PyLineSegment.
 
         You need to pass any of this structures:
-        - sequence of two sequences,
+        - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
             each with pair of int/float numbers in every combination
-        - sequence with two pairs of int/float numbers in every combination
+        - sequence(List, Tuple or Set) with two pairs
+            of int/float numbers in every combination
 
         ### Parameters:
         - `value`: any valid structure with int/float numbers in every combination.
@@ -247,9 +250,34 @@ class PyPolygon:
         """Create new instance of PyPolygon.
 
         You need to pass any of this structures:
-        - sequence of sequences, each with pair of int/float numbers in every combination
-        - sequence with pairs of int/float numbers in every combination
+        - sequence(List, Tuple or Set) of sequences(List, Tuple or Set),
+            each with pair of int/float numbers in every combination
+        - sequence(List, Tuple or Set) with pairs
+            of int/float numbers in every combination
 
         ### Parameters:
         - `value`: any valid structure with int/float numbers in every combination.
+        """
+
+class PyCircle:
+    """Represent line field in PostgreSQL and Line in Rust."""
+
+    def __init__(
+        self: Self,
+        value: typing.Union[
+            typing.Union[list[Coordinates], set[Coordinates], tuple[Coordinates]],
+            Coordinates,
+        ],
+    ) -> None:
+        """Create new instance of PyLine.
+
+        You need to pass any of this structures:
+        - sequence of three int/float numbers
+        - sequence of two sequences,
+            each with pair of int/float numbers in every combination
+        - sequence(List, Tuple or Set) with two pairs
+            of int/float numbers in every combination
+
+        ### Parameters:
+        - `value`: any valid structure with int/float numbers.
         """

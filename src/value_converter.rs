@@ -1,5 +1,6 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use geo_types::{point, Point};
+use geo_types::{coord, Coord};
+use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind};
 use serde_json::{json, Map, Value};
@@ -21,7 +22,7 @@ use tokio_postgres::{
 };
 
 use crate::{
-    additional_types::{RustMacAddr6, RustMacAddr8},
+    additional_types::{Circle, RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
         BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
@@ -842,50 +843,35 @@ pub fn build_python_from_serde_value(
     }
 }
 
-/// Convert python List, Tuple or Set into geo `Point`.
+/// Convert two python parameters(x and y) to Coord from `geo_type`.
+/// Also it checks that passed values is int or float.
 ///
 /// # Errors
+///
 /// May return error if cannot convert Python type into Rust one.
-#[allow(clippy::needless_pass_by_value)]
-pub fn build_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Point> {
+/// May return error if parameters type isn`t correct.
+fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriverPyResult<Vec<f64>> {
     Python::with_gil(|gil| {
-        let bind_value = value.bind(gil);
-        if !bind_value.is_instance_of::<PyList>()
-            & !bind_value.is_instance_of::<PyTuple>()
-            & !bind_value.is_instance_of::<PySet>()
-        {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyPoint must have pair int/float values combination passed in tuple, list or set."
-                    .to_string(),
-            ));
-        }
+        let mut coord_values_vec: Vec<f64> = vec![];
 
-        let mut result_vec: Vec<f64> = vec![];
-        let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
+        for one_parameter in parameters {
+            let parameter_bind = one_parameter.bind(gil);
 
-        if params.len() != 2 {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyPoint supports only pair of int/float combination.".to_string(),
-            ));
-        }
-
-        for inner in params {
-            let inner_bind = inner.bind(gil);
-
-            if !inner_bind.is_instance_of::<PyFloat>() & !inner_bind.is_instance_of::<PyInt>() {
+            if !parameter_bind.is_instance_of::<PyFloat>()
+                & !parameter_bind.is_instance_of::<PyInt>()
+            {
                 return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "PyPoint supports only list/tuple/set pair of int/float combination."
-                        .to_string(),
+                    "Incorrect types of coordinate values. It must be int or float".into(),
                 ));
             }
 
-            let python_dto = py_to_rust(inner_bind)?;
+            let python_dto = py_to_rust(parameter_bind)?;
             match python_dto {
-                PythonDTO::PyIntI16(pyint) => result_vec.push(pyint.into()),
-                PythonDTO::PyIntI32(pyint) => result_vec.push(pyint.into()),
-                PythonDTO::PyIntU32(pyint) => result_vec.push(pyint.into()),
-                PythonDTO::PyFloat32(pyfloat) => result_vec.push(pyfloat.into()),
-                PythonDTO::PyFloat64(pyfloat) => result_vec.push(pyfloat),
+                PythonDTO::PyIntI16(pyint) => coord_values_vec.push(pyint.into()),
+                PythonDTO::PyIntI32(pyint) => coord_values_vec.push(pyint.into()),
+                PythonDTO::PyIntU32(pyint) => coord_values_vec.push(pyint.into()),
+                PythonDTO::PyFloat32(pyfloat) => coord_values_vec.push(pyfloat.into()),
+                PythonDTO::PyFloat64(pyfloat) => coord_values_vec.push(pyfloat),
                 PythonDTO::PyIntI64(_) | PythonDTO::PyIntU64(_) => {
                     return Err(RustPSQLDriverError::PyToRustValueConversionError(
                         "Not implemented this type yet".into(),
@@ -893,11 +879,153 @@ pub fn build_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Point> {
                 }
                 _ => {
                     return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "Incorrect types of point coordinates. It must be int or float".into(),
+                        "Incorrect types of coordinate values. It must be int or float".into(),
                     ))
                 }
             };
         }
-        Ok(point!(x: result_vec[0], y: result_vec[1]))
+
+        Ok::<Vec<f64>, RustPSQLDriverError>(coord_values_vec)
+    })
+}
+
+/// Convert Python values with coordinates into vector of Coord`s for building Geo types later.
+///
+/// Passed parameter can be either a list or a tuple or a set.
+/// Inside this parameter may be multiple list/tuple/set with int/float or only int/float values flat.
+/// We parse every parameter from python object and make from them Coord`s`.
+/// Additionally it checks for correct length of coordinates parsed from Python values.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if parsed number of coordinates is not expected by allowed length.
+#[allow(clippy::needless_pass_by_value)]
+pub fn build_geo_coords(
+    py_parameters: Py<PyAny>,
+    allowed_length: Option<usize>,
+) -> RustPSQLDriverPyResult<Vec<Coord>> {
+    let mut result_vec: Vec<Coord> = vec![];
+
+    result_vec = Python::with_gil(|gil| {
+        let bind_py_parameters = py_parameters.bind(gil);
+        if !bind_py_parameters.is_instance_of::<PyList>()
+            & !bind_py_parameters.is_instance_of::<PyTuple>()
+            & !bind_py_parameters.is_instance_of::<PySet>()
+        {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Coordinates for geo types must be passed in tuple, list or set.".into(),
+            ));
+        }
+
+        let parameters = bind_py_parameters
+            .extract::<Vec<Py<PyAny>>>()
+            .map_err(|_| {
+                RustPSQLDriverError::PyToRustValueConversionError(
+                    "Cannot convert parameters argument into Rust type, please use list/tuple/set"
+                        .into(),
+                )
+            })?;
+
+        let first_inner_bind_py_parameters = parameters[0].bind(gil);
+
+        if first_inner_bind_py_parameters.is_instance_of::<PyFloat>()
+            | first_inner_bind_py_parameters.is_instance_of::<PyInt>()
+        {
+            if parameters.len() % 2 != 0 {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Length of coordinates that passed in flat structure must be a multiple of 2"
+                        .into(),
+                ));
+            }
+
+            for (pair_first_inner, pair_second_inner) in parameters.into_iter().tuples() {
+                let coord_values =
+                    convert_py_to_rust_coord_values(vec![pair_first_inner, pair_second_inner])?;
+                result_vec.push(coord! {x: coord_values[0], y: coord_values[1]});
+            }
+        } else if first_inner_bind_py_parameters.is_instance_of::<PyList>()
+            | first_inner_bind_py_parameters.is_instance_of::<PyTuple>()
+            | first_inner_bind_py_parameters.is_instance_of::<PySet>()
+        {
+            for pair_inner_parameters in parameters {
+                let bind_pair_inner_parameters = pair_inner_parameters.bind(gil);
+                let pair_py_inner_parameters = bind_pair_inner_parameters.extract::<Vec<Py<PyAny>>>().map_err(|_| {
+                    RustPSQLDriverError::PyToRustValueConversionError(
+                        "Cannot convert inner paired parameters argument into Rust type, please use list/tuple/set".into(),
+                    )
+                })?;
+
+                if pair_py_inner_parameters.len() != 2 {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "Inner parameters must be pair(list/tuple/set) of int/float values".into(),
+                    ));
+                }
+
+                let coord_values = convert_py_to_rust_coord_values(pair_py_inner_parameters)?;
+                result_vec.push(coord! {x: coord_values[0], y: coord_values[1]});
+            }
+        } else {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Inner coordinates must be passed as pairs of int/float in list/tuple/set or as flat structure with int/float values".into(),
+            ));
+        };
+        Ok::<Vec<Coord>, RustPSQLDriverError>(result_vec)
+    })?;
+
+    if allowed_length.is_some() & (result_vec.len() == allowed_length.unwrap_or_default()) {
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Invalid number of coordinates for this geo type, allowed {allowed_length:?}"
+        )));
+    }
+
+    Ok(result_vec)
+}
+
+/// Convert Python values with coordinates and radius into rust Circle.
+///
+/// Passed parameter can be either a list or a tuple or a set with three elements(x, y, r).
+/// We parse every parameter from python object and prepare them for Circle.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if passed invalid number of values.
+#[allow(clippy::needless_pass_by_value)]
+pub fn build_circle(py_parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Circle> {
+    Python::with_gil(|gil| {
+        let bind_py_parameters = py_parameters.bind(gil);
+        if !bind_py_parameters.is_instance_of::<PyList>()
+            & !bind_py_parameters.is_instance_of::<PyTuple>()
+            & !bind_py_parameters.is_instance_of::<PySet>()
+        {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Circle values must be passed in tuple, list or set.".into(),
+            ));
+        }
+
+        let parameters = bind_py_parameters
+            .extract::<Vec<Py<PyAny>>>()
+            .map_err(|_| {
+                RustPSQLDriverError::PyToRustValueConversionError(
+                    "Cannot convert parameters argument into Rust type, please use list/tuple/set"
+                        .into(),
+                )
+            })?;
+
+        if parameters.len() != 3 {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Invalid number of values for Circle, allowed 3 in order (x, y, r)".into(),
+            ));
+        }
+
+        let coord_and_radius_values = convert_py_to_rust_coord_values(parameters)?;
+        let circle = Circle::new(
+            coord_and_radius_values[0],
+            coord_and_radius_values[1],
+            coord_and_radius_values[2],
+        );
+
+        Ok::<Circle, RustPSQLDriverError>(circle)
     })
 }

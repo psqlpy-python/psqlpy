@@ -2,6 +2,7 @@ from ._internal.extra_types import (
     BigInt,
     Integer,
     PyBox,
+    PyCircle,
     PyCustomType,
     PyJSON,
     PyJSONB,
@@ -36,4 +37,5 @@ __all__ = [
     "PyLine",
     "PyLineSegment",
     "PyPolygon",
+    "PyCircle",
 ]
