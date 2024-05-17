@@ -1,7 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt};
+use bytes::{BufMut, BytesMut};
 use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Polygon};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
+use postgres_protocol::types;
+use postgres_types::{to_sql_checked, IsNull, ToSql};
 use tokio_postgres::types::{FromSql, Type};
 
 macro_rules! build_additional_rust_type {
@@ -67,11 +70,34 @@ impl<'a> FromSql<'a> for RustMacAddr8 {
 build_additional_rust_type!(RustLine, Line);
 build_additional_rust_type!(RustPolygon, Polygon);
 
+impl ToSql for RustLine {
+    fn to_sql(
+        &self,
+        _: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        types::box_to_sql(
+            self.inner.start.x,
+            self.inner.start.y,
+            self.inner.end.x,
+            self.inner.end.y,
+            out,
+        );
+        Ok(IsNull::No)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
 impl<'a> FromSql<'a> for RustLine {
     fn from_sql(
         _ty: &Type,
         raw: &'a [u8],
-    ) -> Result<RustLine, Box<dyn std::error::Error + Sync + Send>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() != 4 {
             return Err("Cannot convert PostgreSQL LINE into rust Line".into());
         }
@@ -97,11 +123,38 @@ impl<'a> FromSql<'a> for RustLine {
     }
 }
 
+impl ToSql for RustPolygon {
+    fn to_sql(
+        &self,
+        _: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        for (x, y) in self
+            .inner
+            .exterior()
+            .0
+            .iter()
+            .map(|coordinate| (coordinate.x, coordinate.y))
+        {
+            out.put_f64(x);
+            out.put_f64(y);
+        }
+
+        Ok(IsNull::No)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
 impl<'a> FromSql<'a> for RustPolygon {
     fn from_sql(
         _ty: &Type,
         raw: &'a [u8],
-    ) -> Result<RustPolygon, Box<dyn std::error::Error + Sync + Send>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() % 2 != 0 {
             return Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into());
         }
@@ -188,11 +241,31 @@ impl<T: CoordFloat> Circle<T> {
     }
 }
 
+impl ToSql for Circle {
+    fn to_sql(
+        &self,
+        _: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        out.put_f64(self.center.x);
+        out.put_f64(self.center.y);
+        out.put_f64(self.radius);
+
+        Ok(IsNull::No)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
 impl<'a> FromSql<'a> for Circle {
     fn from_sql(
         _ty: &Type,
         raw: &'a [u8],
-    ) -> Result<Circle, Box<dyn std::error::Error + Sync + Send>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         if raw.len() != 3 {
             return Err("Cannot convert PostgreSQL CIRCLE into rust Circle".into());
         }
