@@ -1,5 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use geo_types::{coord, Coord};
+use geo_types::{coord, Coord, Line, LineString, Point, Polygon, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind};
@@ -22,11 +22,11 @@ use tokio_postgres::{
 };
 
 use crate::{
-    additional_types::{Circle, RustMacAddr6, RustMacAddr8},
+    additional_types::{Circle, RustLine, RustMacAddr6, RustMacAddr8, RustPolygon},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
-        PyVarChar, SmallInt,
+        BigInt, Integer, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB, PyLine, PyLineSegment,
+        PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyPolygon, PyText, PyUUID, PyVarChar, SmallInt,
     },
 };
 
@@ -65,6 +65,13 @@ pub enum PythonDTO {
     PyMacAddr6(MacAddr6),
     PyMacAddr8(MacAddr8),
     PyCustomType(Vec<u8>),
+    PyPoint(Point),
+    PyBox(Rect),
+    PyPath(LineString),
+    PyLine(Line),
+    PyLineSegment(Line),
+    PyPolygon(Polygon),
+    PyCircle(Circle),
 }
 
 impl PythonDTO {
@@ -100,6 +107,13 @@ impl PythonDTO {
             PythonDTO::PyDateTimeTz(_) => Ok(tokio_postgres::types::Type::TIMESTAMPTZ_ARRAY),
             PythonDTO::PyMacAddr6(_) => Ok(tokio_postgres::types::Type::MACADDR_ARRAY),
             PythonDTO::PyMacAddr8(_) => Ok(tokio_postgres::types::Type::MACADDR8_ARRAY),
+            PythonDTO::PyPoint(_) => Ok(tokio_postgres::types::Type::POINT_ARRAY),
+            PythonDTO::PyBox(_) => Ok(tokio_postgres::types::Type::BOX_ARRAY),
+            PythonDTO::PyPath(_) => Ok(tokio_postgres::types::Type::PATH_ARRAY),
+            PythonDTO::PyLine(_) => Ok(tokio_postgres::types::Type::LINE_ARRAY),
+            PythonDTO::PyLineSegment(_) => Ok(tokio_postgres::types::Type::LSEG_ARRAY),
+            PythonDTO::PyPolygon(_) => Ok(tokio_postgres::types::Type::POLYGON_ARRAY),
+            PythonDTO::PyCircle(_) => Ok(tokio_postgres::types::Type::CIRCLE_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -223,6 +237,27 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyMacAddr8(pymacaddr) => {
                 <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
+            }
+            PythonDTO::PyPoint(pypoint) => {
+                <&Point as ToSql>::to_sql(&pypoint, ty, out)?;
+            }
+            PythonDTO::PyBox(pybox) => {
+                <&Rect as ToSql>::to_sql(&pybox, ty, out)?;
+            }
+            PythonDTO::PyPath(pypath) => {
+                <&LineString as ToSql>::to_sql(&pypath, ty, out)?;
+            }
+            PythonDTO::PyLine(pyline) => {
+                <&RustLine as ToSql>::to_sql(&&RustLine::new(*pyline), ty, out)?;
+            }
+            PythonDTO::PyLineSegment(pylinesegment) => {
+                <&RustLine as ToSql>::to_sql(&&RustLine::new(*pylinesegment), ty, out)?;
+            }
+            PythonDTO::PyPolygon(pypolygon) => {
+                <&RustPolygon as ToSql>::to_sql(&&RustPolygon::new(pypolygon.clone()), ty, out)?;
+            }
+            PythonDTO::PyCircle(pycircle) => {
+                <&Circle as ToSql>::to_sql(&pycircle, ty, out)?;
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
@@ -431,6 +466,48 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         ));
     }
 
+    if parameter.is_instance_of::<PyPoint>() {
+        return Ok(PythonDTO::PyPoint(
+            parameter.extract::<PyPoint>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyBox>() {
+        return Ok(PythonDTO::PyBox(
+            parameter.extract::<PyBox>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyPath>() {
+        return Ok(PythonDTO::PyPath(
+            parameter.extract::<PyPath>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyLine>() {
+        return Ok(PythonDTO::PyLine(
+            parameter.extract::<PyLine>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyLineSegment>() {
+        return Ok(PythonDTO::PyLineSegment(
+            parameter.extract::<PyLineSegment>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyPolygon>() {
+        return Ok(PythonDTO::PyPolygon(
+            parameter.extract::<PyPolygon>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyCircle>() {
+        return Ok(PythonDTO::PyCircle(
+            parameter.extract::<PyCircle>()?.retrieve_value(),
+        ));
+    }
+
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
         return Ok(PythonDTO::PyIpAddress(id_address));
     }
@@ -571,6 +648,70 @@ fn postgres_bytes_to_py(
                 Ok(py.None().to_object(py))
             }
         }
+        // ---------- Geo Types ----------
+        // Type::POINT => {
+        //     let point_ =
+        //         _composite_field_postgres_to_py::<Option<Point>>(type_, buf, is_simple)?;
+        //     if let Some(point_) = point_ {
+        //         Ok(point_.to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::BOX => {
+        //     let box_ =
+        //         _composite_field_postgres_to_py::<Option<Rect>>(type_, buf, is_simple)?;
+        //     if let Some(box_) = box_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::PATH => {
+        //     let path_ =
+        //         _composite_field_postgres_to_py::<Option<LineString>>(type_, buf, is_simple)?;
+        //     if let Some(path_) = path_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::LINE => {
+        //     let line_ =
+        //         _composite_field_postgres_to_py::<Option<RustLine>>(type_, buf, is_simple)?;
+        //     if let Some(line_) = line_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::LSEG => {
+        //     let line_string_ =
+        //         _composite_field_postgres_to_py::<Option<RustLine>>(type_, buf, is_simple)?;
+        //     if let Some(line_string_) = line_string_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::POLYGON => {
+        //     let polygon_ =
+        //         _composite_field_postgres_to_py::<Option<RustPolygon>>(type_, buf, is_simple)?;
+        //     if let Some(polygon_) = polygon_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
+        // Type::CIRCLE => {
+        //     let circle_ =
+        //         _composite_field_postgres_to_py::<Option<Circle>>(type_, buf, is_simple)?;
+        //     if let Some(circle_) = circle_ {
+        //         Ok(macaddr_.inner().to_string().to_object(py))
+        //     } else {
+        //         Ok(py.None().to_object(py))
+        //     }
+        // }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
             type_, buf, is_simple,

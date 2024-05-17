@@ -226,8 +226,8 @@ macro_rules! build_geo_type {
 
         impl $st_name {
             #[must_use]
-            pub fn retrieve_value(&self) -> &$rust_type {
-                &self.inner
+            pub fn retrieve_value(&self) -> $rust_type {
+                self.inner.clone()
             }
         }
     };
