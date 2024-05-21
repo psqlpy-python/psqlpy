@@ -14,7 +14,7 @@ use pyo3::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
         PyList, PyListMethods, PySet, PyString, PyTime, PyTuple,
     },
-    Bound, Py, PyAny, Python, ToPyObject,
+    Bound, IntoPy, Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, ToSql, Type},
@@ -22,7 +22,10 @@ use tokio_postgres::{
 };
 
 use crate::{
-    additional_types::{Circle, RustLine, RustMacAddr6, RustMacAddr8, RustPolygon},
+    additional_types::{
+        Circle, RustLine, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint, RustPolygon,
+        RustRect,
+    },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
         BigInt, Integer, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB, PyLine, PyLineSegment,
@@ -239,13 +242,13 @@ impl ToSql for PythonDTO {
                 <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
             }
             PythonDTO::PyPoint(pypoint) => {
-                <&Point as ToSql>::to_sql(&pypoint, ty, out)?;
+                <&RustPoint as ToSql>::to_sql(&&RustPoint::new(*pypoint), ty, out)?;
             }
             PythonDTO::PyBox(pybox) => {
-                <&Rect as ToSql>::to_sql(&pybox, ty, out)?;
+                <&RustRect as ToSql>::to_sql(&&RustRect::new(*pybox), ty, out)?;
             }
             PythonDTO::PyPath(pypath) => {
-                <&LineString as ToSql>::to_sql(&pypath, ty, out)?;
+                <&RustLineString as ToSql>::to_sql(&&RustLineString::new(pypath.clone()), ty, out)?;
             }
             PythonDTO::PyLine(pyline) => {
                 <&RustLine as ToSql>::to_sql(&&RustLine::new(*pyline), ty, out)?;
@@ -649,69 +652,54 @@ fn postgres_bytes_to_py(
             }
         }
         // ---------- Geo Types ----------
-        // Type::POINT => {
-        //     let point_ =
-        //         _composite_field_postgres_to_py::<Option<Point>>(type_, buf, is_simple)?;
-        //     if let Some(point_) = point_ {
-        //         Ok(point_.to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::BOX => {
-        //     let box_ =
-        //         _composite_field_postgres_to_py::<Option<Rect>>(type_, buf, is_simple)?;
-        //     if let Some(box_) = box_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::PATH => {
-        //     let path_ =
-        //         _composite_field_postgres_to_py::<Option<LineString>>(type_, buf, is_simple)?;
-        //     if let Some(path_) = path_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::LINE => {
-        //     let line_ =
-        //         _composite_field_postgres_to_py::<Option<RustLine>>(type_, buf, is_simple)?;
-        //     if let Some(line_) = line_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::LSEG => {
-        //     let line_string_ =
-        //         _composite_field_postgres_to_py::<Option<RustLine>>(type_, buf, is_simple)?;
-        //     if let Some(line_string_) = line_string_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::POLYGON => {
-        //     let polygon_ =
-        //         _composite_field_postgres_to_py::<Option<RustPolygon>>(type_, buf, is_simple)?;
-        //     if let Some(polygon_) = polygon_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
-        // Type::CIRCLE => {
-        //     let circle_ =
-        //         _composite_field_postgres_to_py::<Option<Circle>>(type_, buf, is_simple)?;
-        //     if let Some(circle_) = circle_ {
-        //         Ok(macaddr_.inner().to_string().to_object(py))
-        //     } else {
-        //         Ok(py.None().to_object(py))
-        //     }
-        // }
+        Type::POINT => {
+            let point_ = _composite_field_postgres_to_py::<Option<RustPoint>>(type_, buf, is_simple)?;
+
+            match point_ {
+                Some(point_) => Ok(point_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::BOX => {
+            let box_ = _composite_field_postgres_to_py::<Option<RustRect>>(type_, buf, is_simple)?;
+
+            match box_ {
+                Some(box_) => Ok(box_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::PATH => {
+            let path_ = _composite_field_postgres_to_py::<Option<RustLineString>>(type_, buf, is_simple)?;
+
+            match path_ {
+                Some(path_) => Ok(path_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::LINE | Type::LSEG => {
+            let line_ = _composite_field_postgres_to_py::<Option<RustLine>>(type_, buf, is_simple)?;
+
+            match line_ {
+                Some(line_) => Ok(line_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::POLYGON => {
+            let polygon_ = _composite_field_postgres_to_py::<Option<RustPolygon>>(type_, buf, is_simple)?;
+
+            match polygon_ {
+                Some(polygon_) => Ok(polygon_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::CIRCLE => {
+            let circle_ = _composite_field_postgres_to_py::<Option<Circle>>(type_, buf, is_simple)?;
+
+            match circle_ {
+                Some(circle_) => Ok(circle_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
             type_, buf, is_simple,
@@ -990,7 +978,7 @@ pub fn build_python_from_serde_value(
 /// # Errors
 ///
 /// May return error if cannot convert Python type into Rust one.
-/// May return error if parameters type isn`t correct.
+/// May return error if parameters type isn't correct.
 fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriverPyResult<Vec<f64>> {
     Python::with_gil(|gil| {
         let mut coord_values_vec: Vec<f64> = vec![];
@@ -1030,11 +1018,11 @@ fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriver
     })
 }
 
-/// Convert Python values with coordinates into vector of Coord`s for building Geo types later.
+/// Convert Python values with coordinates into vector of Coord's for building Geo types later.
 ///
 /// Passed parameter can be either a list or a tuple or a set.
 /// Inside this parameter may be multiple list/tuple/set with int/float or only int/float values flat.
-/// We parse every parameter from python object and make from them Coord`s`.
+/// We parse every parameter from python object and make from them Coord's.
 /// Additionally it checks for correct length of coordinates parsed from Python values.
 ///
 /// # Errors

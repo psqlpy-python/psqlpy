@@ -1,10 +1,14 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, BytesMut};
-use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Polygon};
+use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Point, Polygon, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_protocol::types;
 use postgres_types::{to_sql_checked, IsNull, ToSql};
+use pyo3::{
+    types::{PyList, PyTuple},
+    IntoPy, Py, PyAny, PyObject, Python,
+};
 use tokio_postgres::types::{FromSql, Type};
 
 macro_rules! build_additional_rust_type {
@@ -67,8 +71,173 @@ impl<'a> FromSql<'a> for RustMacAddr8 {
     }
 }
 
+build_additional_rust_type!(RustPoint, Point);
+build_additional_rust_type!(RustRect, Rect);
+build_additional_rust_type!(RustLineString, LineString);
 build_additional_rust_type!(RustLine, Line);
 build_additional_rust_type!(RustPolygon, Polygon);
+
+impl<'a> IntoPy<PyObject> for &'a RustPoint {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let inner_value = self.inner();
+        return PyTuple::new_bound(
+            py,
+            vec![inner_value.x().into_py(py), inner_value.y().into_py(py)],
+        )
+        .into();
+    }
+}
+
+impl ToSql for RustPoint {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        let inner_value = self.inner();
+        Point::to_sql(inner_value, ty, out)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> FromSql<'a> for RustPoint {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let point = Point::from_sql(ty, raw)?;
+        Ok(RustPoint::new(point))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a RustRect {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Py<PyAny>> = vec![];
+        let coordinates = vec![inner_value.max(), inner_value.min()];
+        for one_coordinate in coordinates {
+            result_vec.push(
+                PyTuple::new_bound(
+                    py,
+                    vec![one_coordinate.x.into_py(py), one_coordinate.y.into_py(py)],
+                )
+                .into(),
+            );
+        }
+        return PyTuple::new_bound(py, result_vec).into();
+    }
+}
+
+impl ToSql for RustRect {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        let inner_value = self.inner();
+        Rect::to_sql(inner_value, ty, out)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> FromSql<'a> for RustRect {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let rect = Rect::from_sql(ty, raw)?;
+        Ok(RustRect::new(rect))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a RustLineString {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Py<PyAny>> = vec![];
+        for coordinate in inner_value {
+            result_vec.push(
+                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
+                    .into(),
+            );
+        }
+
+        if inner_value.is_closed() {
+            return PyList::new_bound(py, result_vec).into();
+        }
+        return PyTuple::new_bound(py, result_vec).into();
+    }
+}
+
+impl ToSql for RustLineString {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        let inner_value = self.inner();
+        LineString::to_sql(inner_value, ty, out)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> FromSql<'a> for RustLineString {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let line_string = LineString::from_sql(ty, raw)?;
+        Ok(RustLineString::new(line_string))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a RustLine {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Py<PyAny>> = vec![];
+        for coordinate in [inner_value.start, inner_value.end] {
+            result_vec.push(
+                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
+                    .into(),
+            );
+        }
+
+        return PyList::new_bound(py, result_vec).into();
+    }
+}
 
 impl ToSql for RustLine {
     fn to_sql(
@@ -120,6 +289,23 @@ impl<'a> FromSql<'a> for RustLine {
 
     fn accepts(_ty: &Type) -> bool {
         true
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a RustPolygon {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Py<PyAny>> = vec![];
+        for coordinate in inner_value.exterior() {
+            result_vec.push(
+                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
+                    .into(),
+            );
+        }
+
+        return PyTuple::new_bound(py, result_vec).into();
     }
 }
 
@@ -238,6 +424,20 @@ impl<T: CoordFloat> Circle<T> {
 
     pub fn intersects(self, other: &Self) -> bool {
         self.distance_from_center_to(&other.center) <= self.radius + other.radius
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a Circle {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let center = self.center();
+
+        let result_vec: Vec<Py<PyAny>> = vec![
+            PyTuple::new_bound(py, vec![center.x.into_py(py), center.y.into_py(py)]).into(),
+            self.radius().into_py(py),
+        ];
+
+        return PyTuple::new_bound(py, result_vec).into();
     }
 }
 
