@@ -185,9 +185,9 @@ impl<'a> IntoPy<PyObject> for &'a RustLineString {
         }
 
         if inner_value.is_closed() {
-            return PyList::new_bound(py, result_vec).into();
+            return PyTuple::new_bound(py, result_vec).into();
         }
-        return PyTuple::new_bound(py, result_vec).into();
+        return PyList::new_bound(py, result_vec).into();
     }
 }
 
