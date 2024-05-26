@@ -10,8 +10,7 @@ from ._internal.exceptions import (
     CursorCloseError,
     CursorFetchError,
     CursorStartError,
-    DBPoolConfigurationError,
-    MacAddr6ConversionError,
+    MacAddrConversionError,
     PyToRustValueMappingError,
     RustPSQLDriverPyBaseError,
     RustToPyValueMappingError,
@@ -43,7 +42,6 @@ __all__ = [
     "RustPSQLDriverPyBaseError",
     "RustToPyValueMappingError",
     "PyToRustValueMappingError",
-    "DBPoolConfigurationError",
     "UUIDValueConvertError",
-    "MacAddr6ConversionError",
+    "MacAddrConversionError",
 ]

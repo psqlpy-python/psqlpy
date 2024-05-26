@@ -9,7 +9,10 @@ from psqlpy import (
     TargetSessionAttrs,
     connect,
 )
-from psqlpy.exceptions import DBPoolConfigurationError, RustPSQLDriverPyBaseError
+from psqlpy.exceptions import (
+    ConnectionPoolConfigurationError,
+    RustPSQLDriverPyBaseError,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -94,22 +97,22 @@ async def test_pool_conn_recycling_method(
 
 
 async def test_build_pool_failure() -> None:
-    with pytest.raises(expected_exception=DBPoolConfigurationError):
+    with pytest.raises(expected_exception=ConnectionPoolConfigurationError):
         ConnectionPool(
             dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
             connect_timeout_nanosec=12,
         )
-    with pytest.raises(expected_exception=DBPoolConfigurationError):
+    with pytest.raises(expected_exception=ConnectionPoolConfigurationError):
         ConnectionPool(
             dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
             connect_timeout_nanosec=12,
         )
-    with pytest.raises(expected_exception=DBPoolConfigurationError):
+    with pytest.raises(expected_exception=ConnectionPoolConfigurationError):
         ConnectionPool(
             dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
             keepalives_idle_nanosec=12,
         )
-    with pytest.raises(expected_exception=DBPoolConfigurationError):
+    with pytest.raises(expected_exception=ConnectionPoolConfigurationError):
         ConnectionPool(
             dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
             keepalives_interval_nanosec=12,

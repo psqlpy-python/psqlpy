@@ -105,11 +105,6 @@ create_exception!(
     PyToRustValueMappingError,
     RustPSQLDriverPyBaseError
 );
-create_exception!(
-    psqlpy.exceptions,
-    DBPoolConfigurationError,
-    RustPSQLDriverPyBaseError
-);
 
 create_exception!(
     psqlpy.exceptions,
@@ -120,12 +115,6 @@ create_exception!(
 create_exception!(
     psqlpy.exceptions,
     MacAddrConversionError,
-    RustPSQLDriverPyBaseError
-);
-
-create_exception!(
-    psqlpy.exceptions,
-    RustRuntimeJoinError,
     RustPSQLDriverPyBaseError
 );
 
@@ -201,19 +190,11 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
         py.get_type_bound::<PyToRustValueMappingError>(),
     )?;
     pymod.add(
-        "DBPoolConfigurationError",
-        py.get_type_bound::<DBPoolConfigurationError>(),
-    )?;
-    pymod.add(
         "UUIDValueConvertError",
         py.get_type_bound::<UUIDValueConvertError>(),
     )?;
     pymod.add(
-        "MacAddr6ConversionError",
-        py.get_type_bound::<MacAddrConversionError>(),
-    )?;
-    pymod.add(
-        "RustRuntimeJoinError",
+        "MacAddrConversionError",
         py.get_type_bound::<MacAddrConversionError>(),
     )?;
     Ok(())
