@@ -2,7 +2,7 @@ use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
 use std::vec;
-use tokio_postgres::{NoTls, Row};
+use tokio_postgres::NoTls;
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -51,7 +51,7 @@ pub fn connect(
 ) -> RustPSQLDriverPyResult<ConnectionPool> {
     if let Some(max_db_pool_size) = max_db_pool_size {
         if max_db_pool_size < 2 {
-            return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+            return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
                 "Maximum database pool size must be more than 1".into(),
             ));
         }
@@ -195,35 +195,39 @@ impl ConnectionPool {
         let result = if prepared {
             tokio_runtime()
                 .spawn(async move {
-                    Ok::<Vec<Row>, RustPSQLDriverError>(
-                        db_pool_manager
-                            .query(
-                                &db_pool_manager.prepare_cached(&querystring).await?,
-                                &params
-                                    .iter()
-                                    .map(|param| param as &QueryParameter)
-                                    .collect::<Vec<&QueryParameter>>()
-                                    .into_boxed_slice(),
-                            )
-                            .await?,
-                    )
+                    db_pool_manager
+                        .query(
+                            &db_pool_manager.prepare_cached(&querystring).await?,
+                            &params
+                                .iter()
+                                .map(|param| param as &QueryParameter)
+                                .collect::<Vec<&QueryParameter>>(),
+                        )
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot execute statement from ConnectionPool, error - {err}"
+                            ))
+                        })
                 })
                 .await??
         } else {
             tokio_runtime()
                 .spawn(async move {
-                    Ok::<Vec<Row>, RustPSQLDriverError>(
-                        db_pool_manager
-                            .query(
-                                &querystring,
-                                &params
-                                    .iter()
-                                    .map(|param| param as &QueryParameter)
-                                    .collect::<Vec<&QueryParameter>>()
-                                    .into_boxed_slice(),
-                            )
-                            .await?,
-                    )
+                    db_pool_manager
+                        .query(
+                            &querystring,
+                            &params
+                                .iter()
+                                .map(|param| param as &QueryParameter)
+                                .collect::<Vec<&QueryParameter>>(),
+                        )
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot execute statement from ConnectionPool, error - {err}"
+                            ))
+                        })
                 })
                 .await??
         };
@@ -259,35 +263,39 @@ impl ConnectionPool {
         let result = if prepared {
             tokio_runtime()
                 .spawn(async move {
-                    Ok::<Vec<Row>, RustPSQLDriverError>(
-                        db_pool_manager
-                            .query(
-                                &db_pool_manager.prepare_cached(&querystring).await?,
-                                &params
-                                    .iter()
-                                    .map(|param| param as &QueryParameter)
-                                    .collect::<Vec<&QueryParameter>>()
-                                    .into_boxed_slice(),
-                            )
-                            .await?,
-                    )
+                    db_pool_manager
+                        .query(
+                            &db_pool_manager.prepare_cached(&querystring).await?,
+                            &params
+                                .iter()
+                                .map(|param| param as &QueryParameter)
+                                .collect::<Vec<&QueryParameter>>(),
+                        )
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot execute statement from ConnectionPool, error - {err}"
+                            ))
+                        })
                 })
                 .await??
         } else {
             tokio_runtime()
                 .spawn(async move {
-                    Ok::<Vec<Row>, RustPSQLDriverError>(
-                        db_pool_manager
-                            .query(
-                                &querystring,
-                                &params
-                                    .iter()
-                                    .map(|param| param as &QueryParameter)
-                                    .collect::<Vec<&QueryParameter>>()
-                                    .into_boxed_slice(),
-                            )
-                            .await?,
-                    )
+                    db_pool_manager
+                        .query(
+                            &querystring,
+                            &params
+                                .iter()
+                                .map(|param| param as &QueryParameter)
+                                .collect::<Vec<&QueryParameter>>(),
+                        )
+                        .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot execute statement from ConnectionPool, error - {err}"
+                            ))
+                        })
                 })
                 .await??
         };

@@ -53,7 +53,10 @@ impl CursorObjectTrait for Object {
         cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
 
         self.psqlpy_query(cursor_init_query, parameters.clone(), *prepared)
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorStartError(format!("Cannot start cursor, error - {err}"))
+            })?;
 
         Ok(())
     }
@@ -66,7 +69,7 @@ impl CursorObjectTrait for Object {
     /// May return Err Result if cannot execute querystring.
     async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()> {
         if *closed {
-            return Err(RustPSQLDriverError::DataBaseCursorError(
+            return Err(RustPSQLDriverError::CursorCloseError(
                 "Cursor is already closed".into(),
             ));
         }
@@ -173,9 +176,16 @@ impl Cursor {
                 )
             });
 
-        db_transaction.cursor_close(&closed, &cursor_name).await?;
+        db_transaction
+            .cursor_close(&closed, &cursor_name)
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorCloseError(format!(
+                    "Cannot close the cursor, error - {err}"
+                ))
+            })?;
         if !is_exception_none {
-            return Err(RustPSQLDriverError::PyError(py_err));
+            return Err(RustPSQLDriverError::RustPyError(py_err));
         }
         Ok(())
     }
@@ -286,7 +296,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -304,7 +319,12 @@ impl Cursor {
 
         let result = db_transaction
             .psqlpy_query(format!("FETCH NEXT FROM {cursor_name}"), None, Some(false))
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -322,7 +342,12 @@ impl Cursor {
 
         let result = db_transaction
             .psqlpy_query(format!("FETCH PRIOR FROM {cursor_name}"), None, Some(false))
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -340,7 +365,12 @@ impl Cursor {
 
         let result = db_transaction
             .psqlpy_query(format!("FETCH FIRST FROM {cursor_name}"), None, Some(false))
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -358,7 +388,12 @@ impl Cursor {
 
         let result = db_transaction
             .psqlpy_query(format!("FETCH LAST FROM {cursor_name}"), None, Some(false))
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -383,7 +418,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -408,7 +448,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -432,7 +477,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -457,7 +507,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 
@@ -481,7 +536,12 @@ impl Cursor {
                 None,
                 Some(false),
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorFetchError(format!(
+                    "Cannot fetch data from cursor, error - {err}"
+                ))
+            })?;
         Ok(result)
     }
 }

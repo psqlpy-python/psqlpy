@@ -34,25 +34,25 @@ pub fn build_connection_config(
     load_balance_hosts: Option<LoadBalanceHosts>,
 ) -> RustPSQLDriverPyResult<tokio_postgres::Config> {
     if tcp_user_timeout_nanosec.is_some() && tcp_user_timeout_sec.is_none() {
-        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+        return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
             "tcp_user_timeout_nanosec must be used with tcp_user_timeout_sec param.".into(),
         ));
     }
 
     if connect_timeout_nanosec.is_some() && connect_timeout_sec.is_none() {
-        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+        return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
             "connect_timeout_nanosec must be used with connect_timeout_sec param.".into(),
         ));
     }
 
     if keepalives_idle_nanosec.is_some() && keepalives_idle_sec.is_none() {
-        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+        return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
             "keepalives_idle_nanosec must be used with keepalives_idle_sec param.".into(),
         ));
     }
 
     if keepalives_interval_nanosec.is_some() && keepalives_interval_sec.is_none() {
-        return Err(RustPSQLDriverError::DataBasePoolConfigurationError(
+        return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
             "keepalives_interval_nanosec must be used with keepalives_interval_sec param.".into(),
         ));
     }
@@ -60,7 +60,11 @@ pub fn build_connection_config(
     let mut pg_config: tokio_postgres::Config;
 
     if let Some(dsn_string) = dsn {
-        pg_config = tokio_postgres::Config::from_str(&dsn_string)?;
+        pg_config = tokio_postgres::Config::from_str(&dsn_string).map_err(|err| {
+            RustPSQLDriverError::ConnectionPoolBuildError(format!(
+                "Cannot parse configuration from dsn string, error - {err}"
+            ))
+        })?;
     } else {
         pg_config = tokio_postgres::Config::new();
 
