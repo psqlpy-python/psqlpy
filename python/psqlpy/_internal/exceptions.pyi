@@ -52,8 +52,8 @@ class CursorFetchError(BaseCursorError):
 class UUIDValueConvertError(RustPSQLDriverPyBaseError):
     """Error if it's impossible to convert py string UUID into rust UUID."""
 
-class MacAddr6ConversionError(RustPSQLDriverPyBaseError):
-    """Error if cannot convert MacAddr6 string value to rust type."""
+class MacAddrConversionError(RustPSQLDriverPyBaseError):
+    """Error if cannot convert MacAddr string value to rust type."""
 
 class RustToPyValueMappingError(RustPSQLDriverPyBaseError):
     """Error if it is not possible to covert rust type to python.

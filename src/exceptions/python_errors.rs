@@ -194,7 +194,7 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
         py.get_type_bound::<UUIDValueConvertError>(),
     )?;
     pymod.add(
-        "MacAddr6ConversionError",
+        "MacAddrConversionError",
         py.get_type_bound::<MacAddrConversionError>(),
     )?;
     Ok(())
