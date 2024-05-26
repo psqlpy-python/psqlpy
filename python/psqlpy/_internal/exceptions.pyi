@@ -13,9 +13,6 @@ class ConnectionPoolConfigurationError(BaseConnectionPoolError):
 class ConnectionPoolExecuteError(BaseConnectionPoolError):
     """Error in connection pool execution."""
 
-class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
-    """Error if configuration of the database pool is unacceptable."""
-
 class BaseConnectionError(RustPSQLDriverPyBaseError):
     """Base error for Connection errors."""
 
