@@ -171,6 +171,33 @@ class ConnRecyclingMethod(Enum):
     Verified = 2
     Clean = 3
 
+class SslMode(Enum):
+    """TLS configuration."""
+
+    # Do not use TLS.
+    Disable = 1
+    # Pay the overhead of encryption if the server insists on it.
+    Allow = 2
+    # Attempt to connect with TLS but allow sessions without.
+    Prefer = 3
+    # Require the use of TLS.
+    Require = 4
+    # I want my data encrypted,
+    # and I accept the overhead.
+    # I want to be sure that I connect to a server that I trust.
+    VerifyCa = 5
+    # I want my data encrypted,
+    # and I accept the overhead.
+    # I want to be sure that I connect to a server I trust,
+    # and that it's the one I specify.
+    VerifyFull = 6
+
+class KeepaliveConfig:
+    """Config for configuring keepalive."""
+
+    def __init__(self: Self, idle: int, interval: int, retries: int) -> None:
+        """Initialize new config."""
+
 class Cursor:
     """Represent opened cursor in a transaction.
 
