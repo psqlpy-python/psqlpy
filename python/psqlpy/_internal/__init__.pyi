@@ -1,6 +1,7 @@
 import types
 from enum import Enum
-from typing import Any, Callable, List, Optional, Sequence, TypeVar
+from ipaddress import IPv4Address, IPv6Address
+from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union
 
 from typing_extensions import Self
 
@@ -1200,3 +1201,279 @@ def connect(
     - `max_db_pool_size`: maximum size of the connection pool.
     - `conn_recycling_method`: how a connection is recycled.
     """
+
+class ConnectionPoolBuilder:
+    """Builder for `ConnectionPool`."""
+
+    def __init__(self: Self) -> None:
+        """Initialize new instance of `ConnectionPoolBuilder`."""
+    def build(self: Self) -> ConnectionPool:
+        """
+        Build `ConnectionPool`.
+
+        ### Returns:
+        `ConnectionPool`
+        """
+    def max_pool_size(self: Self, pool_size: int) -> Self:
+        """
+        Set maximum connection pool size.
+
+        ### Parameters:
+        - `pool_size`: size of the pool, must be more than 1.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def conn_recycling_method(
+        self: Self,
+        conn_recycling_method: ConnRecyclingMethod,
+    ) -> Self:
+        """
+        Set connection recycling method.
+
+        Connection recycling method is how a connection is recycled.
+
+        ### Parameters:
+        - `conn_recycling_method`: ConnRecyclingMethod enum.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def user(self: Self, user: str) -> Self:
+        """
+        Set username to `PostgreSQL`.
+
+        ### Parameters:
+        - `user`: username of the PostgreSQL user.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def password(self: Self, password: str) -> Self:
+        """
+        Set password for `PostgreSQL`.
+
+        ### Parameters:
+        - `password`: password for the `PostgreSQL` user.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def dbname(self: Self, dbname: str) -> Self:
+        """
+        Set database name for the `PostgreSQL`.
+
+        ### Parameters:
+        - `dbname`: database for the `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def options(self: Self, options: str) -> Self:
+        """
+        Set command line options used to configure the server.
+
+        ### Parameters:
+        - `options`: command line options
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def application_name(self: Self, application_name: str) -> Self:
+        """
+        Set the value of the `application_name` runtime parameter.
+
+        ### Parameters:
+        - `application_name`: `application_name` runtime parameter
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def ssl_mode(self: Self, ssl_mode: SslMode) -> Self:
+        """
+        Set the SSL configuration.
+
+        ### Parameters:
+        - `ssl_mode`: mode for TLS.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def host(self: Self, host: str) -> Self:
+        """
+        Add a host to the configuration.
+
+        Multiple hosts can be specified by calling this method multiple times,
+        and each will be tried in order.
+        On Unix systems, a host starting with a `/` is interpreted
+        as a path to a directory containing Unix domain sockets.
+        There must be either no hosts,
+        or the same number of hosts as hostaddrs.
+
+        ### Parameters:
+        - `host`: host to `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def hostaddr(self: Self, hostaddr: Union[IPv4Address, IPv6Address]) -> Self:
+        """
+        Add a hostaddr to the configuration.
+
+        Multiple hostaddrs can be specified by calling
+        this method multiple times, and each will be tried in order.
+        There must be either no hostaddrs,
+        or the same number of hostaddrs as hosts.
+
+        ### Parameters:
+        - `hostaddr`: hostaddr to `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def port(self: Self, port: int) -> Self:
+        """
+        Add a port to the configuration.
+
+        Multiple ports can be specified by calling this method multiple times.
+        There must either be no ports,
+        in which case the default of 5432 is used,
+        a single port, in which it is used for all hosts,
+        or the same number of ports as hosts.
+
+        ### Parameters:
+        - `port`: port for hosts to `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def connect_timeout(self: Self, connect_timeout: int) -> Self:
+        """
+        Set the timeout applied to socket-level connection attempts.
+
+        Note that hostnames can resolve to multiple IP addresses,
+        and this timeout will apply to each address of each
+        host separately. Defaults to no limit.
+
+        ### Parameters:
+        - `connect_timeout`: connection timeout to `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def tcp_user_timeout(self: Self, tcp_user_timeout: int) -> Self:
+        """
+        Set the TCP user timeout.
+
+        This is ignored for Unix domain socket connections.
+        It is only supported on systems where TCP_USER_TIMEOUT is available
+        and will default to the system default if omitted or set to 0;
+        on other systems, it has no effect.
+
+        ### Parameters:
+        - `tcp_user_timeout`: tcp_user_timeout to `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def target_session_attrs(
+        self: Self,
+        target_session_attrs: TargetSessionAttrs,
+    ) -> Self:
+        """
+        Set the requirements of the session.
+
+        This can be used to connect to the primary server in a
+        clustered database rather than one of the read-only
+        secondary servers. Defaults to `Any`.
+
+        ### Parameters:
+        - `target_session_attrs`: target_session_attrs for `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def load_balance_hosts(
+        self: Self,
+        load_balance_hosts: LoadBalanceHosts,
+    ) -> Self:
+        """
+        Set the host load balancing behavior.
+
+        Defaults to `disable`.
+
+        ### Parameters:
+        - `load_balance_hosts`: load_balance_hosts for `PostgreSQL`.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def keepalives(
+        self: Self,
+        keepalives: bool,
+    ) -> Self:
+        """
+        Control the use of TCP keepalive.
+
+        This is ignored for Unix domain socket connections.
+
+        Defaults to `true`.
+
+        ### Parameters:
+        - `keepalives`: boolean value for keepalives.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def keepalives_idle(
+        self: Self,
+        keepalives_idle: int,
+    ) -> Self:
+        """
+        Set the amount of idle time before a keepalive packet is sent on the connection.
+
+        This is ignored for Unix domain sockets,
+        or if the `keepalives` option is disabled.
+
+        Defaults to 2 hours.
+
+        ### Parameters:
+        - `keepalives_idle`: number in secs for idle.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def keepalives_interval(
+        self: Self,
+        keepalives_interval: int,
+    ) -> Self:
+        """
+        Sets the time interval between TCP keepalive probes.
+
+        On Windows, this sets the value of the
+        tcp_keepalive struct keepalive interval field.
+
+        This is ignored for Unix domain sockets,
+        or if the `keepalives` option is disabled.
+
+        ### Parameters:
+        - `keepalives_interval`: number in secs for interval.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def keepalives_retries(
+        self: Self,
+        keepalives_retries: int,
+    ) -> Self:
+        """
+        Sets the maximum number of TCP keepalive probes that will be sent before dropping a connection.
+
+        This is ignored for Unix domain sockets, or if the `keepalives` option is disabled.
+
+        ### Parameters:
+        - `keepalives_retries`: number of retries.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """

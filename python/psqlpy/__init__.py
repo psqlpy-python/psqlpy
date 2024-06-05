@@ -1,6 +1,7 @@
 from psqlpy._internal import (
     Connection,
     ConnectionPool,
+    ConnectionPoolBuilder,
     ConnRecyclingMethod,
     Cursor,
     IsolationLevel,
@@ -30,4 +31,5 @@ __all__ = [
     "TargetSessionAttrs",
     "SslMode",
     "KeepaliveConfig",
+    "ConnectionPoolBuilder",
 ]

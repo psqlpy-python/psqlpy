@@ -59,7 +59,7 @@ impl ConnectionPoolBuilder {
     ///
     /// # Error
     /// If size more than 2.
-    fn max_db_pool_size(self_: Py<Self>, pool_size: usize) -> RustPSQLDriverPyResult<Py<Self>> {
+    fn max_pool_size(self_: Py<Self>, pool_size: usize) -> RustPSQLDriverPyResult<Py<Self>> {
         if pool_size < 2 {
             return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
                 "Maximum database pool size must be more than 1".into(),
