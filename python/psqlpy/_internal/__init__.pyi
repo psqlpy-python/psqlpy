@@ -942,6 +942,50 @@ class Connection:
         - `read_variant`: configure read variant of the transaction.
         - `deferrable`: configure deferrable of the transaction.
         """
+    def cursor(
+        self: Self,
+        querystring: str,
+        parameters: Sequence[Any] | None = None,
+        fetch_number: int | None = None,
+        scroll: bool | None = None,
+        prepared: bool = True,
+    ) -> Cursor:
+        """Create new cursor object.
+
+        Cursor can be used as an asynchronous iterator.
+
+        ### Parameters:
+        - `querystring`: querystring to execute.
+        - `parameters`: list of parameters to pass in the query.
+        - `fetch_number`: how many rows need to fetch.
+        - `scroll`: SCROLL or NO SCROLL cursor.
+        - `prepared`: should the querystring be prepared before the request.
+            By default any querystring will be prepared.
+
+        ### Returns:
+        new initialized cursor.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            connection = await db_pool.connection()
+            async with connection.transaction():
+                async with connection.cursor(
+                    querystring="SELECT * FROM users WHERE username = $1",
+                    parameters=["Some_Username"],
+                    fetch_number=5,
+                ) as cursor:
+                    async for fetched_result in cursor:
+                        dict_result: List[Dict[Any, Any]] = fetched_result.result()
+                        ... # do something with this result.
+        ```
+        """
 
 class ConnectionPool:
     """Connection pool for executing queries.
