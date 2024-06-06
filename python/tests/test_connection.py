@@ -5,7 +5,7 @@ import typing
 import pytest
 from tests.helpers import count_rows_in_test_table
 
-from psqlpy import ConnectionPool, QueryResult, Transaction
+from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
 from psqlpy.exceptions import ConnectionExecuteError, TransactionExecuteError
 
 pytestmark = pytest.mark.anyio
@@ -128,3 +128,22 @@ async def test_connection_fetch_val_more_than_one_row(
             f"SELECT * FROM  {table_name}",
             [],
         )
+
+
+async def test_connection_cursor(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test cursor from Connection."""
+    connection = await psql_pool.connection()
+    cursor: Cursor
+    all_results: list[dict[typing.Any, typing.Any]] = []
+
+    async with connection.transaction(), connection.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+    ) as cursor:
+        async for cur_res in cursor:
+            all_results.extend(cur_res.result())
+
+    assert len(all_results) == number_database_records
