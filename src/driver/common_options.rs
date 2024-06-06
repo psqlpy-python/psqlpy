@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use deadpool_postgres::RecyclingMethod;
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 
 #[pyclass]
 #[derive(Clone, Copy)]
@@ -57,6 +59,63 @@ impl TargetSessionAttrs {
             TargetSessionAttrs::Any => tokio_postgres::config::TargetSessionAttrs::Any,
             TargetSessionAttrs::ReadWrite => tokio_postgres::config::TargetSessionAttrs::ReadWrite,
             TargetSessionAttrs::ReadOnly => tokio_postgres::config::TargetSessionAttrs::ReadOnly,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Copy)]
+pub enum SslMode {
+    /// Do not use TLS.
+    Disable,
+    /// Pay the overhead of encryption if the server insists on it.
+    Allow,
+    /// Attempt to connect with TLS but allow sessions without.
+    Prefer,
+    /// Require the use of TLS.
+    Require,
+    /// I want my data encrypted,
+    /// and I accept the overhead.
+    /// I want to be sure that I connect to a server that I trust.
+    VerifyCa,
+    /// I want my data encrypted,
+    /// and I accept the overhead.
+    /// I want to be sure that I connect to a server I trust,
+    /// and that it's the one I specify.
+    VerifyFull,
+}
+
+impl SslMode {
+    #[must_use]
+    pub fn to_internal(&self) -> tokio_postgres::config::SslMode {
+        match self {
+            SslMode::Disable => tokio_postgres::config::SslMode::Disable,
+            SslMode::Allow => tokio_postgres::config::SslMode::Allow,
+            SslMode::Prefer => tokio_postgres::config::SslMode::Prefer,
+            SslMode::Require => tokio_postgres::config::SslMode::Require,
+            SslMode::VerifyCa => tokio_postgres::config::SslMode::VerifyCa,
+            SslMode::VerifyFull => tokio_postgres::config::SslMode::VerifyFull,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Copy)]
+pub struct KeepaliveConfig {
+    pub idle: Duration,
+    pub interval: Option<Duration>,
+    pub retries: Option<u32>,
+}
+
+#[pymethods]
+impl KeepaliveConfig {
+    #[new]
+    fn build_config(idle: u64, interval: Option<u64>, retries: Option<u32>) -> Self {
+        let interval_internal = interval.map(Duration::from_secs);
+        KeepaliveConfig {
+            idle: Duration::from_secs(idle),
+            interval: interval_internal,
+            retries,
         }
     }
 }

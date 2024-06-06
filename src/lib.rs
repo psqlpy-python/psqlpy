@@ -16,6 +16,7 @@ use pyo3::{pymodule, types::PyModule, wrap_pyfunction, Bound, PyResult, Python};
 #[pyo3(name = "_internal")]
 fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::ConnectionPool>()?;
+    pymod.add_class::<driver::connection_pool_builder::ConnectionPoolBuilder>()?;
     pymod.add_function(wrap_pyfunction!(driver::connection_pool::connect, pymod)?)?;
     pymod.add_class::<driver::connection::Connection>()?;
     pymod.add_class::<driver::transaction::Transaction>()?;
@@ -25,6 +26,8 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
     pymod.add_class::<driver::common_options::LoadBalanceHosts>()?;
     pymod.add_class::<driver::common_options::TargetSessionAttrs>()?;
+    pymod.add_class::<driver::common_options::SslMode>()?;
+    pymod.add_class::<driver::common_options::KeepaliveConfig>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;
