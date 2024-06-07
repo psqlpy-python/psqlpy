@@ -9,8 +9,8 @@ use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PyString, PyTime, PyTuple,
+        PyAnyMethods, PyBool, PyBytes, PyDict, PyDictMethods, PyFloat, PyInt, PyList,
+        PyListMethods, PyString, PyTuple, PyTypeMethods,
     },
     Bound, Py, PyAny, Python, ToPyObject,
 };
@@ -23,8 +23,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyUUID,
-        PyVarChar, SmallInt,
+        BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyVarChar,
+        SmallInt,
     },
 };
 
@@ -303,7 +303,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
     }
 
-    if parameter.is_instance_of::<PyDateTime>() {
+    if parameter.get_type().name()? == "datetime" {
         let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
         if let Ok(pydatetime_tz) = timestamp_tz {
             return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
@@ -319,8 +319,10 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         ));
     }
 
-    if parameter.is_instance_of::<PyUUID>() {
-        return Ok(PythonDTO::PyUUID(parameter.extract::<PyUUID>()?.inner()));
+    if parameter.get_type().name()? == "UUID" {
+        return Ok(PythonDTO::PyUUID(Uuid::parse_str(
+            parameter.str()?.extract::<&str>()?,
+        )?));
     }
 
     if parameter.is_instance_of::<PyText>() {
@@ -364,13 +366,21 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyIntI32(parameter.extract::<i32>()?));
     }
 
-    if parameter.is_instance_of::<PyDate>() {
+    if parameter.get_type().name()? == "date" {
         return Ok(PythonDTO::PyDate(parameter.extract::<NaiveDate>()?));
     }
 
-    if parameter.is_instance_of::<PyTime>() {
+    // if parameter.is_instance_of::<PyDate>() {
+    //     return Ok(PythonDTO::PyDate(parameter.extract::<NaiveDate>()?));
+    // }
+
+    if parameter.get_type().name()? == "time" {
         return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
     }
+
+    // if parameter.is_instance_of::<PyTime>() {
+    //     return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
+    // }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
         let mut items = Vec::new();
