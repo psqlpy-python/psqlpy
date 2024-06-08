@@ -32,18 +32,6 @@ class BigInt:
         - `inner_value`: int object.
         """
 
-class PyUUID:
-    """Represent UUID in PostgreSQL and Uuid in Rust."""
-
-    def __init__(self: Self, inner_value: str) -> None:
-        """Create new instance of class.
-
-        You need to pass uuid as a str.
-
-        ### Parameters:
-        - `inner_value`: str object.
-        """
-
 class PyVarChar:
     """Represent VarChar in PostgreSQL and String in Rust."""
 

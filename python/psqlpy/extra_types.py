@@ -7,7 +7,6 @@ from ._internal.extra_types import (
     PyMacAddr6,
     PyMacAddr8,
     PyText,
-    PyUUID,
     PyVarChar,
     SmallInt,
 )
@@ -16,7 +15,6 @@ __all__ = [
     "SmallInt",
     "Integer",
     "BigInt",
-    "PyUUID",
     "PyJSONB",
     "PyJSON",
     "PyMacAddr6",
