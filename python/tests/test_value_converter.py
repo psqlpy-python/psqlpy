@@ -11,11 +11,14 @@ from psqlpy import ConnectionPool
 from psqlpy._internal.extra_types import PyCustomType
 from psqlpy.extra_types import (
     BigInt,
+    Float32,
+    Float64,
     Integer,
     PyJSON,
     PyJSONB,
+    PyMacAddr6,
+    PyMacAddr8,
     PyText,
-    PyUUID,
     SmallInt,
 )
 
@@ -73,11 +76,13 @@ async def test_as_class(
         ("INT4", Integer(121231231), 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
         ("FLOAT4", 32.12329864501953, 32.12329864501953),
+        ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
+        ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
         ("DATE", now_datetime.date(), now_datetime.date()),
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
         ("TIMESTAMPTZ", now_datetime_with_tz, now_datetime_with_tz),
-        ("UUID", PyUUID(str(uuid_)), str(uuid_)),
+        ("UUID", uuid_, str(uuid_)),
         ("INET", IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")),
         (
             "JSONB",
@@ -110,6 +115,16 @@ async def test_as_class(
             "JSON",
             PyJSON([{"array": "json"}, {"one more": "test"}]),
             [{"array": "json"}, {"one more": "test"}],
+        ),
+        (
+            "MACADDR",
+            PyMacAddr6("08:00:2b:01:02:03"),
+            "08:00:2B:01:02:03",
+        ),
+        (
+            "MACADDR8",
+            PyMacAddr8("08:00:2b:01:02:03:04:05"),
+            "08:00:2B:01:02:03:04:05",
         ),
         (
             "VARCHAR ARRAY",
@@ -152,7 +167,7 @@ async def test_as_class(
         ),
         (
             "UUID ARRAY",
-            [PyUUID(str(uuid_)), PyUUID(str(uuid_))],
+            [uuid_, uuid_],
             [str(uuid_), str(uuid_)],
         ),
         (
@@ -277,6 +292,7 @@ async def test_deserialization_composite_into_python(
         int4_ INT4,
         int8_ INT8,
         flaot4_ FLOAT4,
+        flaot8_ FLOAT8,
         date_ DATE,
         time_ TIME,
         timestamp_ TIMESTAMP,
@@ -314,7 +330,7 @@ async def test_deserialization_composite_into_python(
         querystring=create_table_query,
     )
     await psql_pool.execute(
-        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31))",  # noqa: E501
+        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32))",  # noqa: E501
         parameters=[
             b"Bytes",
             "Some String",
@@ -324,11 +340,12 @@ async def test_deserialization_composite_into_python(
             Integer(199),
             BigInt(10001),
             32.12329864501953,
+            Float64(32.12329864501953),
             now_datetime.date(),
             now_datetime.time(),
             now_datetime,
             now_datetime_with_tz,
-            PyUUID(str(uuid_)),
+            uuid_,
             IPv4Address("192.0.0.1"),
             {
                 "test": ["something", 123, "here"],
@@ -351,7 +368,7 @@ async def test_deserialization_composite_into_python(
             [now_datetime.time(), now_datetime.time()],
             [now_datetime, now_datetime],
             [now_datetime_with_tz, now_datetime_with_tz],
-            [PyUUID(str(uuid_)), PyUUID(str(uuid_))],
+            [uuid_, uuid_],
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
             [
                 {
@@ -389,6 +406,7 @@ async def test_deserialization_composite_into_python(
         int4_: int
         int8_: int
         flaot4_: float
+        flaot8_: float
         date_: datetime.date
         time_: datetime.time
         timestamp_: datetime.datetime

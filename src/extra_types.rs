@@ -7,7 +7,6 @@ use pyo3::{
     Bound, Py, PyAny, PyResult, Python,
 };
 use serde_json::Value;
-use uuid::Uuid;
 
 use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::build_serde_value};
 
@@ -45,19 +44,8 @@ macro_rules! build_python_type {
 build_python_type!(SmallInt, i16);
 build_python_type!(Integer, i32);
 build_python_type!(BigInt, i64);
-
-#[pyclass]
-#[derive(Clone)]
-pub struct PyUUID {
-    inner: Uuid,
-}
-
-impl PyUUID {
-    #[must_use]
-    pub fn inner(&self) -> Uuid {
-        self.inner
-    }
-}
+build_python_type!(Float32, f32);
+build_python_type!(Float64, f64);
 
 #[pyclass]
 #[derive(Clone)]
@@ -104,22 +92,6 @@ impl PyVarChar {
     #[must_use]
     pub fn new_varchar(text_value: String) -> Self {
         Self { inner: text_value }
-    }
-}
-
-#[pymethods]
-impl PyUUID {
-    /// Create new uuid from Python str.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot convert python string
-    /// into rust Uuid.
-    #[new]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn new_uuid(uuid_value: &str) -> RustPSQLDriverPyResult<Self> {
-        Ok(Self {
-            inner: Uuid::from_str(uuid_value)?,
-        })
     }
 }
 
@@ -217,7 +189,8 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;
-    pymod.add_class::<PyUUID>()?;
+    pymod.add_class::<Float32>()?;
+    pymod.add_class::<Float64>()?;
     pymod.add_class::<PyText>()?;
     pymod.add_class::<PyVarChar>()?;
     pymod.add_class::<PyJSONB>()?;
