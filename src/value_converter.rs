@@ -23,8 +23,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8, PyText, PyVarChar,
-        SmallInt,
+        BigInt, Float32, Float64, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8,
+        PyText, PyVarChar, SmallInt,
     },
 };
 
@@ -118,6 +118,7 @@ impl PythonDTO {
             PythonDTO::PyIntI32(pyint) => Ok(json!(pyint)),
             PythonDTO::PyIntI64(pyint) => Ok(json!(pyint)),
             PythonDTO::PyIntU64(pyint) => Ok(json!(pyint)),
+            PythonDTO::PyFloat32(pyfloat) => Ok(json!(pyfloat)),
             PythonDTO::PyFloat64(pyfloat) => Ok(json!(pyfloat)),
             PythonDTO::PyList(pylist) => {
                 let mut vec_serde_values: Vec<Value> = vec![];
@@ -318,8 +319,19 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     }
 
     if parameter.is_instance_of::<PyFloat>() {
-        // TODO: Add support for all types of float.
         return Ok(PythonDTO::PyFloat32(parameter.extract::<f32>()?));
+    }
+
+    if parameter.is_instance_of::<Float32>() {
+        return Ok(PythonDTO::PyFloat32(
+            parameter.extract::<Float32>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<Float64>() {
+        return Ok(PythonDTO::PyFloat64(
+            parameter.extract::<Float64>()?.retrieve_value(),
+        ));
     }
 
     if parameter.is_instance_of::<SmallInt>() {

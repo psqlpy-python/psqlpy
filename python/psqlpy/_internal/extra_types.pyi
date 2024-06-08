@@ -32,6 +32,26 @@ class BigInt:
         - `inner_value`: int object.
         """
 
+class Float32:
+    """Represents `FLOAT4` in `PostgreSQL` and `f32` in Rust."""
+
+    def __init__(self: Self, inner_value: float) -> None:
+        """Create new instance of a class.
+
+        ### Parameters:
+        - `inner_value`: float object.
+        """
+
+class Float64:
+    """Represents `FLOAT8` in `PostgreSQL` and `f64` in Rust."""
+
+    def __init__(self: Self, inner_value: float) -> None:
+        """Create new instance of a class.
+
+        ### Parameters:
+        - `inner_value`: float object.
+        """
+
 class PyVarChar:
     """Represent VarChar in PostgreSQL and String in Rust."""
 

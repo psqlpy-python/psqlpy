@@ -44,6 +44,8 @@ macro_rules! build_python_type {
 build_python_type!(SmallInt, i16);
 build_python_type!(Integer, i32);
 build_python_type!(BigInt, i64);
+build_python_type!(Float32, f32);
+build_python_type!(Float64, f64);
 
 #[pyclass]
 #[derive(Clone)]
@@ -187,6 +189,8 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<SmallInt>()?;
     pymod.add_class::<Integer>()?;
     pymod.add_class::<BigInt>()?;
+    pymod.add_class::<Float32>()?;
+    pymod.add_class::<Float64>()?;
     pymod.add_class::<PyText>()?;
     pymod.add_class::<PyVarChar>()?;
     pymod.add_class::<PyJSONB>()?;

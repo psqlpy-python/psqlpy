@@ -1,5 +1,7 @@
 from ._internal.extra_types import (
     BigInt,
+    Float32,
+    Float64,
     Integer,
     PyCustomType,
     PyJSON,
@@ -22,4 +24,6 @@ __all__ = [
     "PyVarChar",
     "PyText",
     "PyCustomType",
+    "Float32",
+    "Float64",
 ]
