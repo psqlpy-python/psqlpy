@@ -14,8 +14,9 @@ from psqlpy.extra_types import (
     Integer,
     PyJSON,
     PyJSONB,
+    PyMacAddr6,
+    PyMacAddr8,
     PyText,
-    PyUUID,
     SmallInt,
 )
 
@@ -77,7 +78,7 @@ async def test_as_class(
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
         ("TIMESTAMPTZ", now_datetime_with_tz, now_datetime_with_tz),
-        ("UUID", PyUUID(str(uuid_)), str(uuid_)),
+        ("UUID", uuid_, str(uuid_)),
         ("INET", IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")),
         (
             "JSONB",
@@ -110,6 +111,16 @@ async def test_as_class(
             "JSON",
             PyJSON([{"array": "json"}, {"one more": "test"}]),
             [{"array": "json"}, {"one more": "test"}],
+        ),
+        (
+            "MACADDR",
+            PyMacAddr6("08:00:2b:01:02:03"),
+            "08:00:2B:01:02:03",
+        ),
+        (
+            "MACADDR8",
+            PyMacAddr8("08:00:2b:01:02:03:04:05"),
+            "08:00:2B:01:02:03:04:05",
         ),
         (
             "VARCHAR ARRAY",
@@ -152,7 +163,7 @@ async def test_as_class(
         ),
         (
             "UUID ARRAY",
-            [PyUUID(str(uuid_)), PyUUID(str(uuid_))],
+            [uuid_, uuid_],
             [str(uuid_), str(uuid_)],
         ),
         (
@@ -328,7 +339,7 @@ async def test_deserialization_composite_into_python(
             now_datetime.time(),
             now_datetime,
             now_datetime_with_tz,
-            PyUUID(str(uuid_)),
+            uuid_,
             IPv4Address("192.0.0.1"),
             {
                 "test": ["something", 123, "here"],
@@ -351,7 +362,7 @@ async def test_deserialization_composite_into_python(
             [now_datetime.time(), now_datetime.time()],
             [now_datetime, now_datetime],
             [now_datetime_with_tz, now_datetime_with_tz],
-            [PyUUID(str(uuid_)), PyUUID(str(uuid_))],
+            [uuid_, uuid_],
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
             [
                 {

@@ -9,8 +9,8 @@ use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDict, PyDictMethods, PyFloat, PyInt, PyList,
-        PyListMethods, PyString, PyTuple, PyTypeMethods,
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
+        PyList, PyListMethods, PyString, PyTime, PyTuple, PyTypeMethods,
     },
     Bound, Py, PyAny, Python, ToPyObject,
 };
@@ -303,28 +303,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
     }
 
-    if parameter.get_type().name()? == "datetime" {
-        let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
-        if let Ok(pydatetime_tz) = timestamp_tz {
-            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
-        }
-
-        let timestamp_no_tz = parameter.extract::<NaiveDateTime>();
-        if let Ok(pydatetime_no_tz) = timestamp_no_tz {
-            return Ok(PythonDTO::PyDateTime(pydatetime_no_tz));
-        }
-
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "Can not convert you datetime to rust type".into(),
-        ));
-    }
-
-    if parameter.get_type().name()? == "UUID" {
-        return Ok(PythonDTO::PyUUID(Uuid::parse_str(
-            parameter.str()?.extract::<&str>()?,
-        )?));
-    }
-
     if parameter.is_instance_of::<PyText>() {
         return Ok(PythonDTO::PyText(parameter.extract::<PyText>()?.inner()));
     }
@@ -366,21 +344,29 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyIntI32(parameter.extract::<i32>()?));
     }
 
-    if parameter.get_type().name()? == "date" {
+    if parameter.is_instance_of::<PyDateTime>() {
+        let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
+        if let Ok(pydatetime_tz) = timestamp_tz {
+            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
+        }
+
+        let timestamp_no_tz = parameter.extract::<NaiveDateTime>();
+        if let Ok(pydatetime_no_tz) = timestamp_no_tz {
+            return Ok(PythonDTO::PyDateTime(pydatetime_no_tz));
+        }
+
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "Can not convert you datetime to rust type".into(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyDate>() {
         return Ok(PythonDTO::PyDate(parameter.extract::<NaiveDate>()?));
     }
 
-    // if parameter.is_instance_of::<PyDate>() {
-    //     return Ok(PythonDTO::PyDate(parameter.extract::<NaiveDate>()?));
-    // }
-
-    if parameter.get_type().name()? == "time" {
+    if parameter.is_instance_of::<PyTime>() {
         return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
     }
-
-    // if parameter.is_instance_of::<PyTime>() {
-    //     return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
-    // }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
         let mut items = Vec::new();
@@ -437,6 +423,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyMacAddr8(
             parameter.extract::<PyMacAddr8>()?.inner(),
         ));
+    }
+
+    if parameter.get_type().name()? == "UUID" {
+        return Ok(PythonDTO::PyUUID(Uuid::parse_str(
+            parameter.str()?.extract::<&str>()?,
+        )?));
     }
 
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
