@@ -9,6 +9,7 @@ use crate::{
 };
 
 use super::{
+    cursor::Cursor,
     transaction::Transaction,
     transaction_options::{IsolationLevel, ReadVariant},
 };
@@ -394,6 +395,26 @@ impl Connection {
             read_variant,
             deferrable,
             HashSet::new(),
+        )
+    }
+
+    #[must_use]
+    pub fn cursor(
+        &self,
+        querystring: String,
+        parameters: Option<Py<PyAny>>,
+        fetch_number: Option<usize>,
+        scroll: Option<bool>,
+        prepared: Option<bool>,
+    ) -> Cursor {
+        Cursor::new(
+            self.db_client.clone(),
+            querystring,
+            parameters,
+            "cur_name".into(),
+            fetch_number.unwrap_or(10),
+            scroll,
+            prepared,
         )
     }
 }

@@ -13,9 +13,6 @@ class ConnectionPoolConfigurationError(BaseConnectionPoolError):
 class ConnectionPoolExecuteError(BaseConnectionPoolError):
     """Error in connection pool execution."""
 
-class DBPoolConfigurationError(RustPSQLDriverPyBaseError):
-    """Error if configuration of the database pool is unacceptable."""
-
 class BaseConnectionError(RustPSQLDriverPyBaseError):
     """Base error for Connection errors."""
 
@@ -55,8 +52,8 @@ class CursorFetchError(BaseCursorError):
 class UUIDValueConvertError(RustPSQLDriverPyBaseError):
     """Error if it's impossible to convert py string UUID into rust UUID."""
 
-class MacAddr6ConversionError(RustPSQLDriverPyBaseError):
-    """Error if cannot convert MacAddr6 string value to rust type."""
+class MacAddrConversionError(RustPSQLDriverPyBaseError):
+    """Error if cannot convert MacAddr string value to rust type."""
 
 class RustToPyValueMappingError(RustPSQLDriverPyBaseError):
     """Error if it is not possible to covert rust type to python.

@@ -32,16 +32,24 @@ class BigInt:
         - `inner_value`: int object.
         """
 
-class PyUUID:
-    """Represent UUID in PostgreSQL and Uuid in Rust."""
+class Float32:
+    """Represents `FLOAT4` in `PostgreSQL` and `f32` in Rust."""
 
-    def __init__(self: Self, inner_value: str) -> None:
-        """Create new instance of class.
-
-        You need to pass uuid as a str.
+    def __init__(self: Self, inner_value: float) -> None:
+        """Create new instance of a class.
 
         ### Parameters:
-        - `inner_value`: str object.
+        - `inner_value`: float object.
+        """
+
+class Float64:
+    """Represents `FLOAT8` in `PostgreSQL` and `f64` in Rust."""
+
+    def __init__(self: Self, inner_value: float) -> None:
+        """Create new instance of a class.
+
+        ### Parameters:
+        - `inner_value`: float object.
         """
 
 class PyVarChar:

@@ -1,16 +1,15 @@
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::exceptions::python_errors::{
-    DBPoolConfigurationError, PyToRustValueMappingError, RustToPyValueMappingError,
-};
+use crate::exceptions::python_errors::{PyToRustValueMappingError, RustToPyValueMappingError};
 
 use super::python_errors::{
     BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseTransactionError,
-    ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolExecuteError, CursorCloseError,
-    CursorFetchError, CursorStartError, DriverError, MacAddrParseError, RuntimeJoinError,
-    TransactionBeginError, TransactionCommitError, TransactionExecuteError,
-    TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
+    ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolConfigurationError,
+    ConnectionPoolExecuteError, CursorCloseError, CursorFetchError, CursorStartError, DriverError,
+    MacAddrParseError, RuntimeJoinError, TransactionBeginError, TransactionCommitError,
+    TransactionExecuteError, TransactionRollbackError, TransactionSavepointError,
+    UUIDValueConvertError,
 };
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
@@ -97,7 +96,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
                 PyToRustValueMappingError::new_err((error_desc,))
             }
             RustPSQLDriverError::ConnectionPoolConfigurationError(_) => {
-                DBPoolConfigurationError::new_err((error_desc,))
+                ConnectionPoolConfigurationError::new_err((error_desc,))
             }
             RustPSQLDriverError::RustUUIDConvertError(_) => {
                 UUIDValueConvertError::new_err(error_desc)

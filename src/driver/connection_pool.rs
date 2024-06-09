@@ -105,7 +105,7 @@ pub fn connect(
 }
 
 #[pyclass]
-pub struct ConnectionPool(Pool);
+pub struct ConnectionPool(pub Pool);
 
 #[pymethods]
 impl ConnectionPool {
