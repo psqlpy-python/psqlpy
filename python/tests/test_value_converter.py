@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from enum import Enum, StrEnum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Union
 
@@ -444,6 +445,41 @@ async def test_deserialization_composite_into_python(
     )
 
     assert isinstance(model_result[0], TopLevelModel)
+
+
+async def test_enum_type(psql_pool: ConnectionPool) -> None:
+    """Test that we can decode ENUM type from PostgreSQL."""
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    class TestStrEnum(StrEnum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    await psql_pool.execute("DROP TABLE IF EXISTS for_test")
+    await psql_pool.execute("DROP TYPE IF EXISTS mood")
+    await psql_pool.execute(
+        "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy')",
+    )
+    await psql_pool.execute(
+        "CREATE TABLE for_test (test_mood mood, test_mood2 mood)",
+    )
+
+    await psql_pool.execute(
+        querystring="INSERT INTO for_test VALUES ($1, $2)",
+        parameters=[TestEnum.HAPPY, TestEnum.OK],
+    )
+
+    qs_result = await psql_pool.execute(
+        "SELECT * FROM for_test",
+    )
+    assert qs_result.result()[0]["test_mood"] == TestEnum.HAPPY.value
+    assert qs_result.result()[0]["test_mood"] != TestEnum.HAPPY
+    assert qs_result.result()[0]["test_mood2"] == TestStrEnum.OK
 
 
 async def test_custom_type_as_parameter(
