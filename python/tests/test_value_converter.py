@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from enum import Enum, StrEnum
+from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Union
 
@@ -455,7 +455,7 @@ async def test_enum_type(psql_pool: ConnectionPool) -> None:
         SAD = "sad"
         HAPPY = "happy"
 
-    class TestStrEnum(StrEnum):
+    class TestStrEnum(str, Enum):
         OK = "ok"
         SAD = "sad"
         HAPPY = "happy"
