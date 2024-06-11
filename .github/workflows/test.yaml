@@ -82,23 +82,3 @@ jobs:
       run: pip install "tox-gh>=1.2,<2"
     - name: Run pytest
       run: tox -v
-
-  musllinux:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - i686-unknown-linux-musl
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          architecture: x64
-      - name: Build wheels
-        uses: messense/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
-          manylinux: musllinux_1_2
