@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Union
 
@@ -282,6 +283,10 @@ async def test_deserialization_composite_into_python(
     """Test that it's possible to deserialize custom postgresql type."""
     await psql_pool.execute("DROP TABLE IF EXISTS for_test")
     await psql_pool.execute("DROP TYPE IF EXISTS all_types")
+    await psql_pool.execute("DROP TYPE IF EXISTS inner_type")
+    await psql_pool.execute("DROP TYPE IF EXISTS enum_type")
+    await psql_pool.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
+    await psql_pool.execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -316,7 +321,9 @@ async def test_deserialization_composite_into_python(
         uuid_arr UUID ARRAY,
         inet_arr INET ARRAY,
         jsonb_arr JSONB ARRAY,
-        json_arr JSON ARRAY
+        json_arr JSON ARRAY,
+        test_inner_value inner_type,
+        test_enum_type enum_type
     )
     """
     create_table_query = """
@@ -329,8 +336,14 @@ async def test_deserialization_composite_into_python(
     await psql_pool.execute(
         querystring=create_table_query,
     )
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
     await psql_pool.execute(
-        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32))",  # noqa: E501
+        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, ROW($33, $34), $35))",  # noqa: E501
         parameters=[
             b"Bytes",
             "Some String",
@@ -394,8 +407,15 @@ async def test_deserialization_composite_into_python(
                     },
                 ),
             ],
+            "inner type value",
+            "happy",
+            TestEnum.OK,
         ],
     )
+
+    class ValidateModelForInnerValueType(BaseModel):
+        inner_value: str
+        some_enum: TestEnum
 
     class ValidateModelForCustomType(BaseModel):
         bytea_: List[int]
@@ -432,6 +452,9 @@ async def test_deserialization_composite_into_python(
         jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
         json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
 
+        test_inner_value: ValidateModelForInnerValueType
+        test_enum_type: TestEnum
+
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType
 
@@ -444,6 +467,41 @@ async def test_deserialization_composite_into_python(
     )
 
     assert isinstance(model_result[0], TopLevelModel)
+
+
+async def test_enum_type(psql_pool: ConnectionPool) -> None:
+    """Test that we can decode ENUM type from PostgreSQL."""
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    class TestStrEnum(str, Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    await psql_pool.execute("DROP TABLE IF EXISTS for_test")
+    await psql_pool.execute("DROP TYPE IF EXISTS mood")
+    await psql_pool.execute(
+        "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy')",
+    )
+    await psql_pool.execute(
+        "CREATE TABLE for_test (test_mood mood, test_mood2 mood)",
+    )
+
+    await psql_pool.execute(
+        querystring="INSERT INTO for_test VALUES ($1, $2)",
+        parameters=[TestEnum.HAPPY, TestEnum.OK],
+    )
+
+    qs_result = await psql_pool.execute(
+        "SELECT * FROM for_test",
+    )
+    assert qs_result.result()[0]["test_mood"] == TestEnum.HAPPY.value
+    assert qs_result.result()[0]["test_mood"] != TestEnum.HAPPY
+    assert qs_result.result()[0]["test_mood2"] == TestStrEnum.OK
 
 
 async def test_custom_type_as_parameter(
