@@ -82,4 +82,3 @@ jobs:
       run: pip install "tox-gh>=1.2,<2"
     - name: Run pytest
       run: tox -v
-
