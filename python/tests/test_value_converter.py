@@ -285,8 +285,8 @@ async def test_deserialization_composite_into_python(
     await psql_pool.execute("DROP TYPE IF EXISTS all_types")
     await psql_pool.execute("DROP TYPE IF EXISTS inner_type")
     await psql_pool.execute("DROP TYPE IF EXISTS enum_type")
-    await psql_pool.execute("CREATE TYPE inner_type AS (inner_value VARCHAR)")
     await psql_pool.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
+    await psql_pool.execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -336,8 +336,14 @@ async def test_deserialization_composite_into_python(
     await psql_pool.execute(
         querystring=create_table_query,
     )
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
     await psql_pool.execute(
-        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, ROW($33), $34))",  # noqa: E501
+        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, ROW($33, $34), $35))",  # noqa: E501
         parameters=[
             b"Bytes",
             "Some String",
@@ -402,17 +408,14 @@ async def test_deserialization_composite_into_python(
                 ),
             ],
             "inner type value",
-            "ok",
+            "happy",
+            TestEnum.OK,
         ],
     )
 
-    class TestEnum(Enum):
-        OK = "ok"
-        SAD = "sad"
-        HAPPY = "happy"
-
     class ValidateModelForInnerValueType(BaseModel):
         inner_value: str
+        some_enum: TestEnum
 
     class ValidateModelForCustomType(BaseModel):
         bytea_: List[int]

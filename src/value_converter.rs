@@ -789,7 +789,6 @@ pub fn raw_bytes_data_process(
             postgres_bytes_to_py(py, column_type, raw_bytes_data, true)
         }
         Kind::Composite(fields) => {
-            println!("1 {:p}", &raw_bytes_data);
             composite_postgres_to_py(py, fields, raw_bytes_data, custom_decoders)
         }
         Kind::Enum(_) => postgres_bytes_to_py(py, &Type::VARCHAR, raw_bytes_data, true),
