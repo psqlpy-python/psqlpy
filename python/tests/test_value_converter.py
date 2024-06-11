@@ -283,6 +283,10 @@ async def test_deserialization_composite_into_python(
     """Test that it's possible to deserialize custom postgresql type."""
     await psql_pool.execute("DROP TABLE IF EXISTS for_test")
     await psql_pool.execute("DROP TYPE IF EXISTS all_types")
+    await psql_pool.execute("DROP TYPE IF EXISTS inner_type")
+    await psql_pool.execute("DROP TYPE IF EXISTS enum_type")
+    await psql_pool.execute("CREATE TYPE inner_type AS (inner_value VARCHAR)")
+    await psql_pool.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -317,7 +321,9 @@ async def test_deserialization_composite_into_python(
         uuid_arr UUID ARRAY,
         inet_arr INET ARRAY,
         jsonb_arr JSONB ARRAY,
-        json_arr JSON ARRAY
+        json_arr JSON ARRAY,
+        test_inner_value inner_type,
+        test_enum_type enum_type
     )
     """
     create_table_query = """
@@ -331,7 +337,7 @@ async def test_deserialization_composite_into_python(
         querystring=create_table_query,
     )
     await psql_pool.execute(
-        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32))",  # noqa: E501
+        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, ROW($33), $34))",  # noqa: E501
         parameters=[
             b"Bytes",
             "Some String",
@@ -395,8 +401,18 @@ async def test_deserialization_composite_into_python(
                     },
                 ),
             ],
+            "inner type value",
+            "ok",
         ],
     )
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    class ValidateModelForInnerValueType(BaseModel):
+        inner_value: str
 
     class ValidateModelForCustomType(BaseModel):
         bytea_: List[int]
@@ -432,6 +448,9 @@ async def test_deserialization_composite_into_python(
         inet_arr: List[IPv4Address]
         jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
         json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
+
+        test_inner_value: ValidateModelForInnerValueType
+        test_enum_type: TestEnum
 
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType

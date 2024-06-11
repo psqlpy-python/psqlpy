@@ -1,6 +1,6 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
-use postgres_types::{Field, FromSql, Kind};
+use postgres_types::{Field, FromSql, Kind, ToSql};
 use serde_json::{json, Map, Value};
 use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
@@ -15,7 +15,7 @@ use pyo3::{
     Bound, Py, PyAny, Python, ToPyObject,
 };
 use tokio_postgres::{
-    types::{to_sql_checked, ToSql, Type},
+    types::{to_sql_checked, Type},
     Column, Row,
 };
 
@@ -700,16 +700,12 @@ fn postgres_bytes_to_py(
 pub fn composite_postgres_to_py(
     py: Python<'_>,
     fields: &Vec<Field>,
-    buf: &[u8],
+    buf: &mut &[u8],
     custom_decoders: &Option<Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-    let mut vec_buf: Vec<u8> = vec![];
-    vec_buf.extend_from_slice(buf);
-    let mut buf: &[u8] = vec_buf.as_slice();
-
     let result_py_dict: Bound<'_, PyDict> = PyDict::new_bound(py);
 
-    let num_fields = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
+    let num_fields = postgres_types::private::read_be_i32(buf).map_err(|err| {
         RustPSQLDriverError::RustToPyValueConversionError(format!(
             "Cannot read bytes data from PostgreSQL: {err}"
         ))
@@ -723,7 +719,7 @@ pub fn composite_postgres_to_py(
     }
 
     for field in fields {
-        let oid = postgres_types::private::read_be_i32(&mut buf).map_err(|err| {
+        let oid = postgres_types::private::read_be_i32(buf).map_err(|err| {
             RustPSQLDriverError::RustToPyValueConversionError(format!(
                 "Cannot read bytes data from PostgreSQL: {err}"
             ))
@@ -735,22 +731,28 @@ pub fn composite_postgres_to_py(
             ));
         }
 
-        if let Ok(data_from_psql) = postgres_bytes_to_py(py, field.type_(), &mut buf, false) {
-            result_py_dict.set_item(field.name(), data_from_psql.to_object(py))?;
-        } else {
-            let new_buf = &buf[4..];
-
-            result_py_dict.set_item(
-                field.name(),
-                raw_bytes_data_process(
-                    py,
-                    Some(new_buf),
+        match field.type_().kind() {
+            Kind::Simple | Kind::Array(_) => {
+                result_py_dict.set_item(
                     field.name(),
-                    field.type_(),
-                    custom_decoders,
-                )?
-                .to_object(py),
-            )?;
+                    postgres_bytes_to_py(py, field.type_(), buf, false)?.to_object(py),
+                )?;
+            }
+            Kind::Enum(_) => {
+                result_py_dict.set_item(
+                    field.name(),
+                    postgres_bytes_to_py(py, &Type::VARCHAR, buf, false)?.to_object(py),
+                )?;
+            }
+            _ => {
+                let (_, tail) = buf.split_at(4_usize);
+                *buf = tail;
+                result_py_dict.set_item(
+                    field.name(),
+                    raw_bytes_data_process(py, buf, field.name(), field.type_(), custom_decoders)?
+                        .to_object(py),
+                )?;
+            }
         }
     }
 
@@ -765,7 +767,7 @@ pub fn composite_postgres_to_py(
 /// type into rust one.
 pub fn raw_bytes_data_process(
     py: Python<'_>,
-    raw_bytes_data: Option<&[u8]>,
+    raw_bytes_data: &mut &[u8],
     column_name: &str,
     column_type: &Type,
     custom_decoders: &Option<Py<PyDict>>,
@@ -776,24 +778,24 @@ pub fn raw_bytes_data_process(
             .get_item(column_name.to_lowercase());
 
         if let Ok(Some(py_encoder_func)) = py_encoder_func {
-            return Ok(py_encoder_func.call((raw_bytes_data,), None)?.unbind());
+            return Ok(py_encoder_func
+                .call((raw_bytes_data.to_vec(),), None)?
+                .unbind());
         }
     }
 
-    match raw_bytes_data {
-        Some(mut raw_bytes_data) => match column_type.kind() {
-            Kind::Simple | Kind::Array(_) => {
-                postgres_bytes_to_py(py, column_type, &mut raw_bytes_data, true)
-            }
-            Kind::Composite(fields) => {
-                composite_postgres_to_py(py, fields, raw_bytes_data, custom_decoders)
-            }
-            Kind::Enum(_) => postgres_bytes_to_py(py, &Type::VARCHAR, &mut raw_bytes_data, true),
-            _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
-                column_type.to_string(),
-            )),
-        },
-        None => Ok(py.None()),
+    match column_type.kind() {
+        Kind::Simple | Kind::Array(_) => {
+            postgres_bytes_to_py(py, column_type, raw_bytes_data, true)
+        }
+        Kind::Composite(fields) => {
+            println!("1 {:p}", &raw_bytes_data);
+            composite_postgres_to_py(py, fields, raw_bytes_data, custom_decoders)
+        }
+        Kind::Enum(_) => postgres_bytes_to_py(py, &Type::VARCHAR, raw_bytes_data, true),
+        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
+            column_type.to_string(),
+        )),
     }
 }
 
@@ -811,37 +813,16 @@ pub fn postgres_to_py(
     custom_decoders: &Option<Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let raw_bytes_data = row.col_buffer(column_i);
-    raw_bytes_data_process(
-        py,
-        raw_bytes_data,
-        column.name(),
-        column.type_(),
-        custom_decoders,
-    )
-    // if let Some(custom_decoders) = custom_decoders {
-    //     let py_encoder_func = custom_decoders
-    //         .bind(py)
-    //         .get_item(column.name().to_lowercase());
-
-    //     if let Ok(Some(py_encoder_func)) = py_encoder_func {
-    //         return Ok(py_encoder_func.call((raw_bytes_data,), None)?.unbind());
-    //     }
-    // }
-
-    // let column_type = column.type_();
-    // match raw_bytes_data {
-    //     Some(mut raw_bytes_data) => match column_type.kind() {
-    //         Kind::Simple | Kind::Array(_) => {
-    //             postgres_bytes_to_py(py, column.type_(), &mut raw_bytes_data, true)
-    //         }
-    //         Kind::Composite(fields) => composite_postgres_to_py(py, fields, raw_bytes_data, column),
-    //         Kind::Enum(_) => postgres_bytes_to_py(py, &Type::VARCHAR, &mut raw_bytes_data, true),
-    //         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
-    //             column.type_().to_string(),
-    //         )),
-    //     },
-    //     None => Ok(py.None()),
-    // }
+    if let Some(mut raw_bytes_data) = raw_bytes_data {
+        return raw_bytes_data_process(
+            py,
+            &mut raw_bytes_data,
+            column.name(),
+            column.type_(),
+            custom_decoders,
+        );
+    }
+    Ok(py.None())
 }
 
 /// Convert python List of Dict type or just Dict into serde `Value`.
