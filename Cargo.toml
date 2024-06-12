@@ -10,7 +10,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 deadpool-postgres = { git = "https://github.com/chandr-andr/deadpool.git", branch = "master" }
-pyo3 = { version = "*", features = ["chrono", "experimental-async"] }
+pyo3 = { version = "*", features = [
+    "chrono",
+    "experimental-async",
+    "rust_decimal",
+] }
 pyo3-asyncio = { git = "https://github.com/chandr-andr/pyo3-asyncio.git", version = "0.20.0", features = [
     "tokio-runtime",
 ] }
@@ -34,3 +38,7 @@ postgres-types = { git = "https://github.com/chandr-andr/rust-postgres.git", bra
     "derive",
 ] }
 postgres-protocol = { git = "https://github.com/chandr-andr/rust-postgres.git", branch = "master" }
+rust_decimal = { git = "https://github.com/chandr-andr/rust-decimal.git", branch = "psqlpy", features = [
+    "db-postgres",
+    "db-tokio-postgres",
+] }

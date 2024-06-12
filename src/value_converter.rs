@@ -1,6 +1,7 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind, ToSql};
+use rust_decimal::Decimal;
 use serde_json::{json, Map, Value};
 use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
@@ -8,11 +9,12 @@ use uuid::Uuid;
 use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
+    sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PyString, PyTime, PyTuple, PyTypeMethods,
+        PyList, PyListMethods, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
     },
-    Bound, Py, PyAny, Python, ToPyObject,
+    Bound, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, Type},
@@ -28,7 +30,33 @@ use crate::{
     },
 };
 
+static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+
 pub type QueryParameter = (dyn ToSql + Sync);
+
+fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
+    DECIMAL_CLS
+        .get_or_try_init(py, || {
+            let type_object = py
+                .import_bound("decimal")?
+                .getattr("Decimal")?
+                .downcast_into()?;
+            Ok(type_object.unbind())
+        })
+        .map(|ty| ty.bind(py))
+}
+
+struct InnerDecimal(Decimal);
+
+impl ToPyObject for InnerDecimal {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        let dec_cls = get_decimal_cls(py).expect("failed to load decimal.Decimal");
+        let ret = dec_cls
+            .call1((self.0.to_string(),))
+            .expect("failed to call decimal.Decimal(value)");
+        ret.to_object(py)
+    }
+}
 
 /// Additional type for types come from Python.
 ///
@@ -496,7 +524,7 @@ fn postgres_bytes_to_py(
         .to_object(py)),
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
-        Type::TEXT | Type::VARCHAR => Ok(_composite_field_postgres_to_py::<Option<String>>(
+        Type::TEXT | Type::VARCHAR | Type::XML => Ok(_composite_field_postgres_to_py::<Option<String>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
@@ -592,13 +620,22 @@ fn postgres_bytes_to_py(
                 Ok(py.None().to_object(py))
             }
         }
+        Type::NUMERIC => {
+            if let Some(money_) = _composite_field_postgres_to_py::<Option<Decimal>>(
+                type_, buf, is_simple,
+            )? {
+                Ok(InnerDecimal(money_).to_object(py))
+            } else {
+                Ok(py.None().to_object(py))
+            }
+        }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
-        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(_composite_field_postgres_to_py::<
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(_composite_field_postgres_to_py::<
             Option<Vec<String>>,
         >(type_, buf, is_simple)?
         .to_object(py)),
