@@ -46,6 +46,10 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
         .map(|ty| ty.bind(py))
 }
 
+/// Struct for Decimal.
+///
+/// It's necessary because we use custom forks and there is
+/// no implementation of `ToPyObject` for Decimal.
 struct InnerDecimal(Decimal);
 
 impl ToPyObject for InnerDecimal {
@@ -90,6 +94,7 @@ pub enum PythonDTO {
     PyJson(Value),
     PyMacAddr6(MacAddr6),
     PyMacAddr8(MacAddr8),
+    PyDecimal(Decimal),
     PyCustomType(Vec<u8>),
 }
 
@@ -126,6 +131,7 @@ impl PythonDTO {
             PythonDTO::PyDateTimeTz(_) => Ok(tokio_postgres::types::Type::TIMESTAMPTZ_ARRAY),
             PythonDTO::PyMacAddr6(_) => Ok(tokio_postgres::types::Type::MACADDR_ARRAY),
             PythonDTO::PyMacAddr8(_) => Ok(tokio_postgres::types::Type::MACADDR8_ARRAY),
+            PythonDTO::PyDecimal(_) => Ok(tokio_postgres::types::Type::NUMERIC_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -264,6 +270,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;
+            }
+            PythonDTO::PyDecimal(py_decimal) => {
+                <Decimal as ToSql>::to_sql(py_decimal, ty, out)?;
             }
         }
         if return_is_null_true {
@@ -543,7 +552,7 @@ fn postgres_bytes_to_py(
             _composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?.to_object(py),
         ),
         // Convert BigInt into i64, then into int
-        Type::INT8 => Ok(
+        Type::INT8 | Type::MONEY => Ok(
             _composite_field_postgres_to_py::<Option<i64>>(type_, buf, is_simple)?.to_object(py),
         ),
         // Convert REAL into f32, then into float
@@ -621,13 +630,12 @@ fn postgres_bytes_to_py(
             }
         }
         Type::NUMERIC => {
-            if let Some(money_) = _composite_field_postgres_to_py::<Option<Decimal>>(
+            if let Some(numeric_) = _composite_field_postgres_to_py::<Option<Decimal>>(
                 type_, buf, is_simple,
             )? {
-                Ok(InnerDecimal(money_).to_object(py))
-            } else {
-                Ok(py.None().to_object(py))
+                return Ok(InnerDecimal(numeric_).to_object(py));
             }
+            Ok(py.None().to_object(py))
         }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
@@ -651,7 +659,7 @@ fn postgres_bytes_to_py(
         )?
         .to_object(py)),
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
-        Type::INT8_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
+        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
@@ -723,6 +731,18 @@ fn postgres_bytes_to_py(
                 None => Ok(py.None().to_object(py)),
             }
         }
+        Type::NUMERIC_ARRAY => {
+            if let Some(numeric_array) = _composite_field_postgres_to_py::<Option<Vec<Decimal>>>(
+                type_, buf, is_simple,
+            )? {
+                let py_list = PyList::empty_bound(py);
+                for numeric_ in numeric_array {
+                    py_list.append(InnerDecimal(numeric_).to_object(py))?;
+                }
+                return Ok(py_list.to_object(py))
+            };
+            Ok(py.None().to_object(py))
+        },
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
         )),
