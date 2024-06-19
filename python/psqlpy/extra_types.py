@@ -3,6 +3,7 @@ from ._internal.extra_types import (
     Float32,
     Float64,
     Integer,
+    Money,
     PyCustomType,
     PyJSON,
     PyJSONB,
@@ -26,4 +27,5 @@ __all__ = [
     "PyCustomType",
     "Float32",
     "Float64",
+    "Money",
 ]
