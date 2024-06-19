@@ -1,6 +1,7 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind, ToSql};
+use rust_decimal::Decimal;
 use serde_json::{json, Map, Value};
 use std::{fmt::Debug, net::IpAddr};
 use uuid::Uuid;
@@ -8,11 +9,12 @@ use uuid::Uuid;
 use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
 use pyo3::{
+    sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PyString, PyTime, PyTuple, PyTypeMethods,
+        PyList, PyListMethods, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
     },
-    Bound, Py, PyAny, Python, ToPyObject,
+    Bound, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, Type},
@@ -23,12 +25,42 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Float32, Float64, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8,
-        PyText, PyVarChar, SmallInt,
+        BigInt, Float32, Float64, Integer, Money, PyCustomType, PyJSON, PyJSONB, PyMacAddr6,
+        PyMacAddr8, PyText, PyVarChar, SmallInt,
     },
 };
 
+static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+
 pub type QueryParameter = (dyn ToSql + Sync);
+
+fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
+    DECIMAL_CLS
+        .get_or_try_init(py, || {
+            let type_object = py
+                .import_bound("decimal")?
+                .getattr("Decimal")?
+                .downcast_into()?;
+            Ok(type_object.unbind())
+        })
+        .map(|ty| ty.bind(py))
+}
+
+/// Struct for Decimal.
+///
+/// It's necessary because we use custom forks and there is
+/// no implementation of `ToPyObject` for Decimal.
+struct InnerDecimal(Decimal);
+
+impl ToPyObject for InnerDecimal {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        let dec_cls = get_decimal_cls(py).expect("failed to load decimal.Decimal");
+        let ret = dec_cls
+            .call1((self.0.to_string(),))
+            .expect("failed to call decimal.Decimal(value)");
+        ret.to_object(py)
+    }
+}
 
 /// Additional type for types come from Python.
 ///
@@ -51,6 +83,7 @@ pub enum PythonDTO {
     PyIntU64(u64),
     PyFloat32(f32),
     PyFloat64(f64),
+    PyMoney(i64),
     PyDate(NaiveDate),
     PyTime(NaiveTime),
     PyDateTime(NaiveDateTime),
@@ -62,6 +95,7 @@ pub enum PythonDTO {
     PyJson(Value),
     PyMacAddr6(MacAddr6),
     PyMacAddr8(MacAddr8),
+    PyDecimal(Decimal),
     PyCustomType(Vec<u8>),
 }
 
@@ -89,6 +123,7 @@ impl PythonDTO {
             PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
+            PythonDTO::PyMoney(_) => Ok(tokio_postgres::types::Type::MONEY_ARRAY),
             PythonDTO::PyIpAddress(_) => Ok(tokio_postgres::types::Type::INET_ARRAY),
             PythonDTO::PyJsonb(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSON_ARRAY),
@@ -98,6 +133,7 @@ impl PythonDTO {
             PythonDTO::PyDateTimeTz(_) => Ok(tokio_postgres::types::Type::TIMESTAMPTZ_ARRAY),
             PythonDTO::PyMacAddr6(_) => Ok(tokio_postgres::types::Type::MACADDR_ARRAY),
             PythonDTO::PyMacAddr8(_) => Ok(tokio_postgres::types::Type::MACADDR8_ARRAY),
+            PythonDTO::PyDecimal(_) => Ok(tokio_postgres::types::Type::NUMERIC_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -197,7 +233,7 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyIntI16(int) => out.put_i16(*int),
             PythonDTO::PyIntI32(int) => out.put_i32(*int),
-            PythonDTO::PyIntI64(int) => out.put_i64(*int),
+            PythonDTO::PyIntI64(int) | PythonDTO::PyMoney(int) => out.put_i64(*int),
             PythonDTO::PyIntU32(int) => out.put_u32(*int),
             PythonDTO::PyIntU64(int) => out.put_u64(*int),
             PythonDTO::PyFloat32(float) => out.put_f32(*float),
@@ -236,6 +272,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;
+            }
+            PythonDTO::PyDecimal(py_decimal) => {
+                <Decimal as ToSql>::to_sql(py_decimal, ty, out)?;
             }
         }
         if return_is_null_true {
@@ -286,6 +325,7 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+    println!("{}", parameter.get_type().name()?);
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
@@ -349,6 +389,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     if parameter.is_instance_of::<BigInt>() {
         return Ok(PythonDTO::PyIntI64(
             parameter.extract::<BigInt>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<Money>() {
+        return Ok(PythonDTO::PyMoney(
+            parameter.extract::<Money>()?.retrieve_value(),
         ));
     }
 
@@ -443,6 +489,13 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         )?));
     }
 
+    if parameter.get_type().name()? == "decimal.Decimal" {
+        println!("{}", parameter.str()?.extract::<&str>()?);
+        return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
+            parameter.str()?.extract::<&str>()?,
+        )?));
+    }
+
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
         return Ok(PythonDTO::PyIpAddress(id_address));
     }
@@ -496,7 +549,7 @@ fn postgres_bytes_to_py(
         .to_object(py)),
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
-        Type::TEXT | Type::VARCHAR => Ok(_composite_field_postgres_to_py::<Option<String>>(
+        Type::TEXT | Type::VARCHAR | Type::XML => Ok(_composite_field_postgres_to_py::<Option<String>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
@@ -515,7 +568,7 @@ fn postgres_bytes_to_py(
             _composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?.to_object(py),
         ),
         // Convert BigInt into i64, then into int
-        Type::INT8 => Ok(
+        Type::INT8 | Type::MONEY => Ok(
             _composite_field_postgres_to_py::<Option<i64>>(type_, buf, is_simple)?.to_object(py),
         ),
         // Convert REAL into f32, then into float
@@ -592,13 +645,21 @@ fn postgres_bytes_to_py(
                 Ok(py.None().to_object(py))
             }
         }
+        Type::NUMERIC => {
+            if let Some(numeric_) = _composite_field_postgres_to_py::<Option<Decimal>>(
+                type_, buf, is_simple,
+            )? {
+                return Ok(InnerDecimal(numeric_).to_object(py));
+            }
+            Ok(py.None().to_object(py))
+        }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
-        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => Ok(_composite_field_postgres_to_py::<
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(_composite_field_postgres_to_py::<
             Option<Vec<String>>,
         >(type_, buf, is_simple)?
         .to_object(py)),
@@ -614,7 +675,7 @@ fn postgres_bytes_to_py(
         )?
         .to_object(py)),
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
-        Type::INT8_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
+        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
             type_, buf, is_simple,
         )?
         .to_object(py)),
@@ -686,6 +747,18 @@ fn postgres_bytes_to_py(
                 None => Ok(py.None().to_object(py)),
             }
         }
+        Type::NUMERIC_ARRAY => {
+            if let Some(numeric_array) = _composite_field_postgres_to_py::<Option<Vec<Decimal>>>(
+                type_, buf, is_simple,
+            )? {
+                let py_list = PyList::empty_bound(py);
+                for numeric_ in numeric_array {
+                    py_list.append(InnerDecimal(numeric_).to_object(py))?;
+                }
+                return Ok(py_list.to_object(py))
+            };
+            Ok(py.None().to_object(py))
+        },
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
         )),
