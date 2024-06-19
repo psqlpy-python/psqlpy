@@ -25,8 +25,8 @@ use crate::{
     additional_types::{RustMacAddr6, RustMacAddr8},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Float32, Float64, Integer, PyCustomType, PyJSON, PyJSONB, PyMacAddr6, PyMacAddr8,
-        PyText, PyVarChar, SmallInt,
+        BigInt, Float32, Float64, Integer, Money, PyCustomType, PyJSON, PyJSONB, PyMacAddr6,
+        PyMacAddr8, PyText, PyVarChar, SmallInt,
     },
 };
 
@@ -83,6 +83,7 @@ pub enum PythonDTO {
     PyIntU64(u64),
     PyFloat32(f32),
     PyFloat64(f64),
+    PyMoney(i64),
     PyDate(NaiveDate),
     PyTime(NaiveTime),
     PyDateTime(NaiveDateTime),
@@ -122,6 +123,7 @@ impl PythonDTO {
             PythonDTO::PyIntI64(_) => Ok(tokio_postgres::types::Type::INT8_ARRAY),
             PythonDTO::PyFloat32(_) => Ok(tokio_postgres::types::Type::FLOAT4_ARRAY),
             PythonDTO::PyFloat64(_) => Ok(tokio_postgres::types::Type::FLOAT8_ARRAY),
+            PythonDTO::PyMoney(_) => Ok(tokio_postgres::types::Type::MONEY_ARRAY),
             PythonDTO::PyIpAddress(_) => Ok(tokio_postgres::types::Type::INET_ARRAY),
             PythonDTO::PyJsonb(_) => Ok(tokio_postgres::types::Type::JSONB_ARRAY),
             PythonDTO::PyJson(_) => Ok(tokio_postgres::types::Type::JSON_ARRAY),
@@ -231,7 +233,7 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyIntI16(int) => out.put_i16(*int),
             PythonDTO::PyIntI32(int) => out.put_i32(*int),
-            PythonDTO::PyIntI64(int) => out.put_i64(*int),
+            PythonDTO::PyIntI64(int) | PythonDTO::PyMoney(int) => out.put_i64(*int),
             PythonDTO::PyIntU32(int) => out.put_u32(*int),
             PythonDTO::PyIntU64(int) => out.put_u64(*int),
             PythonDTO::PyFloat32(float) => out.put_f32(*float),
@@ -323,6 +325,7 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+    println!("{}", parameter.get_type().name()?);
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
@@ -386,6 +389,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     if parameter.is_instance_of::<BigInt>() {
         return Ok(PythonDTO::PyIntI64(
             parameter.extract::<BigInt>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<Money>() {
+        return Ok(PythonDTO::PyMoney(
+            parameter.extract::<Money>()?.retrieve_value(),
         ));
     }
 
@@ -476,6 +485,13 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 
     if parameter.get_type().name()? == "UUID" {
         return Ok(PythonDTO::PyUUID(Uuid::parse_str(
+            parameter.str()?.extract::<&str>()?,
+        )?));
+    }
+
+    if parameter.get_type().name()? == "decimal.Decimal" {
+        println!("{}", parameter.str()?.extract::<&str>()?);
+        return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             parameter.str()?.extract::<&str>()?,
         )?));
     }

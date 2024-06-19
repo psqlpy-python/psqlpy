@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Union
@@ -15,6 +16,7 @@ from psqlpy.extra_types import (
     Float32,
     Float64,
     Integer,
+    Money,
     PyJSON,
     PyJSONB,
     PyMacAddr6,
@@ -72,10 +74,18 @@ async def test_as_class(
         ("BYTEA", b"Bytes", [66, 121, 116, 101, 115]),
         ("VARCHAR", "Some String", "Some String"),
         ("TEXT", "Some String", "Some String"),
+        (
+            "XML",
+            """<?xml version="1.0"?><book><title>Manual</title><chapter>...</chapter></book>""",
+            """<book><title>Manual</title><chapter>...</chapter></book>""",
+        ),
         ("BOOL", True, True),
         ("INT2", SmallInt(12), 12),
         ("INT4", Integer(121231231), 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
+        ("MONEY", BigInt(99999999999999999), 99999999999999999),
+        ("MONEY", Money(99999999999999999), 99999999999999999),
+        ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
         ("FLOAT4", 32.12329864501953, 32.12329864501953),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
@@ -144,6 +154,16 @@ async def test_as_class(
             "INT8 ARRAY",
             [BigInt(99999999999999999), BigInt(99999999999999999)],
             [99999999999999999, 99999999999999999],
+        ),
+        (
+            "MONEY ARRAY",
+            [Money(99999999999999999), Money(99999999999999999)],
+            [99999999999999999, 99999999999999999],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            [Decimal("121.23"), Decimal("188.99")],
+            [Decimal("121.23"), Decimal("188.99")],
         ),
         (
             "FLOAT4 ARRAY",
