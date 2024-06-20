@@ -325,7 +325,6 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
-    println!("{}", parameter.get_type().name()?);
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
@@ -490,7 +489,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     }
 
     if parameter.get_type().name()? == "decimal.Decimal" {
-        println!("{}", parameter.str()?.extract::<&str>()?);
         return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             parameter.str()?.extract::<&str>()?,
         )?));
