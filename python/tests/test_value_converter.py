@@ -571,3 +571,33 @@ async def test_custom_decoder(
     )
 
     assert result[0]["geo_point"] == "Just An Example"
+
+
+async def test_row_factory_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    select_result = await psql_pool.execute(
+        f"SELECT * FROM {table_name}",
+    )
+
+    def row_factory(db_result: dict[str, Any]) -> list[str]:
+        return list(db_result.keys())
+
+    as_pydantic = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    assert len(as_pydantic) == number_database_records
+
+    for single_record in as_pydantic:
+        assert isinstance(single_record, DefaultPydanticModel)
+
+    as_py_class = select_result.as_class(
+        as_class=DefaultPythonModelClass,
+    )
+
+    assert len(as_py_class) == number_database_records
+
+    for single_py_record in as_py_class:
+        assert isinstance(single_py_record, DefaultPythonModelClass)
