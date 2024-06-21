@@ -585,19 +585,31 @@ async def test_row_factory_query_result(
     def row_factory(db_result: dict[str, Any]) -> list[str]:
         return list(db_result.keys())
 
-    as_pydantic = select_result.row_factory(
+    as_row_factory = select_result.row_factory(
         row_factory=row_factory,
     )
-    assert len(as_pydantic) == number_database_records
+    assert len(as_row_factory) == number_database_records
 
-    for single_record in as_pydantic:
-        assert isinstance(single_record, DefaultPydanticModel)
+    assert isinstance(as_row_factory[0], list)
 
-    as_py_class = select_result.as_class(
-        as_class=DefaultPythonModelClass,
+
+async def test_row_factory_single_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    connection = await psql_pool.connection()
+    select_result = await connection.fetch_row(
+        f"SELECT * FROM {table_name} LIMIT 1",
     )
 
-    assert len(as_py_class) == number_database_records
+    def row_factory(db_result: dict[str, Any]) -> list[str]:
+        return list(db_result.keys())
 
-    for single_py_record in as_py_class:
-        assert isinstance(single_py_record, DefaultPythonModelClass)
+    as_row_factory = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    expected_number_of_elements_in_result = 2
+    assert len(as_row_factory) == expected_number_of_elements_in_result
+
+    assert isinstance(as_row_factory, list)
