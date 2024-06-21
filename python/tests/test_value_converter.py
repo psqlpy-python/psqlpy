@@ -571,3 +571,44 @@ async def test_custom_decoder(
     )
 
     assert result[0]["geo_point"] == "Just An Example"
+
+
+async def test_row_factory_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    select_result = await psql_pool.execute(
+        f"SELECT * FROM {table_name}",
+    )
+
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        return list(db_result.keys())
+
+    as_row_factory = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    assert len(as_row_factory) == number_database_records
+
+    assert isinstance(as_row_factory[0], list)
+
+
+async def test_row_factory_single_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    select_result = await connection.fetch_row(
+        f"SELECT * FROM {table_name} LIMIT 1",
+    )
+
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        return list(db_result.keys())
+
+    as_row_factory = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    expected_number_of_elements_in_result = 2
+    assert len(as_row_factory) == expected_number_of_elements_in_result
+
+    assert isinstance(as_row_factory, list)

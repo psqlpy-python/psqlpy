@@ -8,6 +8,9 @@ from typing_extensions import Self
 _CustomClass = TypeVar(
     "_CustomClass",
 )
+_RowFactoryRV = TypeVar(
+    "_RowFactoryRV",
+)
 
 class QueryResult:
     """Result."""
@@ -16,7 +19,11 @@ class QueryResult:
         self: Self,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> list[dict[Any, Any]]:
-        """Return result from database as a list of dicts."""
+        """Return result from database as a list of dicts.
+
+        `custom_decoders` must be used when you use
+        PostgreSQL Type which isn't supported, read more in our docs.
+        """
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -52,12 +59,39 @@ class QueryResult:
             )
         ```
         """
+    def row_factory(
+        self,
+        row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[_RowFactoryRV]:
+        """Use custom function to convert results from database.
+
+        `custom_decoders` must be used when you use
+        PostgreSQL Type isn't supported, read more in the docs.
+
+        Argument order: firstly we apply `custom_decoders` (if specified),
+        then we apply `row_factory`.
+
+        ### Parameters:
+        - `row_factory`: function which takes `dict[str, Any]` as an argument.
+        - `custom_decoders`: functions for custom decoding.
+
+        ### Returns:
+        List of type that return passed `row_factory`.
+        """
 
 class SingleQueryResult:
     """Single result."""
 
-    def result(self: Self) -> dict[Any, Any]:
-        """Return result from database as a dict."""
+    def result(
+        self: Self,
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> dict[Any, Any]:
+        """Return result from database as a dict.
+
+        `custom_decoders` must be used when you use
+        PostgreSQL Type which isn't supported, read more in our docs.
+        """
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -95,6 +129,26 @@ class SingleQueryResult:
                 as_class=ExampleOfAsClass,
             )
         ```
+        """
+    def row_factory(
+        self,
+        row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> _RowFactoryRV:
+        """Use custom function to convert results from database.
+
+        `custom_decoders` must be used when you use
+        PostgreSQL Type isn't supported, read more in our docs.
+
+        Argument order: firstly we apply `custom_decoders` (if specified),
+        then we apply `row_factory`.
+
+        ### Parameters:
+        - `row_factory`: function which takes `list[dict[str, Any]]` as an argument.
+        - `custom_decoders`: functions for custom decoding.
+
+        ### Returns:
+        Type that return passed function.
         """
 
 class IsolationLevel(Enum):

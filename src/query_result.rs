@@ -89,6 +89,28 @@ impl PSQLDriverPyQueryResult {
 
         Ok(res.to_object(py))
     }
+
+    /// Convert result from database with function passed from Python.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if can not convert
+    /// postgres type with custom function.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn row_factory<'a>(
+        &'a self,
+        py: Python<'a>,
+        row_factory: Py<PyAny>,
+        custom_decoders: Option<Py<PyDict>>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let mut res: Vec<Py<PyAny>> = vec![];
+        for row in &self.inner {
+            let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &custom_decoders)?;
+            let row_factory_class = row_factory.call_bound(py, (pydict,), None)?;
+            res.push(row_factory_class);
+        }
+        Ok(res.to_object(py))
+    }
 }
 
 #[pyclass(name = "SingleQueryResult")]
@@ -121,8 +143,13 @@ impl PSQLDriverSinglePyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python, can not set new key-value pair
     /// in python dict or there are no result.
-    pub fn result(&self, py: Python<'_>) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        Ok(row_to_dict(py, &self.inner, &None)?.to_object(py))
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn result(
+        &self,
+        py: Python<'_>,
+        custom_decoders: Option<Py<PyDict>>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py))
     }
 
     /// Convert result from database to any class passed from Python.
@@ -140,5 +167,22 @@ impl PSQLDriverSinglePyQueryResult {
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, &self.inner, &None)?;
         Ok(as_class.call_bound(py, (), Some(&pydict))?)
+    }
+
+    /// Convert result from database with function passed from Python.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if can not convert
+    /// postgres type with custom function
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn row_factory<'a>(
+        &'a self,
+        py: Python<'a>,
+        row_factory: Py<PyAny>,
+        custom_decoders: Option<Py<PyDict>>,
+    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py);
+        Ok(row_factory.call_bound(py, (pydict,), None)?)
     }
 }
