@@ -582,7 +582,7 @@ async def test_row_factory_query_result(
         f"SELECT * FROM {table_name}",
     )
 
-    def row_factory(db_result: dict[str, Any]) -> list[str]:
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
         return list(db_result.keys())
 
     as_row_factory = select_result.row_factory(
@@ -596,14 +596,13 @@ async def test_row_factory_query_result(
 async def test_row_factory_single_query_result(
     psql_pool: ConnectionPool,
     table_name: str,
-    number_database_records: int,
 ) -> None:
     connection = await psql_pool.connection()
     select_result = await connection.fetch_row(
         f"SELECT * FROM {table_name} LIMIT 1",
     )
 
-    def row_factory(db_result: dict[str, Any]) -> list[str]:
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
         return list(db_result.keys())
 
     as_row_factory = select_result.row_factory(
