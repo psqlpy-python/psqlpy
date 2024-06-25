@@ -307,7 +307,6 @@ impl ToSql for PythonDTO {
 #[allow(clippy::needless_pass_by_value)]
 pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
-    println!("convert");
 
     result_vec = Python::with_gil(|gil| {
         let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
@@ -332,7 +331,6 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
-    println!("pytorust");
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
