@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use geo_types::{Line, LineString, Point, Polygon, Rect};
+use geo_types::{Line as LineSegment, LineString, Point, Polygon, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{
     pyclass, pymethods,
@@ -10,9 +10,9 @@ use pyo3::{
 use serde_json::Value;
 
 use crate::{
-    additional_types::Circle,
+    additional_types::{Circle, Line},
     exceptions::rust_errors::RustPSQLDriverPyResult,
-    value_converter::{build_circle, build_geo_coords, build_serde_value},
+    value_converter::{build_flat_geo_coords, build_geo_coords, build_serde_value},
 };
 
 macro_rules! build_python_type {
@@ -209,7 +209,7 @@ build_geo_type!(PyPoint, Point);
 build_geo_type!(PyBox, Rect);
 build_geo_type!(PyPath, LineString);
 build_geo_type!(PyLine, Line);
-build_geo_type!(PyLineSegment, Line);
+build_geo_type!(PyLineSegment, LineSegment);
 build_geo_type!(PyPolygon, Polygon);
 build_geo_type!(PyCircle, Circle);
 
@@ -257,10 +257,10 @@ impl PyLine {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-        let line_coords = build_geo_coords(value, Some(2))?;
+        let line_coords = build_flat_geo_coords(value, Some(3))?;
 
         Ok(Self {
-            inner: Line::new(line_coords[0], line_coords[1]),
+            inner: Line::new(line_coords[0], line_coords[1], line_coords[2]),
         })
     }
 }
@@ -273,7 +273,7 @@ impl PyLineSegment {
         let line_segment_coords = build_geo_coords(value, Some(2))?;
 
         Ok(Self {
-            inner: Line::new(line_segment_coords[0], line_segment_coords[1]),
+            inner: LineSegment::new(line_segment_coords[0], line_segment_coords[1]),
         })
     }
 }
@@ -286,7 +286,7 @@ impl PyPolygon {
         let polygon_coords = build_geo_coords(value, None)?;
 
         Ok(Self {
-            inner: Polygon::new(LineString::new(polygon_coords), vec![]),
+            inner: Polygon::new(LineString::from(polygon_coords), vec![]),
         })
     }
 }
@@ -296,8 +296,9 @@ impl PyCircle {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let circle_coords = build_flat_geo_coords(value, Some(3))?;
         Ok(Self {
-            inner: build_circle(value)?,
+            inner: Circle::new(circle_coords[0], circle_coords[1], circle_coords[2]),
         })
     }
 }

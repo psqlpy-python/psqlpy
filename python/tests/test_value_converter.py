@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from ipaddress import IPv4Address
-from typing import Any, Dict, List, Union
+from typing import Annotated, Any, Dict, List, Union
 
 import pytest
 from pydantic import BaseModel
@@ -82,7 +82,7 @@ async def test_as_class(
         ("INT2", SmallInt(12), 12),
         ("INT4", Integer(121231231), 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
-        ("FLOAT4", 32.12329864501953, 32.12329864501953),
+        ("FLOAT8", 32.12329864501953, 32.12329864501953),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
         ("DATE", now_datetime.date(), now_datetime.date()),
@@ -133,12 +133,11 @@ async def test_as_class(
             PyMacAddr8("08:00:2b:01:02:03:04:05"),
             "08:00:2B:01:02:03:04:05",
         ),
-        ("POINT", [1.5, 2], (1.5, 2.0)),
         ("POINT", PyPoint([1.5, 2]), (1.5, 2.0)),
-        ("POINT", PyPoint({1, 2.3}), (1.0, 2.3)),
+        ("POINT", PyPoint({1.2, 2.3}), (1.2, 2.3)),
         ("POINT", PyPoint((1.7, 2.8)), (1.7, 2.8)),
         ("BOX", PyBox([3.5, 3, 9, 9]), ((9.0, 9.0), (3.5, 3.0))),
-        ("BOX", PyBox({[1, 2], [9, 9]}), ((9.0, 9.0), (1.0, 2.0))),
+        ("BOX", PyBox({(1, 2), (9, 9)}), ((9.0, 9.0), (1.0, 2.0))),
         ("BOX", PyBox(((1.7, 2.8), (9, 9))), ((9.0, 9.0), (1.7, 2.8))),
         (
             "PATH",
@@ -150,24 +149,29 @@ async def test_as_class(
             PyPath(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
             ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
         ),
-        ("LINE", PyLine({[1, 2], [9, 9]}), [(1.0, 2.0), (9.0, 9.0)]),
-        ("LINE", PyLine(((1.7, 2.8), (9, 9))), [(1.7, 2.8), (9.0, 9.0)]),
-        ("LSEG", PyLineSegment({[1, 2], [9, 9]}), [(1.0, 2.0), (9.0, 9.0)]),
+        ("LINE", PyLine([-2, 1, 2]), (-2.0, 1.0, 2.0)),
+        ("LINE", PyLine([1, -2, 3]), (1.0, -2.0, 3.0)),
+        ("LSEG", PyLineSegment({(1, 2), (9, 9)}), [(1.0, 2.0), (9.0, 9.0)]),
         ("LSEG", PyLineSegment(((1.7, 2.8), (9, 9))), [(1.7, 2.8), (9.0, 9.0)]),
         (
             "POLYGON",
-            PyPolygon((1.7, 2.8, 3.3, 2.5, 9, 9, 1.7, 2.8)),
-            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
+            PyPolygon((1.7, 2.8, 3.3, 2.5, 9, 9, 8, 8, 1.7, 2.8)),
+            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (8.0, 8.0), (1.7, 2.8)),
         ),
         (
             "POLYGON",
-            PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
-            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
+            PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (8, 8), (1.7, 2.8))),
+            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (8.0, 8.0), (1.7, 2.8)),
         ),
         (
             "CIRCLE",
             PyCircle((1.7, 2.8, 3)),
-            (1.7, 2.8, 3.0),
+            ((1.7, 2.8), 3.0),
+        ),
+        (
+            "CIRCLE",
+            PyCircle([1, 2.8, 3]),
+            ((1.0, 2.8), 3.0),
         ),
         (
             "VARCHAR ARRAY",
@@ -188,7 +192,7 @@ async def test_as_class(
             [99999999999999999, 99999999999999999],
         ),
         (
-            "FLOAT4 ARRAY",
+            "FLOAT8 ARRAY",
             [32.12329864501953, 32.12329864501953],
             [32.12329864501953, 32.12329864501953],
         ),
@@ -290,6 +294,83 @@ async def test_as_class(
                 [{"array": "json"}, {"one more": "test"}],
             ],
         ),
+        (
+            "POINT ARRAY",
+            [
+                PyPoint([1.5, 2]),
+                PyPoint([2, 3]),
+            ],
+            [
+                (1.5, 2.0),
+                (2.0, 3.0),
+            ],
+        ),
+        (
+            "BOX ARRAY",
+            [
+                PyBox([3.5, 3, 9, 9]),
+                PyBox([8.5, 8, 9, 9]),
+            ],
+            [
+                ((9.0, 9.0), (3.5, 3.0)),
+                ((9.0, 9.0), (8.5, 8.0)),
+            ],
+        ),
+        (
+            "PATH ARRAY",
+            [
+                PyPath([(3.5, 3), (9, 9), (8, 8)]),
+                PyPath([(3.5, 3), (6, 6), (3.5, 3)]),
+            ],
+            [
+                [(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)],
+                ((3.5, 3.0), (6.0, 6.0), (3.5, 3.0)),
+            ],
+        ),
+        (
+            "LINE ARRAY",
+            [
+                PyLine([-2, 1, 2]),
+                PyLine([1, -2, 3]),
+            ],
+            [
+                (-2.0, 1.0, 2.0),
+                (1.0, -2.0, 3.0),
+            ],
+        ),
+        (
+            "LSEG ARRAY",
+            [
+                PyLineSegment({(1, 2), (9, 9)}),
+                PyLineSegment([(5.6, 3.1), (4, 5)]),
+            ],
+            [
+                [(1.0, 2.0), (9.0, 9.0)],
+                [(5.6, 3.1), (4.0, 5.0)],
+            ],
+        ),
+        (
+            "POLYGON ARRAY",
+            [
+                PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+                PyPolygon([{-1.0, 0.5}, {-0.3, 0.3}, {0.3, 0.7}, {0.6, -0.6}]),
+            ],
+            [
+                ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
+                ((-1.0, 0.5), (-0.3, 0.3), (0.3, 0.7), (0.6, -0.6)),
+            ],
+        ),
+        (
+            "CIRCLE ARRAY",
+            [
+                PyCircle([1.7, 2.8, 3]),
+                PyCircle([5, 1.8, 10]),
+            ],
+            [
+                ((1.7, 2.8), 3.0),
+                ((5.0, 1.8), 10.0),
+            ],
+        ),
     ),
 )
 async def test_deserialization_simple_into_python(
@@ -334,8 +415,9 @@ async def test_deserialization_composite_into_python(
         int2_ INT2,
         int4_ INT4,
         int8_ INT8,
-        flaot4_ FLOAT4,
-        flaot8_ FLOAT8,
+        float8_def_ FLOAT8,
+        float4_ FLOAT4,
+        float8_ FLOAT8,
         date_ DATE,
         time_ TIME,
         timestamp_ TIMESTAMP,
@@ -344,6 +426,13 @@ async def test_deserialization_composite_into_python(
         inet_ INET,
         jsonb_ JSONB,
         json_ JSON,
+        point_ POINT,
+        box_ BOX,
+        path_ PATH,
+        line_ LINE,
+        lseg_ LSEG,
+        polygon_ POLYGON,
+        circle_ CIRCLE,
 
         varchar_arr VARCHAR ARRAY,
         text_arr TEXT ARRAY,
@@ -351,7 +440,7 @@ async def test_deserialization_composite_into_python(
         int2_arr INT2 ARRAY,
         int4_arr INT4 ARRAY,
         int8_arr INT8 ARRAY,
-        flaot4_arr FLOAT4 ARRAY,
+        float8_arr FLOAT8 ARRAY,
         date_arr DATE ARRAY,
         time_arr TIME ARRAY,
         timestamp_arr TIMESTAMP ARRAY,
@@ -359,7 +448,14 @@ async def test_deserialization_composite_into_python(
         uuid_arr UUID ARRAY,
         inet_arr INET ARRAY,
         jsonb_arr JSONB ARRAY,
-        json_arr JSON ARRAY
+        json_arr JSON ARRAY,
+        point_arr POINT ARRAY,
+        box_arr BOX ARRAY,
+        path_arr PATH ARRAY,
+        line_arr LINE ARRAY,
+        lseg_arr LSEG ARRAY,
+        polygon_arr POLYGON ARRAY,
+        circle_arr CIRCLE ARRAY
     )
     """
     create_table_query = """
@@ -372,8 +468,10 @@ async def test_deserialization_composite_into_python(
     await psql_pool.execute(
         querystring=create_table_query,
     )
+
+    row_values = ", ".join([f"${index}" for index in range(1, 50)])
     await psql_pool.execute(
-        querystring="INSERT INTO for_test VALUES (ROW($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32))",  # noqa: E501
+        querystring=f"INSERT INTO for_test VALUES (ROW({row_values}))",
         parameters=[
             b"Bytes",
             "Some String",
@@ -383,6 +481,7 @@ async def test_deserialization_composite_into_python(
             Integer(199),
             BigInt(10001),
             32.12329864501953,
+            Float32(32.12329864501953),
             Float64(32.12329864501953),
             now_datetime.date(),
             now_datetime.time(),
@@ -400,6 +499,13 @@ async def test_deserialization_composite_into_python(
                     "nested": ["JSON"],
                 },
             ),
+            PyPoint({1.2, 2.3}),
+            PyBox(((1.7, 2.8), (9, 9))),
+            PyPath(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+            PyLine({-2, 1, 2}),
+            PyLineSegment(((1.7, 2.8), (9, 9))),
+            PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+            PyCircle([1.7, 2.8, 3]),
             ["Some String", "Some String"],
             [PyText("Some String"), PyText("Some String")],
             [True, False],
@@ -437,6 +543,34 @@ async def test_deserialization_composite_into_python(
                     },
                 ),
             ],
+            [
+                PyPoint([1.5, 2]),
+                PyPoint([2, 3]),
+            ],
+            [
+                PyBox([3.5, 3, 9, 9]),
+                PyBox([8.5, 8, 9, 9]),
+            ],
+            [
+                PyPath([(3.5, 3), (9, 9), (8, 8)]),
+                PyPath([(3.5, 3), (6, 6), (3.5, 3)]),
+            ],
+            [
+                PyLine([-2, 1, 2]),
+                PyLine([5.6, 4, 5]),
+            ],
+            [
+                PyLineSegment({(1, 2), (9, 9)}),
+                PyLineSegment([(5.6, 3.1), (4, 5)]),
+            ],
+            [
+                PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+                PyPolygon([{-1.0, 0.5}, {-0.3, 0.3}, {0.3, 0.7}, {0.6, -0.6}]),
+            ],
+            [
+                PyCircle([1.7, 2.8, 3]),
+                PyCircle([5, 1.8, 10]),
+            ],
         ],
     )
 
@@ -448,8 +582,9 @@ async def test_deserialization_composite_into_python(
         int2_: int
         int4_: int
         int8_: int
-        flaot4_: float
-        flaot8_: float
+        float8_def_: float
+        float4_: float
+        float8_: float
         date_: datetime.date
         time_: datetime.time
         timestamp_: datetime.datetime
@@ -458,6 +593,13 @@ async def test_deserialization_composite_into_python(
         inet_: IPv4Address
         jsonb_: Dict[str, List[Union[str, int, List[str]]]]
         json_: Dict[str, List[Union[str, int, List[str]]]]
+        point_: tuple[float, float]
+        box_: tuple[tuple[float, float], tuple[float, float]]
+        path_: list[tuple[float, float]]
+        line_: Annotated[list[float], 3]
+        lseg_: Annotated[list[tuple[float, float]], 2]
+        polygon_: tuple[tuple[float, float], ...]
+        circle_: tuple[float, float, float]
 
         varchar_arr: List[str]
         text_arr: List[str]
@@ -465,7 +607,7 @@ async def test_deserialization_composite_into_python(
         int2_arr: List[int]
         int4_arr: List[int]
         int8_arr: List[int]
-        flaot4_arr: List[float]
+        float8_arr: List[float]
         date_arr: List[datetime.date]
         time_arr: List[datetime.time]
         timestamp_arr: List[datetime.datetime]
@@ -474,6 +616,13 @@ async def test_deserialization_composite_into_python(
         inet_arr: List[IPv4Address]
         jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
         json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
+        point_arr: list[tuple[float, float]]
+        box_arr: list[tuple[tuple[float, float], tuple[float, float]]]
+        path_arr: list[list[tuple[float, float]]]
+        line_arr: list[Annotated[list[float], 3]]
+        lseg_arr: list[Annotated[list[tuple[float, float]], 2]]
+        polygon_arr: list[tuple[tuple[float, float], ...]]
+        circle_arr: list[tuple[float, float, float]]
 
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType

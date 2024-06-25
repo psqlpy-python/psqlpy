@@ -198,10 +198,7 @@ class PyLine:
         """Create new instance of PyLine.
 
         You need to pass any of this structures:
-        - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
-            each with pair of int/float numbers in every combination
-        - sequence(List, Tuple or Set) with two pairs
-            of int/float numbers in every combination
+        - sequence of three int/float numbers(a, b, c)
 
         ### Parameters:
         - `value`: any valid structure with int/float numbers.
@@ -250,7 +247,7 @@ class PyCircle:
             tuple[int | float, int | float, int | float],
         ],
     ) -> None:
-        """Create new instance of PyLine.
+        """Create new instance of PyCircle.
 
         You need to pass any of this structures:
         - sequence of three int/float numbers(x, y, r)

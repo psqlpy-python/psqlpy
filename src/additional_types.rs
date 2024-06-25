@@ -1,6 +1,10 @@
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+
 use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, BytesMut};
-use geo_types::{coord, Coord, CoordFloat, CoordNum, Line, LineString, Point, Polygon, Rect};
+use geo_types::{
+    coord, Coord, CoordFloat, CoordNum, Line as LineSegment, LineString, Point, Polygon, Rect,
+};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_protocol::types;
@@ -74,7 +78,7 @@ impl<'a> FromSql<'a> for RustMacAddr8 {
 build_additional_rust_type!(RustPoint, Point);
 build_additional_rust_type!(RustRect, Rect);
 build_additional_rust_type!(RustLineString, LineString);
-build_additional_rust_type!(RustLine, Line);
+build_additional_rust_type!(RustLineSegment, LineSegment);
 build_additional_rust_type!(RustPolygon, Polygon);
 
 impl<'a> IntoPy<PyObject> for &'a RustPoint {
@@ -222,7 +226,7 @@ impl<'a> FromSql<'a> for RustLineString {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a RustLine {
+impl<'a> IntoPy<PyObject> for &'a RustLineSegment {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let inner_value = self.inner();
@@ -239,7 +243,7 @@ impl<'a> IntoPy<PyObject> for &'a RustLine {
     }
 }
 
-impl ToSql for RustLine {
+impl ToSql for RustLineSegment {
     fn to_sql(
         &self,
         _: &Type,
@@ -262,15 +266,11 @@ impl ToSql for RustLine {
     }
 }
 
-impl<'a> FromSql<'a> for RustLine {
+impl<'a> FromSql<'a> for RustLineSegment {
     fn from_sql(
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() != 4 {
-            return Err("Cannot convert PostgreSQL LINE into rust Line".into());
-        }
-
         let mut vec_raw = vec![];
         vec_raw.extend_from_slice(raw);
         let mut buf = vec_raw.as_slice();
@@ -283,8 +283,12 @@ impl<'a> FromSql<'a> for RustLine {
         let y2 = buf.read_f64::<BigEndian>()?;
         let second_coord = coord!(x: x2, y: y2);
 
-        let new_line = Line::new(first_coord, second_coord);
-        Ok(RustLine::new(new_line))
+        if !buf.is_empty() {
+            return Err("Cannot convert PostgreSQL LSEG into rust LineSegment".into());
+        }
+
+        let new_line = LineSegment::new(first_coord, second_coord);
+        Ok(RustLineSegment::new(new_line))
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -315,15 +319,10 @@ impl ToSql for RustPolygon {
         _: &Type,
         out: &mut BytesMut,
     ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
-        for (x, y) in self
-            .inner
-            .exterior()
-            .0
-            .iter()
-            .map(|coordinate| (coordinate.x, coordinate.y))
-        {
-            out.put_f64(x);
-            out.put_f64(y);
+        for coord in &self.inner().exterior().0 {
+            let coordinates_pair = format!("{} {}", coord.x, coord.y);
+            let coordinates_bytes_repr = coordinates_pair.as_bytes();
+            out.extend_from_slice(coordinates_bytes_repr);
         }
 
         Ok(IsNull::No)
@@ -341,10 +340,6 @@ impl<'a> FromSql<'a> for RustPolygon {
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() % 2 != 0 {
-            return Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into());
-        }
-
         let mut vec_raw = vec![];
         vec_raw.extend_from_slice(raw);
         let mut buf = vec_raw.as_slice();
@@ -357,9 +352,189 @@ impl<'a> FromSql<'a> for RustPolygon {
             vec_coord.push(coord!(x: x1, y: y1));
         }
 
-        let polygon_exterior = LineString::new(vec_coord);
+        if !buf.is_empty() {
+            return Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into());
+        }
+
+        let polygon_exterior = LineString::from(vec_coord);
         let new_polygon = Polygon::new(polygon_exterior, vec![]);
         Ok(RustPolygon::new(new_polygon))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Line<T: CoordNum = f64> {
+    a: T,
+    b: T,
+    c: T,
+}
+
+impl<T: CoordNum> Line<T> {
+    pub fn new(a: T, b: T, c: T) -> Self {
+        Self { a, b, c }
+    }
+
+    pub fn a(self) -> T {
+        self.a
+    }
+
+    pub fn a_mut(&mut self) -> &mut T {
+        &mut self.a
+    }
+
+    pub fn set_a(&mut self, a: T) -> &mut Self {
+        self.a = a;
+        self
+    }
+
+    pub fn b(self) -> T {
+        self.b
+    }
+
+    pub fn b_mut(&mut self) -> &mut T {
+        &mut self.b
+    }
+
+    pub fn set_b(&mut self, b: T) -> &mut Self {
+        self.b = b;
+        self
+    }
+
+    pub fn c(self) -> T {
+        self.c
+    }
+
+    pub fn c_mut(&mut self) -> &mut T {
+        &mut self.c
+    }
+
+    pub fn set_c(&mut self, c: T) -> &mut Self {
+        self.c = c;
+        self
+    }
+}
+
+impl<T: CoordNum> Add for Line<T> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Line::new(self.a + rhs.a, self.b + rhs.b, self.c + rhs.c)
+    }
+}
+
+impl<T: CoordNum> AddAssign for Line<T> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.a = self.a + rhs.a;
+        self.b = self.b + rhs.b;
+        self.c = self.c + rhs.c;
+    }
+}
+
+impl<T: CoordNum> Sub for Line<T> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Line::new(self.a - rhs.a, self.b - rhs.b, self.c - rhs.c)
+    }
+}
+
+impl<T: CoordNum> SubAssign for Line<T> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.a = self.a - rhs.a;
+        self.b = self.b - rhs.b;
+        self.c = self.c - rhs.c;
+    }
+}
+
+impl<T: CoordNum> Mul<T> for Line<T> {
+    type Output = Self;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        Line::new(self.a * rhs, self.b * rhs, self.c * rhs)
+    }
+}
+
+impl<T: CoordNum> MulAssign<T> for Line<T> {
+    fn mul_assign(&mut self, rhs: T) {
+        self.a = self.a * rhs;
+        self.b = self.b * rhs;
+        self.c = self.c * rhs;
+    }
+}
+
+impl<T: CoordNum> Div<T> for Line<T> {
+    type Output = Self;
+
+    fn div(self, rhs: T) -> Self::Output {
+        Line::new(self.a / rhs, self.b / rhs, self.c / rhs)
+    }
+}
+
+impl<T: CoordNum> DivAssign<T> for Line<T> {
+    fn div_assign(&mut self, rhs: T) {
+        self.a = self.a / rhs;
+        self.b = self.b / rhs;
+        self.c = self.c / rhs;
+    }
+}
+
+impl<'a> IntoPy<PyObject> for &'a Line {
+    #[inline]
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        let result_vec: Vec<Py<PyAny>> = vec![
+            self.a().into_py(py),
+            self.b().into_py(py),
+            self.c().into_py(py),
+        ];
+
+        return PyTuple::new_bound(py, result_vec).into();
+    }
+}
+
+impl ToSql for Line {
+    fn to_sql(
+        &self,
+        _: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        out.put_f64(self.a());
+        out.put_f64(self.b());
+        out.put_f64(self.c());
+
+        Ok(IsNull::No)
+    }
+
+    to_sql_checked!();
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+impl<'a> FromSql<'a> for Line {
+    fn from_sql(
+        _ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let mut vec_raw = vec![];
+        vec_raw.extend_from_slice(raw);
+        let mut buf = vec_raw.as_slice();
+
+        let a = buf.read_f64::<BigEndian>()?;
+        let b = buf.read_f64::<BigEndian>()?;
+        let c = buf.read_f64::<BigEndian>()?;
+
+        if !buf.is_empty() {
+            return Err("Cannot convert PostgreSQL LINE into rust Line".into());
+        }
+
+        let new_line = Line::new(a, b, c);
+        Ok(new_line)
     }
 
     fn accepts(_ty: &Type) -> bool {
@@ -466,10 +641,6 @@ impl<'a> FromSql<'a> for Circle {
         _ty: &Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        if raw.len() != 3 {
-            return Err("Cannot convert PostgreSQL CIRCLE into rust Circle".into());
-        }
-
         let mut vec_raw = vec![];
         vec_raw.extend_from_slice(raw);
         let mut buf = vec_raw.as_slice();
@@ -477,6 +648,10 @@ impl<'a> FromSql<'a> for Circle {
         let x = buf.read_f64::<BigEndian>()?;
         let y = buf.read_f64::<BigEndian>()?;
         let r = buf.read_f64::<BigEndian>()?;
+
+        if !buf.is_empty() {
+            return Err("Cannot convert PostgreSQL CIRCLE into rust Circle".into());
+        }
 
         let new_circle = Circle::new(x, y, r);
         Ok(new_circle)
