@@ -32,6 +32,16 @@ class BigInt:
         - `inner_value`: int object.
         """
 
+class Money:
+    """Represent `MONEY` in PostgreSQL and `i64` in Rust."""
+
+    def __init__(self: Self, inner_value: int) -> None:
+        """Create new instance of class.
+
+        ### Parameters:
+        - `inner_value`: int object.
+        """
+
 class Float32:
     """Represents `FLOAT4` in `PostgreSQL` and `f32` in Rust."""
 

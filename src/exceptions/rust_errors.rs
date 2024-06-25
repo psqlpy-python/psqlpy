@@ -75,6 +75,8 @@ pub enum RustPSQLDriverError {
     RustMacAddrConversionError(#[from] macaddr::ParseError),
     #[error("Cannot execute future in Rust: {0}")]
     RustRuntimeJoinError(#[from] JoinError),
+    #[error("Cannot convert python Decimal into rust Decimal")]
+    DecimalConversionError(#[from] rust_decimal::Error),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -92,7 +94,8 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::RustToPyValueConversionError(_) => {
                 RustToPyValueMappingError::new_err((error_desc,))
             }
-            RustPSQLDriverError::PyToRustValueConversionError(_) => {
+            RustPSQLDriverError::PyToRustValueConversionError(_)
+            | RustPSQLDriverError::DecimalConversionError(_) => {
                 PyToRustValueMappingError::new_err((error_desc,))
             }
             RustPSQLDriverError::ConnectionPoolConfigurationError(_) => {

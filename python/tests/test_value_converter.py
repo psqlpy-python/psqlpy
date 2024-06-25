@@ -1,5 +1,7 @@
 import datetime
 import uuid
+from decimal import Decimal
+from enum import Enum
 from ipaddress import IPv4Address
 from typing import Annotated, Any, Dict, List, Union
 
@@ -14,6 +16,7 @@ from psqlpy.extra_types import (
     Float32,
     Float64,
     Integer,
+    Money,
     PyBox,
     PyCircle,
     PyJSON,
@@ -78,10 +81,18 @@ async def test_as_class(
         ("BYTEA", b"Bytes", [66, 121, 116, 101, 115]),
         ("VARCHAR", "Some String", "Some String"),
         ("TEXT", "Some String", "Some String"),
+        (
+            "XML",
+            """<?xml version="1.0"?><book><title>Manual</title><chapter>...</chapter></book>""",
+            """<book><title>Manual</title><chapter>...</chapter></book>""",
+        ),
         ("BOOL", True, True),
         ("INT2", SmallInt(12), 12),
         ("INT4", Integer(121231231), 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
+        ("MONEY", BigInt(99999999999999999), 99999999999999999),
+        ("MONEY", Money(99999999999999999), 99999999999999999),
+        ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
         ("FLOAT8", 32.12329864501953, 32.12329864501953),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
@@ -190,6 +201,16 @@ async def test_as_class(
             "INT8 ARRAY",
             [BigInt(99999999999999999), BigInt(99999999999999999)],
             [99999999999999999, 99999999999999999],
+        ),
+        (
+            "MONEY ARRAY",
+            [Money(99999999999999999), Money(99999999999999999)],
+            [99999999999999999, 99999999999999999],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            [Decimal("121.23"), Decimal("188.99")],
+            [Decimal("121.23"), Decimal("188.99")],
         ),
         (
             "FLOAT8 ARRAY",
@@ -406,6 +427,10 @@ async def test_deserialization_composite_into_python(
     """Test that it's possible to deserialize custom postgresql type."""
     await psql_pool.execute("DROP TABLE IF EXISTS for_test")
     await psql_pool.execute("DROP TYPE IF EXISTS all_types")
+    await psql_pool.execute("DROP TYPE IF EXISTS inner_type")
+    await psql_pool.execute("DROP TYPE IF EXISTS enum_type")
+    await psql_pool.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
+    await psql_pool.execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -449,6 +474,8 @@ async def test_deserialization_composite_into_python(
         inet_arr INET ARRAY,
         jsonb_arr JSONB ARRAY,
         json_arr JSON ARRAY,
+        test_inner_value inner_type,
+        test_enum_type enum_type,
         point_arr POINT ARRAY,
         box_arr BOX ARRAY,
         path_arr PATH ARRAY,
@@ -469,7 +496,15 @@ async def test_deserialization_composite_into_python(
         querystring=create_table_query,
     )
 
-    row_values = ", ".join([f"${index}" for index in range(1, 50)])
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    row_values = ", ".join([f"${index}" for index in range(1, 41)])
+    row_values += ", ROW($41, $42), "
+    row_values += ", ".join([f"${index}" for index in range(43, 51)])
+
     await psql_pool.execute(
         querystring=f"INSERT INTO for_test VALUES (ROW({row_values}))",
         parameters=[
@@ -543,6 +578,9 @@ async def test_deserialization_composite_into_python(
                     },
                 ),
             ],
+            "inner type value",
+            "happy",
+            TestEnum.OK,
             [
                 PyPoint([1.5, 2]),
                 PyPoint([2, 3]),
@@ -573,6 +611,10 @@ async def test_deserialization_composite_into_python(
             ],
         ],
     )
+
+    class ValidateModelForInnerValueType(BaseModel):
+        inner_value: str
+        some_enum: TestEnum
 
     class ValidateModelForCustomType(BaseModel):
         bytea_: List[int]
@@ -624,6 +666,9 @@ async def test_deserialization_composite_into_python(
         polygon_arr: list[tuple[tuple[float, float], ...]]
         circle_arr: list[tuple[float, float, float]]
 
+        test_inner_value: ValidateModelForInnerValueType
+        test_enum_type: TestEnum
+
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType
 
@@ -636,6 +681,41 @@ async def test_deserialization_composite_into_python(
     )
 
     assert isinstance(model_result[0], TopLevelModel)
+
+
+async def test_enum_type(psql_pool: ConnectionPool) -> None:
+    """Test that we can decode ENUM type from PostgreSQL."""
+
+    class TestEnum(Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    class TestStrEnum(str, Enum):
+        OK = "ok"
+        SAD = "sad"
+        HAPPY = "happy"
+
+    await psql_pool.execute("DROP TABLE IF EXISTS for_test")
+    await psql_pool.execute("DROP TYPE IF EXISTS mood")
+    await psql_pool.execute(
+        "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy')",
+    )
+    await psql_pool.execute(
+        "CREATE TABLE for_test (test_mood mood, test_mood2 mood)",
+    )
+
+    await psql_pool.execute(
+        querystring="INSERT INTO for_test VALUES ($1, $2)",
+        parameters=[TestEnum.HAPPY, TestEnum.OK],
+    )
+
+    qs_result = await psql_pool.execute(
+        "SELECT * FROM for_test",
+    )
+    assert qs_result.result()[0]["test_mood"] == TestEnum.HAPPY.value
+    assert qs_result.result()[0]["test_mood"] != TestEnum.HAPPY
+    assert qs_result.result()[0]["test_mood2"] == TestStrEnum.OK
 
 
 async def test_custom_type_as_parameter(
@@ -685,3 +765,44 @@ async def test_custom_decoder(
     )
 
     assert result[0]["geo_point"] == "Just An Example"
+
+
+async def test_row_factory_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    select_result = await psql_pool.execute(
+        f"SELECT * FROM {table_name}",
+    )
+
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        return list(db_result.keys())
+
+    as_row_factory = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    assert len(as_row_factory) == number_database_records
+
+    assert isinstance(as_row_factory[0], list)
+
+
+async def test_row_factory_single_query_result(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    connection = await psql_pool.connection()
+    select_result = await connection.fetch_row(
+        f"SELECT * FROM {table_name} LIMIT 1",
+    )
+
+    def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        return list(db_result.keys())
+
+    as_row_factory = select_result.row_factory(
+        row_factory=row_factory,
+    )
+    expected_number_of_elements_in_result = 2
+    assert len(as_row_factory) == expected_number_of_elements_in_result
+
+    assert isinstance(as_row_factory, list)
