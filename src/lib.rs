@@ -4,6 +4,7 @@ pub mod driver;
 pub mod exceptions;
 pub mod extra_types;
 pub mod query_result;
+pub mod row_factories;
 pub mod runtime;
 pub mod value_converter;
 
@@ -11,6 +12,7 @@ use common::add_module;
 use exceptions::python_errors::python_exceptions_module;
 use extra_types::extra_types_module;
 use pyo3::{pymodule, types::PyModule, wrap_pyfunction, Bound, PyResult, Python};
+use row_factories::row_factories_module;
 
 #[pymodule]
 #[pyo3(name = "_internal")]
@@ -32,5 +34,6 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;
     add_module(py, pymod, "exceptions", python_exceptions_module)?;
+    add_module(py, pymod, "row_factories", row_factories_module)?;
     Ok(())
 }
