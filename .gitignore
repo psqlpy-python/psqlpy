@@ -74,3 +74,6 @@ docs/_build/
 # Develop
 _test*
 _load_test
+
+# JS
+node_modules
