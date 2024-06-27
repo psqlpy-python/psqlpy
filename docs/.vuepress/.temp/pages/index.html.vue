@@ -15,5 +15,3 @@ Don't make useless abstractions and make it like a mirror to <code v-pre>Postgre
 <li><a href="https://t.me/+f3Y8mYKgXxhmYThi" target="_blank" rel="noopener noreferrer">Telegram<ExternalLinkIcon/></a></li>
 </ul>
 </div></template>
-
-
