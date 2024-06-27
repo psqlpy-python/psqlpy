@@ -5,7 +5,6 @@ import sidebar from "./sidebar.js";
 import { viteBundler } from '@vuepress/bundler-vite'
 
 export default defineUserConfig({
-  base: "/psqlpy-docs/",
   lang: "en-US",
   title: "PSQLPy",
   description: "PSQLPy Documentation",
