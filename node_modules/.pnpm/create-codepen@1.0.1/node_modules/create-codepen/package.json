@@ -1,0 +1,60 @@
+{
+  "name": "create-codepen",
+  "version": "1.0.1",
+  "description": "Create CodePen with API",
+  "keywords": [
+    "codepen"
+  ],
+  "homepage": "https://github.com/Mister-Hope/create-codepen",
+  "bugs": {
+    "url": "https://github.com/Mister-Hope/create-codepen/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mister-Hope/create-codepen.git",
+    "directory": "packages/theme"
+  },
+  "author": {
+    "name": "Mr.Hope",
+    "email": "mister-hope@outlook.com",
+    "url": "https://mister-hope.com"
+  },
+  "license": "MIT",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "packageManager": "pnpm@8.9.0",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "6.7.5",
+    "@typescript-eslint/parser": "6.7.5",
+    "esbuild": "0.19.4",
+    "eslint": "8.51.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-import": "2.28.1",
+    "eslint-plugin-prettier": "5.0.0",
+    "prettier": "3.0.3",
+    "rollup": "4.0.2",
+    "rollup-plugin-dts": "6.1.0",
+    "rollup-plugin-esbuild": "6.1.0",
+    "typescript": "5.2.2",
+    "vite": "4.4.11"
+  },
+  "scripts": {
+    "build": "rollup -c rollup.config.ts --configPlugin esbuild",
+    "dev": "vite dev",
+    "lint": "pnpm lint:prettier --write && pnpm lint:eslint --fix",
+    "lint:check": "pnpm lint:prettier && pnpm lint:eslint",
+    "lint:eslint": "eslint . --ext .js,.ts,.vue",
+    "lint:prettier": "prettier --check ."
+  }
+}
