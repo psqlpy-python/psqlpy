@@ -20,7 +20,7 @@ export default defineUserConfig({
 
     sidebar,
 
-    hostname: "https://psqlpy.github.io/",
+    hostname: "https://qaspen-python.github.io/",
 
     plugins: {
       readingTime: false,

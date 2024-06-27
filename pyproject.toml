@@ -46,7 +46,7 @@ features = ["pyo3/extension-module"]
 [project.urls]
 homepage = "https://github.com/qaspen-python/psqlpy"
 repository = "https://github.com/qaspen-python/psqlpy"
-documentation = "https://psqlpy.github.io/"
+documentation = "https://qaspen-python.github.io/"
 
 [tool.isort]
 profile = "black"

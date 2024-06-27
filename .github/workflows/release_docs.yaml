@@ -33,7 +33,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           personal_token: ${{ secrets.PERSONAL_TOKEN }}
-          external_repository: qaspen-python/psqlpy.github.io
+          external_repository: qaspen-python/qaspen-python.github.io
           publish_dir: ./docs_dist
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
