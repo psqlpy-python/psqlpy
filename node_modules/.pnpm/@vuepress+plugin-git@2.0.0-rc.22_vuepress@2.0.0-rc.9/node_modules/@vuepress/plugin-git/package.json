@@ -1,0 +1,46 @@
+{
+  "name": "@vuepress/plugin-git",
+  "version": "2.0.0-rc.22",
+  "description": "VuePress plugin - git",
+  "keywords": [
+    "vuepress-plugin",
+    "vuepress",
+    "plugin",
+    "git"
+  ],
+  "homepage": "https://ecosystem.vuejs.press/plugins/get.html",
+  "bugs": {
+    "url": "https://github.com/vuepress/ecosystem/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vuepress/ecosystem.git",
+    "directory": "plugins/plugin-git"
+  },
+  "license": "MIT",
+  "author": "meteorlxy",
+  "type": "module",
+  "exports": {
+    ".": "./lib/node/index.js",
+    "./package.json": "./package.json"
+  },
+  "main": "./lib/node/index.js",
+  "types": "./lib/node/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rimraf --glob ./lib ./*.tsbuildinfo"
+  },
+  "dependencies": {
+    "execa": "^8.0.1"
+  },
+  "peerDependencies": {
+    "vuepress": "2.0.0-rc.9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "088ab15335527cc0c644d7ec83e7588be675477e"
+}

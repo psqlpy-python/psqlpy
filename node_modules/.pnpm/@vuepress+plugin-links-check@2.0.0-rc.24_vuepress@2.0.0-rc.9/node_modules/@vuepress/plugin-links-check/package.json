@@ -1,0 +1,50 @@
+{
+  "name": "@vuepress/plugin-links-check",
+  "version": "2.0.0-rc.24",
+  "description": "VuePress plugin - links-check",
+  "keywords": [
+    "vuepress-plugin",
+    "vuepress",
+    "plugin",
+    "link check"
+  ],
+  "homepage": "https://ecosystem.vuejs.press/plugins/links-check.html",
+  "bugs": {
+    "url": "https://github.com/vuepress/ecosystem/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vuepress/ecosystem.git",
+    "directory": "plugins/plugin-links-check"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Mr.Hope",
+    "email": "mister-hope@outlook.com",
+    "url": "https://mister-hope.com"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./lib/node/index.js",
+    "./package.json": "./package.json"
+  },
+  "main": "./lib/node/index.js",
+  "types": "./lib/node/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rimraf --glob ./lib ./*.tsbuildinfo"
+  },
+  "dependencies": {
+    "@vuepress/helper": "~2.0.0-rc.24"
+  },
+  "peerDependencies": {
+    "vuepress": "2.0.0-rc.9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "b2fb493bb4e3c29290ad2ded4f20c3efd94f8c9b"
+}
