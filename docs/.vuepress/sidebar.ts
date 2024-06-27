@@ -60,7 +60,6 @@ export default sidebar({
           collapsible: true,
           children: [
             "row_factories",
-            "overall_usage",
             "predefined_row_factories",
           ]
         },

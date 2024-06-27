@@ -36,15 +36,26 @@ Don't make useless abstractions and make it like a mirror to `PostgreSQL`.
 It has all necessary components to create high-load and fault tolerance applications.
 
 ## How to install
-Using pip
+::: tabs
+@tab pip
+
 ```bash
 pip install psqlpy
 ```
 
-Using poetry
+@tab poetry
+
 ```bash
 poetry add psqlpy
 ```
+
+@tab git
+
+```bash
+pip install git+https://github.com/qaspen-python/psqlpy
+```
+
+:::
 
 ## Join community!
 You can get support from the creators and users of `PSQLPy` in some social media:
