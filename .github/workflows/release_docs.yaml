@@ -2,8 +2,8 @@ name: Release PSQLPy documentation
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - main
 
 permissions:
   contents: write
