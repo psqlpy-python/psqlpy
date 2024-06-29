@@ -118,6 +118,8 @@ create_exception!(
     RustPSQLDriverPyBaseError
 );
 
+create_exception!(psqlpy.exceptions, SSLError, RustPSQLDriverPyBaseError);
+
 #[allow(clippy::missing_errors_doc)]
 pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add(
