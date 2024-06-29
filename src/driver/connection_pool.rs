@@ -179,8 +179,8 @@ impl ConnectionPool {
     pub async fn execute<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
 
@@ -247,8 +247,8 @@ impl ConnectionPool {
     pub async fn fetch<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
 
