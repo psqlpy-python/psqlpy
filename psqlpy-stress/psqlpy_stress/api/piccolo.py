@@ -4,134 +4,120 @@ from aiohttp import web
 from piccolo.engine import engine_finder
 from piccolo.query import OrderByRaw
 
-from psqlpy_stress.influx_db_helpers import write_timings_to_influx
 from psqlpy_stress.models.piccolo import SomeBigTable, User
 from psqlpy_stress.piccolo_conf import (
     ASYNCPG_PICCOLO_ENGINE,
     PSQLPY_PICCOLO_ENGINE,
 )
-from psqlpy_stress.settings import DriversEnum
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_simple_transaction_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     async with PSQLPY_PICCOLO_ENGINE.transaction():
         User._meta.db = PSQLPY_PICCOLO_ENGINE
-        await User.select().order_by(OrderByRaw("random()")).run()
+        await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_simple_transaction_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     async with ASYNCPG_PICCOLO_ENGINE.transaction():
         User._meta.db = ASYNCPG_PICCOLO_ENGINE
-        await User.select().order_by(OrderByRaw("random()")).run()
+        await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_simple_connection_select_piccolo(_request: web.Request) -> web.Response:
     User._meta.db = PSQLPY_PICCOLO_ENGINE
-    await User.select().order_by(OrderByRaw("random()")).run()
+    await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_simple_connection_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     User._meta.db = ASYNCPG_PICCOLO_ENGINE
-    await User.select().order_by(OrderByRaw("random()")).run()
+    await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
 # --------------------------------------------- Hard queries handlers starting here ---------------------------------------------
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_hard_transaction_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     async with PSQLPY_PICCOLO_ENGINE.transaction():
         SomeBigTable._meta.db = PSQLPY_PICCOLO_ENGINE
-        await SomeBigTable.select().order_by(OrderByRaw("random()")).run()
+        await SomeBigTable.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_hard_transaction_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     engine_finder().set_engine(ASYNCPG_PICCOLO_ENGINE)
     async with ASYNCPG_PICCOLO_ENGINE.transaction():
         SomeBigTable._meta.db = ASYNCPG_PICCOLO_ENGINE
-        await SomeBigTable.select().order_by(OrderByRaw("random()")).run()
+        await SomeBigTable.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_hard_connection_select_piccolo(_request: web.Request) -> web.Response:
     SomeBigTable._meta.db = PSQLPY_PICCOLO_ENGINE
-    await SomeBigTable.select().order_by(OrderByRaw("random()")).run()
+    await SomeBigTable.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_hard_connection_select_piccolo(
     _request: web.Request,
 ) -> web.Response:
     SomeBigTable._meta.db = ASYNCPG_PICCOLO_ENGINE
-    await SomeBigTable.select().order_by(OrderByRaw("random()")).run()
+    await SomeBigTable.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
 # --------------------------------------------- Combined queries (select + insert) handlers starting here ---------------------------------------------
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_combined_transaction_query_piccolo(
     _request: web.Request,
 ) -> web.Response:
     async with PSQLPY_PICCOLO_ENGINE.transaction():
         User._meta.db = PSQLPY_PICCOLO_ENGINE
-        await User.insert(User(username=str(uuid.uuid4()))).run()
-        await User.select().order_by(OrderByRaw("random()")).run()
+        await User.insert(User(username=str(uuid.uuid4())))
+        await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_combined_transaction_query_piccolo(
     _request: web.Request,
 ) -> web.Response:
     engine_finder().set_engine(ASYNCPG_PICCOLO_ENGINE)
     async with ASYNCPG_PICCOLO_ENGINE.transaction():
         User._meta.db = ASYNCPG_PICCOLO_ENGINE
-        await User.insert(User(username=str(uuid.uuid4()))).run()
-        await User.select().order_by(OrderByRaw("random()")).run()
+        await User.insert(User(username=str(uuid.uuid4())))
+        await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.PSQLPY)
 async def psqlpy_combined_connection_query_piccolo(
     _request: web.Request,
 ) -> web.Response:
     User._meta.db = PSQLPY_PICCOLO_ENGINE
-    await User.insert(User(username=str(uuid.uuid4()))).run()
-    await User.select().order_by(OrderByRaw("random()")).run()
+    await User.insert(User(username=str(uuid.uuid4())))
+    await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
-@write_timings_to_influx(DriversEnum.ASYNCPG)
 async def asyncpg_combined_connection_query_piccolo(
     _request: web.Request,
 ) -> web.Response:
     User._meta.db = ASYNCPG_PICCOLO_ENGINE
-    await User.insert(User(username=str(uuid.uuid4()))).run()
-    await User.select().order_by(OrderByRaw("random()")).run()
+    await User.insert(User(username=str(uuid.uuid4())))
+    await User.select().order_by(OrderByRaw("random()")).limit(10)
     return web.Response(status=200, text="Ok")
 
 
