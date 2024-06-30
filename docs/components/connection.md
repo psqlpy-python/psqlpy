@@ -5,19 +5,36 @@ title: Connection
 `Connection` object represents single connection to the `PostgreSQL`. You must work with database within it.
 `Connection` get be made with `ConnectionPool().connection()` method.
 
+## Usage
+::: tabs
+
+@tab default
 ```python
 from psqlpy import ConnectionPool
-
 
 db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
 
-
 async def main() -> None:
-    ...
     connection = await db_pool.connection()
 ```
+
+@tab async context manager
+```python
+from psqlpy import ConnectionPool
+
+db_pool: Final = ConnectionPool(
+    dsn="postgres://postgres:postgres@localhost:5432/postgres",
+)
+
+async def main() -> None:
+    async with db_pool.acquire() as connection:
+        # connection is valid here
+        ...
+    # connection is invalid here
+```
+:::
 
 ## Connection methods
 
@@ -157,4 +174,20 @@ async def main() -> None:
         read_variant=ReadVariant.ReadWrite,
         deferrable=True,
     )
+```
+
+### Back To Pool
+Returns connection to the pool.
+It's crucial to commit all transactions and close all cursor which are made from the connection.
+Otherwise, this method won't do anything useful.
+
+::: tip
+There is no need in this method if you use async context manager.
+:::
+
+```python
+async def main() -> None:
+    ...
+    connection = await db_pool.connection()
+    connection.back_to_pool()
 ```

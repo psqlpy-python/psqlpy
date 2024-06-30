@@ -141,6 +141,29 @@ db_pool: Final = connect(
 ```
 `connect` function has the same parameters as `ConnectionPool`.
 
+### Resize
+Resize connection pool capacity.
+
+This change the max_size of the pool dropping excess objects and/or making space for new ones.
+
+#### Parameters:
+- `new_max_size`: new size of the pool.
+
+```python
+async def main() -> None:
+    ...
+    db_pool.resize(15)
+```
+
+### Status
+Retrieve status of the connection pool.
+
+It has 4 parameters:
+- `max_size` - maximum possible size of the connection pool.
+- `size` - current size of the connection pool.
+- `available` - available connection in the connection pool.
+- `waiting` - waiting requests to retrieve connection from connection pool.
+
 ### Execute
 
 #### Parameters:
@@ -188,6 +211,18 @@ async def main() -> None:
     )
 
     dict_results: list[dict[str, Any]] = results.result()
+```
+
+### Acquire
+
+Get single connection for async context manager.
+Must be used only in async context manager.
+
+```python
+async def main() -> None:
+    ...
+    async with db_pool.acquire() as connection:
+        ...
 ```
 
 ### Connection

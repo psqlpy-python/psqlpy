@@ -170,3 +170,37 @@ async def test_cursor_as_async_manager(
             all_results.append(result)
 
     assert len(all_results) == expected_num_results
+
+
+async def test_cursor_send_underlying_connection_to_pool(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    """Test send underlying connection to the pool."""
+    async with psql_pool.acquire() as connection:
+        async with connection.transaction() as transaction:
+            async with transaction.cursor(
+                querystring=f"SELECT * FROM {table_name}",
+            ) as cursor:
+                await cursor.fetch(10)
+                assert not psql_pool.status().available
+            assert not psql_pool.status().available
+        assert not psql_pool.status().available
+    assert psql_pool.status().available == 1
+
+
+async def test_cursor_send_underlying_connection_to_pool_manually(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    """Test send underlying connection to the pool."""
+    async with psql_pool.acquire() as connection:
+        async with connection.transaction() as transaction:
+            cursor = transaction.cursor(querystring=f"SELECT * FROM {table_name}")
+            await cursor.start()
+            await cursor.fetch(10)
+            assert not psql_pool.status().available
+            await cursor.close()
+            assert not psql_pool.status().available
+        assert not psql_pool.status().available
+    assert psql_pool.status().available == 1
