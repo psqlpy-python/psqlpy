@@ -307,3 +307,30 @@ async def test_transaction_fetch_val_more_than_one_row(
                 f"SELECT * FROM  {table_name}",
                 [],
             )
+
+
+async def test_transaction_send_underlying_connection_to_pool(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Test send underlying connection to the pool."""
+    async with psql_pool.acquire() as connection:
+        async with connection.transaction() as transaction:
+            await transaction.execute("SELECT 1")
+
+            assert not psql_pool.status().available
+        assert not psql_pool.status().available
+    assert psql_pool.status().available == 1
+
+
+async def test_transaction_send_underlying_connection_to_pool_manually(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Test send underlying connection to the pool."""
+    async with psql_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.begin()
+        await transaction.execute("SELECT 1")
+        assert not psql_pool.status().available
+        await transaction.commit()
+        assert not psql_pool.status().available
+    assert psql_pool.status().available == 1

@@ -816,6 +816,13 @@ class Connection:
     It can be created only from connection pool.
     """
 
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
     async def execute(
         self: Self,
         querystring: str,
@@ -1040,6 +1047,18 @@ class Connection:
                         ... # do something with this result.
         ```
         """
+    def back_to_pool(self: Self) -> None:
+        """Return connection back to the pool.
+
+        It necessary to commit all transactions and close all cursor
+        made by this connection. Otherwise, it won't have any practical usage.
+        """
+
+class ConnectionPoolStatus:
+    max_size: int
+    size: int
+    available: int
+    waiting: int
 
 class ConnectionPool:
     """Connection pool for executing queries.
@@ -1142,6 +1161,21 @@ class ConnectionPool:
         - `max_db_pool_size`: maximum size of the connection pool.
         - `conn_recycling_method`: how a connection is recycled.
         """
+    def status(self: Self) -> ConnectionPoolStatus:
+        """Return information about connection pool.
+
+        ### Returns
+        `ConnectionPoolStatus`
+        """
+    def resize(self: Self, new_max_size: int) -> None:
+        """Resize the connection pool.
+
+        This change the max_size of the pool dropping
+        excess objects and/or making space for new ones.
+
+        ### Parameters:
+        - `new_max_size`: new size for the connection pool.
+        """
     async def execute(
         self: Self,
         querystring: str,
@@ -1201,6 +1235,24 @@ class ConnectionPool:
         """Create new connection.
 
         It acquires new connection from the database pool.
+        """
+    def acquire(self: Self) -> Connection:
+        """Create new connection for async context manager.
+
+        Must be used only in async context manager.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            async with db_pool.acquire() as connection:
+                res = await connection.execute(...)
+        ```
         """
     def close(self: Self) -> None:
         """Close the connection pool."""

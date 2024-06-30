@@ -1,7 +1,7 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
-use std::vec;
+use std::{sync::Arc, vec};
 use tokio_postgres::NoTls;
 
 use crate::{
@@ -105,6 +105,63 @@ pub fn connect(
 }
 
 #[pyclass]
+#[allow(clippy::module_name_repetitions)]
+pub struct ConnectionPoolStatus {
+    /// The maximum size of the pool.
+    pub max_size: usize,
+
+    /// The current size of the pool.
+    pub size: usize,
+
+    /// The number of available objects in the pool.
+    pub available: usize,
+
+    /// The number of futures waiting for an object.
+    pub waiting: usize,
+}
+
+impl ConnectionPoolStatus {
+    fn new(max_size: usize, size: usize, available: usize, waiting: usize) -> Self {
+        ConnectionPoolStatus {
+            max_size,
+            size,
+            available,
+            waiting,
+        }
+    }
+}
+
+#[pymethods]
+impl ConnectionPoolStatus {
+    #[getter]
+    fn get_max_size(&self) -> usize {
+        self.max_size
+    }
+
+    #[getter]
+    fn get_size(&self) -> usize {
+        self.size
+    }
+
+    #[getter]
+    fn get_available(&self) -> usize {
+        self.available
+    }
+
+    #[getter]
+    fn get_waiting(&self) -> usize {
+        self.waiting
+    }
+
+    fn __str__(&self) -> String {
+        format!(
+            "Connection Pool Status - [max_size: {}, size: {}, available: {}, waiting: {}]",
+            self.max_size, self.size, self.available, self.waiting,
+        )
+    }
+}
+
+#[pyclass]
 pub struct ConnectionPool(pub Pool);
 
 #[pymethods]
@@ -167,6 +224,22 @@ impl ConnectionPool {
             max_db_pool_size,
             conn_recycling_method,
         )
+    }
+
+    #[must_use]
+    pub fn status(&self) -> ConnectionPoolStatus {
+        let inner_status = self.0.status();
+
+        ConnectionPoolStatus::new(
+            inner_status.max_size,
+            inner_status.size,
+            inner_status.available,
+            inner_status.waiting,
+        )
+    }
+
+    pub fn resize(&self, new_max_size: usize) {
+        self.0.resize(new_max_size);
     }
 
     /// Execute querystring with parameters.
@@ -302,6 +375,11 @@ impl ConnectionPool {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    #[must_use]
+    pub fn acquire(&self) -> Connection {
+        Connection::new(None, Some(self.0.clone()))
+    }
+
     /// Return new single connection.
     ///
     /// # Errors
@@ -314,7 +392,7 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(db_connection))
+        Ok(Connection::new(Some(Arc::new(db_connection)), None))
     }
 
     /// Return new single connection.

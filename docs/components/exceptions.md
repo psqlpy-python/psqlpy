@@ -28,6 +28,7 @@ stateDiagram-v2
     }
     state BaseConnectionError {
         [*] --> ConnectionExecuteError
+        [*] --> ConnectionClosedError
     }
     state BaseTransactionError {
         [*] --> TransactionBeginError
@@ -35,11 +36,13 @@ stateDiagram-v2
         [*] --> TransactionRollbackError
         [*] --> TransactionSavepointError
         [*] --> TransactionExecuteError
+        [*] --> TransactionClosedError
     }
     state BaseCursorError {
         [*] --> CursorStartError
         [*] --> CursorCloseError
         [*] --> CursorFetchError
+        [*] --> CursorClosedError
     }
     state RustException {
         [*] --> DriverError
@@ -86,6 +89,9 @@ Base error for Connection errors.
 #### ConnectionExecuteError
 Error in connection execution.
 
+#### ConnectionClosedError
+Error if underlying connection is closed.
+
 ### BaseTransactionError
 Base error for all transaction errors.
 
@@ -104,6 +110,9 @@ Error in transaction savepoint.
 #### TransactionExecuteError
 Error in transaction execution.
 
+#### TransactionClosedError
+Error if underlying connection is closed.
+
 ### BaseCursorError
 Base error for Cursor errors.
 
@@ -115,3 +124,6 @@ Error in cursor close.
 
 #### CursorFetchError
 Error in cursor fetch (any fetch).
+
+#### CursorClosedError
+Error if underlying connection is closed.
