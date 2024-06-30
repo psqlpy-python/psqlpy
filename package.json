@@ -1,0 +1,22 @@
+{
+  "name": "psqlpy-docs",
+  "repository": "git@github.com:qaspen-python/psqlpy.git",
+  "author": "Kiselev Aleksandr <askiselev00@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "docs:dev": "vuepress dev docs --clean-cache",
+    "docs:build": "vuepress build docs",
+    "docs:serve": "vuepress serve docs"
+  },
+  "packageManager": "pnpm@7.22.0",
+  "devDependencies": {
+    "@vuepress/bundler-vite": "2.0.0-rc.9",
+    "mermaid": "^10.8.0",
+    "sass-loader": "^14.1.0",
+    "vue": "^3.4.15",
+    "vuepress": "2.0.0-rc.9",
+    "vuepress-plugin-search-pro": "2.0.0-rc.36",
+    "vuepress-theme-hope": "2.0.0-rc.36"
+  }
+}

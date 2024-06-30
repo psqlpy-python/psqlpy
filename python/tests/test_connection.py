@@ -6,7 +6,11 @@ import pytest
 from tests.helpers import count_rows_in_test_table
 
 from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
-from psqlpy.exceptions import ConnectionExecuteError, TransactionExecuteError
+from psqlpy.exceptions import (
+    ConnectionClosedError,
+    ConnectionExecuteError,
+    TransactionExecuteError,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -147,3 +151,32 @@ async def test_connection_cursor(
             all_results.extend(cur_res.result())
 
     assert len(all_results) == number_database_records
+
+
+async def test_connection_async_context_manager(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    """Test connection as a async context manager."""
+    async with psql_pool.acquire() as connection:
+        conn_result = await connection.execute(
+            querystring=f"SELECT * FROM {table_name}",
+        )
+        assert not psql_pool.status().available
+
+    assert psql_pool.status().available == 1
+
+    assert isinstance(conn_result, QueryResult)
+    assert len(conn_result.result()) == number_database_records
+
+
+async def test_closed_connection_error(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Test exception when connection is closed."""
+    connection = await psql_pool.connection()
+    connection.back_to_pool()
+
+    with pytest.raises(expected_exception=ConnectionClosedError):
+        await connection.execute("SELECT 1")

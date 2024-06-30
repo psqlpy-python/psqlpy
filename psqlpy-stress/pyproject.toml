@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-psqlpy = "0.3.5"
+psqlpy = "*"
 asyncpg = "0.29.0"
 psycopg = { version = "3.1.18", extras = ["pool"] }
 aiohttp = "*"
@@ -21,6 +21,8 @@ pytz = "^2024.1"
 psycopg2-binary = "^2.9.9"
 gunicorn = "^21.2.0"
 uvicorn = "^0.29.0"
+psqlpy-piccolo = { git = "https://github.com/qaspen-python/psqlpy-piccolo" }
+piccolo = "^1.12.0"
 
 
 [tool.poetry.group.dev.dependencies]
