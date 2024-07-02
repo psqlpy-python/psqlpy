@@ -15,13 +15,5 @@ class Settings(BaseSettings):
 
     app_port: int = 8080
 
-    influx_db_address: str = "http://127.0.0.1:8086"
-    influx_db_token: str = ""
-    influx_db_organization: str = "psqlpy-stress-test"
-    influx_db_bucket: str = "psqlpy-stress-bucket"
-    influx_db_measurment: str = "stress-test-timings"
-    influx_db_measurment_tag: str = "stress-test-timings-tag"
-    influx_db_client_app_key: str = "influxdb"
-
 
 settings = Settings()
