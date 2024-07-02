@@ -8,6 +8,7 @@ pytestmark = pytest.mark.anyio
 @pytest.mark.parametrize(
     "ssl_mode",
     (
+        SslMode.Disable,
         SslMode.Allow,
         SslMode.Prefer,
         SslMode.Require,
