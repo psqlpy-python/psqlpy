@@ -107,20 +107,25 @@ runs:
           --no-instructions
 
         # Create new ssl certificate
-        openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=localhost"
-        chmod og-rwx $PGDATA/server.key $PGDATA/server.crt
-        cp $PGDATA/server.crt ${{ inputs.ca_file_output }}
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
+          openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=localhost"
+          chmod og-rwx $PGDATA/server.key $PGDATA/server.crt
+          cp $PGDATA/server.crt ${{ inputs.ca_file_output }}
+        fi
 
         # Do not create unix sockets since they are created by default in the
         # directory we have no permissions to (owned by system postgres user).
         echo "unix_socket_directories = ''" >> "$PGDATA/postgresql.conf"
         echo "port = ${{ inputs.port }}" >> "$PGDATA/postgresql.conf"
-        pg_ctl start
 
         # Set new configuration option with ssl to Postgres
-        echo "ssl = on" >> "$PGDATA/postgresql.conf"
-        echo "ssl_cert_file = '$PGDATA/server.crt'" >> "$PGDATA/postgresql.conf"
-        echo "ssl_key_file = '$PGDATA/server.key'" >> "$PGDATA/postgresql.conf"
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
+          echo "ssl = on" >> "$PGDATA/postgresql.conf"
+          echo "ssl_cert_file = '$PGDATA/server.crt'" >> "$PGDATA/postgresql.conf"
+          echo "ssl_key_file = '$PGDATA/server.key'" >> "$PGDATA/postgresql.conf"
+        fi
+
+        pg_ctl start
 
         # Save required connection parameters for created superuser to the
         # connection service file [1]. This allows using these connection
