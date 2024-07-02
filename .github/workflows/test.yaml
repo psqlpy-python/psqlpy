@@ -61,39 +61,6 @@ jobs:
     runs-on: ${{matrix.job.os}}
     steps:
     - uses: actions/checkout@v1
-    - uses: ikalnytskyi/action-setup-postgres@v4
-      with:
-        username: postgres
-        password: postgres
-        database: psqlpy_test
-      id: postgres
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: clippy
-        override: true
-    - name: Setup OpenSSL
-      run: ${{matrix.job.ssl_cmd}}
-    - name: Setup python for test ${{ matrix.py_version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.py_version }}
-    - name: Install tox
-      run: pip install "tox-gh>=1.2,<2"
-    - name: Run pytest
-      run: tox -v -c tox.ini
-
-  pytest_with_ssl_postgres:
-    name: ${{matrix.job.os}}-${{matrix.py_version}}
-    strategy:
-      matrix:
-        py_version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-        job:
-            - os: ubuntu-latest
-              ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
-    runs-on: ${{matrix.job.os}}
-    steps:
-    - uses: actions/checkout@v1
     - name: Setup Postgres
       uses: ./.github/actions/setup_postgres/
       with:
@@ -115,4 +82,38 @@ jobs:
     - name: Install tox
       run: pip install "tox-gh>=1.2,<2"
     - name: Run pytest
-      run: tox -v -c tox_ssl_mode.ini
+      run: tox -v -c tox.ini
+
+  # pytest_with_ssl_postgres:
+  #   name: ${{matrix.job.os}}-${{matrix.py_version}}
+  #   strategy:
+  #     matrix:
+  #       py_version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+  #       job:
+  #           - os: ubuntu-latest
+  #             ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
+  #   runs-on: ${{matrix.job.os}}
+  #   steps:
+  #   - uses: actions/checkout@v1
+  #   - name: Setup Postgres
+  #     uses: ./.github/actions/setup_postgres/
+  #     with:
+  #       username: postgres
+  #       password: postgres
+  #       database: psqlpy_test
+  #     id: postgres
+  #   - uses: actions-rs/toolchain@v1
+  #     with:
+  #       toolchain: stable
+  #       components: clippy
+  #       override: true
+  #   - name: Setup OpenSSL
+  #     run: ${{matrix.job.ssl_cmd}}
+  #   - name: Setup python for test ${{ matrix.py_version }}
+  #     uses: actions/setup-python@v4
+  #     with:
+  #       python-version: ${{ matrix.py_version }}
+  #   - name: Install tox
+  #     run: pip install "tox-gh>=1.2,<2"
+  #   - name: Run pytest
+  #     run: tox -v -c tox_ssl_mode.ini
