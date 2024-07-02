@@ -98,7 +98,7 @@ runs:
           --locale="$DEFAULT_LOCALE" \
           --no-instructions
 
-        openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=127.0.0.1"
+        openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=localhost"
         chmod og-rwx $PGDATA/server.key $PGDATA/server.crt
         cp $PGDATA/server.crt ./root.crt
 
