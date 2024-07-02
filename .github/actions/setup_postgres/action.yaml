@@ -23,7 +23,7 @@ inputs:
     required: false
   ssl_on:
     description: The ssl turn on or off.
-    default: false
+    default: "off"
     required: false
   ca_file_output:
     description: Location for the certificate file.
@@ -107,7 +107,7 @@ runs:
           --no-instructions
 
         # Create new ssl certificate
-        if [ ${{ inputs.ssl_on }} ]; then
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
           openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=localhost"
           chmod og-rwx $PGDATA/server.key $PGDATA/server.crt
           cp $PGDATA/server.crt ${{ inputs.ca_file_output }}
@@ -120,7 +120,7 @@ runs:
         pg_ctl start
 
         # Set new configuration option with ssl to Postgres
-        if [ ${{ inputs.ssl_on }} ]; then
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
           echo "ssl = on" >> "$PGDATA/postgresql.conf"
           echo "ssl_cert_file = '$PGDATA/server.crt'" >> "$PGDATA/postgresql.conf"
           echo "ssl_key_file = '$PGDATA/server.key'" >> "$PGDATA/postgresql.conf"

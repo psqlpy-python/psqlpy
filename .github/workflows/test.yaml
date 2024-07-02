@@ -67,7 +67,7 @@ jobs:
         username: postgres
         password: postgres
         database: psqlpy_test
-        ssl_on: true
+        ssl_on: "on"
       id: postgres
     - uses: actions-rs/toolchain@v1
       with:
