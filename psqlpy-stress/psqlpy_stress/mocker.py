@@ -37,16 +37,18 @@ async def fill_big_table() -> None:
     big_table_amount = 10000000
     for _ in range(big_table_amount):
         await pool.execute(
-            "INSERT INTO big_table (string_field, integer_field) VALUES($1, $2)",
-            [
+            "INSERT INTO big_table (string_field, integer_field, json_field, array_field) VALUES($1, $2, $3, $4)",
+            parameters=[
                 str(uuid.uuid4()),
                 random.randint(1, 99999999),
+                generate_random_dict(),
+                generate_random_array(),
             ],
         )
 
 
 async def main() -> None:
-    await fill_big_table()
+    await fill_users()
 
 
 if __name__ == "__main__":
