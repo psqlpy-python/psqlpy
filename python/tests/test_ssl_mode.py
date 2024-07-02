@@ -1,9 +1,37 @@
 import pytest
 
-from psqlpy import ConnectionPool
+from psqlpy import ConnectionPool, SslMode
 
 pytestmark = pytest.mark.anyio
 
 
-async def test_ssl_mode_require(psql_pool_with_cert_file: ConnectionPool) -> None:
-    await psql_pool_with_cert_file.execute("SELECT 1")
+@pytest.mark.parametrize(
+    "ssl_mode",
+    (
+        SslMode.Allow,
+        SslMode.Prefer,
+        SslMode.Require,
+        SslMode.VerifyCa,
+        SslMode.VerifyFull,
+    ),
+)
+async def test_ssl_mode_require(
+    ssl_mode: SslMode,
+    postgres_host: str,
+    postgres_user: str,
+    postgres_password: str,
+    postgres_port: int,
+    postgres_dbname: str,
+    ssl_cert_file: str,
+) -> None:
+    pg_pool = ConnectionPool(
+        username=postgres_user,
+        password=postgres_password,
+        host=postgres_host,
+        port=postgres_port,
+        db_name=postgres_dbname,
+        ssl_mode=ssl_mode,
+        ca_file=ssl_cert_file,
+    )
+
+    await pg_pool.execute("SELECT 1")
