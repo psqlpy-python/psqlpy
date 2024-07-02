@@ -18,6 +18,7 @@ use row_factories::row_factories_module;
 #[pyo3(name = "_internal")]
 fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::ConnectionPool>()?;
+    pymod.add_class::<driver::connection_pool::ConnectionPoolStatus>()?;
     pymod.add_class::<driver::connection_pool_builder::ConnectionPoolBuilder>()?;
     pymod.add_function(wrap_pyfunction!(driver::connection_pool::connect, pymod)?)?;
     pymod.add_class::<driver::connection::Connection>()?;

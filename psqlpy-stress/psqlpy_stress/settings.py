@@ -10,13 +10,13 @@ class DriversEnum(enum.StrEnum):
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgres://postgres:postgres@127.0.0.1:5432/postgres"
+    database_url: str = "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
     max_pool_size: int = 20
 
     app_port: int = 8080
 
     influx_db_address: str = "http://127.0.0.1:8086"
-    influx_db_token: str = # past in your InfluxDB token here
+    influx_db_token: str = ""
     influx_db_organization: str = "psqlpy-stress-test"
     influx_db_bucket: str = "psqlpy-stress-bucket"
     influx_db_measurment: str = "stress-test-timings"

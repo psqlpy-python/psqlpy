@@ -19,6 +19,9 @@ class BaseConnectionError(RustPSQLDriverPyBaseError):
 class ConnectionExecuteError(BaseConnectionError):
     """Error in connection execution."""
 
+class ConnectionClosedError(BaseConnectionError):
+    """Error if underlying connection is already closed."""
+
 class BaseTransactionError(RustPSQLDriverPyBaseError):
     """Base error for all transaction errors."""
 
@@ -37,6 +40,9 @@ class TransactionSavepointError(BaseTransactionError):
 class TransactionExecuteError(BaseTransactionError):
     """Error in transaction execution."""
 
+class TransactionClosedError(BaseTransactionError):
+    """Error if underlying connection is already closed."""
+
 class BaseCursorError(RustPSQLDriverPyBaseError):
     """Base error for Cursor errors."""
 
@@ -48,6 +54,9 @@ class CursorCloseError(BaseCursorError):
 
 class CursorFetchError(BaseCursorError):
     """Error in cursor fetch (any fetch)."""
+
+class CursorClosedError(BaseCursorError):
+    """Error if underlying connection is already closed."""
 
 class UUIDValueConvertError(RustPSQLDriverPyBaseError):
     """Error if it's impossible to convert py string UUID into rust UUID."""
