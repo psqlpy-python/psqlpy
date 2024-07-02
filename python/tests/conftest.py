@@ -6,6 +6,7 @@ import pytest
 from pydantic import BaseModel
 
 from psqlpy import ConnectionPool, Cursor
+from psqlpy._internal import SslMode
 
 
 class DefaultPydanticModel(BaseModel):
@@ -74,6 +75,11 @@ def number_database_records() -> int:
 
 
 @pytest.fixture()
+def ssl_cert_file() -> str:
+    return os.environ.get("POSTGRES_CERT_FILE", "./root.crt")
+
+
+@pytest.fixture()
 async def psql_pool(
     postgres_host: str,
     postgres_user: str,
@@ -87,6 +93,26 @@ async def psql_pool(
         host=postgres_host,
         port=postgres_port,
         db_name=postgres_dbname,
+    )
+
+
+@pytest.fixture()
+async def psql_pool_with_cert_file(
+    postgres_host: str,
+    postgres_user: str,
+    postgres_password: str,
+    postgres_port: int,
+    postgres_dbname: str,
+    ssl_cert_file: str,
+) -> ConnectionPool:
+    return ConnectionPool(
+        username=postgres_user,
+        password=postgres_password,
+        host=postgres_host,
+        port=postgres_port,
+        db_name=postgres_dbname,
+        ssl_mode=SslMode.VerifyFull,
+        ca_file=ssl_cert_file,
     )
 
 

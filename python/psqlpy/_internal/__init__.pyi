@@ -1092,6 +1092,8 @@ class ConnectionPool:
         load_balance_hosts: Optional[LoadBalanceHosts] = None,
         max_db_pool_size: int = 2,
         conn_recycling_method: Optional[ConnRecyclingMethod] = None,
+        ssl_mode: Optional[SslMode] = None,
+        ca_file: Optional[str] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
 
@@ -1160,6 +1162,9 @@ class ConnectionPool:
             Defaults to disable.
         - `max_db_pool_size`: maximum size of the connection pool.
         - `conn_recycling_method`: how a connection is recycled.
+        - `ssl_mode`: mode for ssl.
+        - `ca_file`: Loads trusted root certificates from a file.
+            The file should contain a sequence of PEM-formatted CA certificates.
         """
     def status(self: Self) -> ConnectionPoolStatus:
         """Return information about connection pool.
@@ -1282,6 +1287,8 @@ def connect(
     load_balance_hosts: Optional[LoadBalanceHosts] = None,
     max_db_pool_size: int = 2,
     conn_recycling_method: Optional[ConnRecyclingMethod] = None,
+    ssl_mode: Optional[SslMode] = None,
+    ca_file: Optional[str] = None,
 ) -> ConnectionPool:
     """Create new PostgreSQL connection pool.
 
@@ -1350,6 +1357,9 @@ def connect(
         Defaults to disable.
     - `max_db_pool_size`: maximum size of the connection pool.
     - `conn_recycling_method`: how a connection is recycled.
+    - `ssl_mode`: mode for ssl.
+    - `ca_file`: Loads trusted root certificates from a file.
+        The file should contain a sequence of PEM-formatted CA certificates.
     """
 
 class ConnectionPoolBuilder:
