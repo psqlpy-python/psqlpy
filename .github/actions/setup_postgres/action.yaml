@@ -120,7 +120,7 @@ runs:
         pg_ctl start
 
         # Set new configuration option with ssl to Postgres
-        if [ ${{inputs.ssl_on}} ]; then
+        if [ ${{ inputs.ssl_on }} ]; then
           echo "ssl = on" >> "$PGDATA/postgresql.conf"
           echo "ssl_cert_file = '$PGDATA/server.crt'" >> "$PGDATA/postgresql.conf"
           echo "ssl_key_file = '$PGDATA/server.key'" >> "$PGDATA/postgresql.conf"
