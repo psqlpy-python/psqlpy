@@ -1459,6 +1459,16 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+    def ca_file(self: Self, ca_file: str) -> Self:
+        """
+        Set ca_file for SSL.
+
+        ### Parameters:
+        - `ca_file`: certificate file to connection to PostgreSQL.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
     def host(self: Self, host: str) -> Self:
         """
         Add a host to the configuration.

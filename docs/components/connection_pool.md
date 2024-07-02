@@ -70,6 +70,8 @@ So, if you set `max_db_pool_size` to 100, pool will create new connection every 
     Defaults to disable.
 - `max_db_pool_size`: maximum size of the connection pool.
 - `conn_recycling_method`: how a connection is recycled.
+- `ssl_mode`: ssl mode.
+- `ca_file`: path to ca_file for ssl.
 
 Example of possible `dsn`s:
 
