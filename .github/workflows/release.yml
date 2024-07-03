@@ -77,7 +77,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     env:
-      OPENSSL_DIR: /usr/local/opt/openssl@3
+      OPENSSL_DIR: /opt/homebrew/Cellar/openssl@3/3.3.1
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
