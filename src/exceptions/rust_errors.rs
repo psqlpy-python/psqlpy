@@ -1,3 +1,4 @@
+use openssl::error::ErrorStack;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -8,9 +9,9 @@ use super::python_errors::{
     ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
     ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
     CursorClosedError, CursorFetchError, CursorStartError, DriverError, MacAddrParseError,
-    RuntimeJoinError, TransactionBeginError, TransactionClosedError, TransactionCommitError,
-    TransactionExecuteError, TransactionRollbackError, TransactionSavepointError,
-    UUIDValueConvertError,
+    RuntimeJoinError, SSLError, TransactionBeginError, TransactionClosedError,
+    TransactionCommitError, TransactionExecuteError, TransactionRollbackError,
+    TransactionSavepointError, UUIDValueConvertError,
 };
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
@@ -84,6 +85,8 @@ pub enum RustPSQLDriverError {
     RustRuntimeJoinError(#[from] JoinError),
     #[error("Cannot convert python Decimal into rust Decimal")]
     DecimalConversionError(#[from] rust_decimal::Error),
+    #[error("Cannot create set SSL: {0}")]
+    SSLError(#[from] ErrorStack),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -156,6 +159,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::CursorStartError(_) => CursorStartError::new_err((error_desc,)),
             RustPSQLDriverError::CursorCloseError(_) => CursorCloseError::new_err((error_desc,)),
             RustPSQLDriverError::CursorFetchError(_) => CursorFetchError::new_err((error_desc,)),
+            RustPSQLDriverError::SSLError(_) => SSLError::new_err((error_desc,)),
             RustPSQLDriverError::CursorClosedError => CursorClosedError::new_err((error_desc,)),
         }
     }

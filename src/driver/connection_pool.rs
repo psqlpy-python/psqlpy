@@ -1,5 +1,7 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
+use openssl::ssl::{SslConnector, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
 use std::{sync::Arc, vec};
 use tokio_postgres::NoTls;
@@ -11,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, TargetSessionAttrs},
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     utils::build_connection_config,
 };
@@ -45,6 +47,8 @@ pub fn connect(
     keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
     load_balance_hosts: Option<LoadBalanceHosts>,
+    ssl_mode: Option<SslMode>,
+    ca_file: Option<String>,
 
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
@@ -80,6 +84,7 @@ pub fn connect(
         keepalives_interval_nanosec,
         keepalives_retries,
         load_balance_hosts,
+        ssl_mode,
     )?;
 
     let mgr_config: ManagerConfig;
@@ -92,7 +97,16 @@ pub fn connect(
             recycling_method: RecyclingMethod::Fast,
         };
     }
-    let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+
+    let mgr: Manager;
+    if let Some(ca_file) = ca_file {
+        let mut builder = SslConnector::builder(SslMethod::tls())?;
+        builder.set_ca_file(ca_file)?;
+        let tls_connector = MakeTlsConnector::new(builder.build());
+        mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+    } else {
+        mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+    }
 
     let mut db_pool_builder = Pool::builder(mgr);
     if let Some(max_db_pool_size) = max_db_pool_size {
@@ -197,6 +211,8 @@ impl ConnectionPool {
         load_balance_hosts: Option<LoadBalanceHosts>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
+        ssl_mode: Option<SslMode>,
+        ca_file: Option<String>,
     ) -> RustPSQLDriverPyResult<Self> {
         connect(
             dsn,
@@ -221,6 +237,8 @@ impl ConnectionPool {
             keepalives_interval_nanosec,
             keepalives_retries,
             load_balance_hosts,
+            ssl_mode,
+            ca_file,
             max_db_pool_size,
             conn_recycling_method,
         )

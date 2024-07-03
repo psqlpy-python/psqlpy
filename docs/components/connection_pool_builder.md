@@ -53,6 +53,9 @@ Set the value of the `application_name` runtime parameter.
 ### ssl_mode
 Set the SSL configuration.
 
+### ca_file
+Set ca_file for SSL.
+
 ### host
 Add a host to the configuration.
 

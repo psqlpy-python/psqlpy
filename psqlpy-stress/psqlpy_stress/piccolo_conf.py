@@ -15,11 +15,13 @@ PSQLPY_PICCOLO_ENGINE = psqlpy_piccolo.engine.PSQLPyEngine(
 
 
 async def start_piccolo_pools() -> None:
-    for engine in [
-        ASYNCPG_PICCOLO_ENGINE,
-        PSQLPY_PICCOLO_ENGINE,
-    ]:
-        await engine.start_connection_pool(max_size=settings.max_pool_size)
+    await ASYNCPG_PICCOLO_ENGINE.start_connection_pool(
+        max_size=settings.max_pool_size,
+        min_size=1,
+    )
+    await PSQLPY_PICCOLO_ENGINE.start_connection_pool(
+        max_size=settings.max_pool_size,
+    )
 
     print("Piccolo pools started.")
 

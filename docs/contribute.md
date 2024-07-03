@@ -51,8 +51,15 @@ Default credentials for testing `PostgreSQL` and you can configure it with env:
 - port: `5432` (env: POSTGRES_PORT)
 - dbname: `psqlpy_test` (env: POSTGRES_DBNAME)
 
-You can run pytest and it will do the thing.
+We have tests with required SSL mode, so, if you don't want
+to run PostgreSQL in SSL mode, you could run
 
 ```bash
-pytest .
+pytest --ignore="./python/tests/test_ssl_mode.py"
+```
+
+If you have PostgreSQL with enabled ssl mode, you need to set path to your `ca_file` in `POSTGRES_CERT_FILE` env.
+And run
+```bash
+pytest
 ```
