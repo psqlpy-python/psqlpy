@@ -1,0 +1,173 @@
+name: Setup PostgreSQL for Linux/macOS/Windows
+author: Ihor Kalnytskyi
+description: Setup a preinstalled PostgreSQL server.
+branding:
+  icon: database
+  color: purple
+inputs:
+  username:
+    description: The username of the user to setup.
+    default: postgres
+    required: false
+  password:
+    description: The password of the user to setup.
+    default: postgres
+    required: false
+  database:
+    description: The database name to setup and grant permissions to created user.
+    default: postgres
+    required: false
+  port:
+    description: The server port to listen on.
+    default: "5432"
+    required: false
+  ssl_on:
+    description: The ssl turn on or off.
+    default: "off"
+    required: false
+  ca_file_output:
+    description: Location for the certificate file.
+    default: ./root.crt
+    required: false
+outputs:
+  connection-uri:
+    description: The connection URI to connect to PostgreSQL.
+    value: ${{ steps.set-outputs.outputs.connection-uri }}
+  service-name:
+    description: The service name with connection parameters.
+    value: ${{ steps.set-outputs.outputs.service-name }}
+runs:
+  using: composite
+  steps:
+    - name: Prerequisites
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          echo "$(pg_config --bindir)" >> $GITHUB_PATH
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          echo "$PGBIN" >> $GITHUB_PATH
+          echo "PQ_LIB_DIR=$PGROOT\lib" >> $GITHUB_ENV
+
+          # The Windows runner has some PostgreSQL environment variables set
+          # that may confuse users since they may be irrelevant to the
+          # PostgreSQL server we're using.
+          for name in "PGROOT" "PGDATA" "PGBIN" "PGUSER" "PGPASSWORD"; do
+            echo "$name=" >> $GITHUB_ENV
+          done
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          case "$(sw_vers -productVersion)" in
+            13.*|14.*)
+              # Unfortunately, the macOS 13 runner image doesn't come w/
+              # pre-installed PostgreSQL server.
+              export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+              export HOMEBREW_NO_INSTALL_CLEANUP=1
+              export HOMEBREW_NO_INSTALL_UPGRADE=1
+              brew install --skip-post-install postgresql@14
+              ;;
+          esac
+        fi
+      shell: bash
+
+    - name: Setup and start PostgreSQL
+      run: |
+        export PGDATA="$RUNNER_TEMP/pgdata"
+        export PWFILE="$RUNNER_TEMP/pwfile"
+
+        DEFAULT_ENCODING="UTF-8"
+        DEFAULT_LOCALE="en_US.$DEFAULT_ENCODING"
+
+        # Unfortunately, Windows Server 2019 doesn't understand locale
+        # specified in the format defined by the POSIX standard, i.e.
+        # <language>_<country>.<encoding>. Therefore, we have to convert it
+        # into something it can swallow, i.e. <language>-<country>.
+        if [[ "$RUNNER_OS" == "Windows" && "$(wmic os get Caption)" == *"2019"* ]]; then
+          DEFAULT_LOCALE="${DEFAULT_LOCALE%%.*}"
+          DEFAULT_LOCALE="${DEFAULT_LOCALE//_/-}"
+        fi
+
+        # Unfortunately 'initdb' could only receive a password via file on disk
+        # or prompt to enter on. Prompting is not an option since we're running
+        # in non-interactive mode.
+        echo '${{ inputs.password }}' > $PWFILE
+
+        # There are couple of reasons why we need to create a new PostgreSQL
+        # database cluster. First and foremost, we have to create a superuser
+        # with provided credentials. Second, we want the PostgreSQL client
+        # applications [1] to be available for execution without
+        # run-from-another-user dances. Third, we want to make sure that
+        # settings are the same between operating systems and aren't changed by
+        # package vendors.
+        #
+        # [1] https://www.postgresql.org/docs/15/reference-client.html
+        initdb \
+          --username="${{ inputs.username }}" \
+          --pwfile="$PWFILE" \
+          --auth="scram-sha-256" \
+          --encoding="$DEFAULT_ENCODING" \
+          --locale="$DEFAULT_LOCALE" \
+          --no-instructions
+
+        # Create new ssl certificate
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
+          openssl req -new -x509 -days 365 -nodes -text -out $PGDATA/server.crt -keyout $PGDATA/server.key -subj "/CN=localhost"
+          chmod og-rwx $PGDATA/server.key $PGDATA/server.crt
+          cp $PGDATA/server.crt ${{ inputs.ca_file_output }}
+        fi
+
+        # Do not create unix sockets since they are created by default in the
+        # directory we have no permissions to (owned by system postgres user).
+        echo "unix_socket_directories = ''" >> "$PGDATA/postgresql.conf"
+        echo "port = ${{ inputs.port }}" >> "$PGDATA/postgresql.conf"
+
+        # Set new configuration option with ssl to Postgres
+        if [ ${{ inputs.ssl_on }} == "on" ]; then
+          echo "ssl = on" >> "$PGDATA/postgresql.conf"
+          echo "ssl_cert_file = '$PGDATA/server.crt'" >> "$PGDATA/postgresql.conf"
+          echo "ssl_key_file = '$PGDATA/server.key'" >> "$PGDATA/postgresql.conf"
+        fi
+
+        pg_ctl start
+
+        # Save required connection parameters for created superuser to the
+        # connection service file [1]. This allows using these connection
+        # parameters by setting 'PGSERVICE' environment variable or by
+        # requesting them via connection string.
+        #
+        # HOST is required for Linux/macOS because these OS-es default to unix
+        # sockets but we turned them off.
+        #
+        # PORT, USER, PASSWORD and DBNAME are required because they could be
+        # parametrized via action input parameters.
+        #
+        # [1] https://www.postgresql.org/docs/15/libpq-pgservice.html
+        cat <<EOF > "$PGDATA/pg_service.conf"
+        [${{ inputs.username }}]
+        host=localhost
+        port=${{ inputs.port }}
+        user=${{ inputs.username }}
+        password=${{ inputs.password }}
+        dbname=${{ inputs.database }}
+        EOF
+        echo "PGSERVICEFILE=$PGDATA/pg_service.conf" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Setup PostgreSQL database
+      run: |
+        # The 'postgres' database is a pre-created database meant for use by
+        # users, utilities and third party applications. There's no way to
+        # parametrize the name, so all we can do is to avoid creating a
+        # database if provided name is 'postgres'.
+        if [ "${{ inputs.database }}" != "postgres" ]; then
+          createdb -O "${{ inputs.username }}" "${{ inputs.database }}"
+        fi
+      env:
+        PGSERVICE: ${{ inputs.username }}
+      shell: bash
+
+    - name: Set action outputs
+      run: |
+        CONNECTION_URI="postgresql://${{ inputs.username }}:${{ inputs.password }}@localhost:${{ inputs.port }}/${{ inputs.database }}"
+
+        echo "connection-uri=$CONNECTION_URI" >> $GITHUB_OUTPUT
+        echo "service-name=${{ inputs.username }}" >> $GITHUB_OUTPUT
+      shell: bash
+      id: set-outputs
