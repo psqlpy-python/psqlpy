@@ -76,13 +76,16 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
+    env:
+      OPENSSL_DIR: /usr/local/opt/openssl@3
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Install openssl deps
-        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
+      # - name: Install openssl deps
+      #   run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
+
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
