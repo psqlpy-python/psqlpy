@@ -87,8 +87,8 @@ jobs:
         run: brew update
       - name: brew upgrade
         run: brew upgrade
-      - name: Where ssl
-        run: ls /usr/local/Cellar/
+      - name: brew ssl
+        run: brew install openssl
       # - name: Install openssl deps
       #   run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
 
