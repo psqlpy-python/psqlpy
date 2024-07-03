@@ -83,10 +83,10 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Brew update
-        run: brew update
-      - name: brew upgrade
-        run: brew upgrade
+      # - name: Brew update
+      #   run: brew update
+      # - name: brew upgrade
+      #   run: brew upgrade
       - name: brew ssl
         run: brew info openssl
       # - name: Install openssl deps
