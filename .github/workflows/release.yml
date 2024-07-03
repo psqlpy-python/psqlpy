@@ -12,7 +12,14 @@ jobs:
     strategy:
       matrix:
         # target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
-        target: [aarch64, armv7, s390x, ppc64le]
+        target:
+          - x86_64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - arm-unknown-linux-gnueabihf
+          - aarch64
+          - armv7
+          - s390x
+          - ppc64le
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
