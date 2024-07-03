@@ -43,4 +43,4 @@ rust_decimal = { git = "https://github.com/chandr-andr/rust-decimal.git", branch
     "db-postgres",
     "db-tokio-postgres",
 ] }
-openssl = "0.10.64"
+openssl = { version = "0.10.64", features = ["vendored"] }

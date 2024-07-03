@@ -7,25 +7,25 @@ permissions:
   contents: write
 
 jobs:
-  # linux:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #     - name: Install ssl deps
-  #       run: apt-get update && apt-get install make
-  #     - name: Build wheels
-  #       uses: PyO3/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist --find-interpreter
-  #         sccache: 'true'
-  #         manylinux: auto
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install ssl deps
+        run: apt-get update && apt-get install make
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
       # - name: Upload wheels
       #   uses: actions/upload-artifact@v3
       #   with:
@@ -39,25 +39,23 @@ jobs:
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # windows:
-  #   runs-on: windows-latest
-  #   strategy:
-  #     matrix:
-  #       target: [x64, x86]
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #         architecture: ${{ matrix.target }}
-  #     - name: Install deps for ssl
-  #       run: vcpkg install openssl
-  #     - name: Build wheels
-  #       uses: PyO3/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist --find-interpreter
-  #         sccache: 'true'
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x64, x86]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          architecture: ${{ matrix.target }}
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
       # - name: Upload wheels
       #   uses: actions/upload-artifact@v3
       #   with:
@@ -87,8 +85,8 @@ jobs:
       #   run: brew update
       # - name: brew upgrade
       #   run: brew upgrade
-      - name: brew ssl
-        run: brew info openssl
+      # - name: brew ssl
+      #   run: brew info openssl
       # - name: Install openssl deps
       #   run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
 
@@ -133,27 +131,27 @@ jobs:
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # musllinux:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       target:
-  #         - x86_64-unknown-linux-musl
-  #         - i686-unknown-linux-musl
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #         architecture: x64
-  #     - name: Install ssl deps
-  #       run: apt-get update && apt-get install make
-  #     - name: Build wheels
-  #       uses: messense/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist --find-interpreter
-  #         manylinux: musllinux_1_2
+  musllinux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - i686-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          architecture: x64
+      - name: Install ssl deps
+        run: apt-get update && apt-get install make
+      - name: Build wheels
+        uses: messense/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          manylinux: musllinux_1_2
       # - name: Upload wheels
       #   uses: actions/upload-artifact@v3
       #   with:
