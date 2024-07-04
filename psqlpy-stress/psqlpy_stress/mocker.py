@@ -49,6 +49,7 @@ async def fill_big_table() -> None:
 
 async def main() -> None:
     await fill_users()
+    await fill_big_table()
 
 
 if __name__ == "__main__":
