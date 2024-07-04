@@ -40,155 +40,155 @@ jobs:
                 # If we're running on debian-based system.
                 apt update -y && apt-get install -y libssl-dev openssl pkg-config
             fi
-      # - name: Upload wheels
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheels
-      #     path: dist
-      # - name: Releasing assets
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       dist/*
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # windows:
-  #   runs-on: windows-latest
-  #   strategy:
-  #     matrix:
-  #       target: [x64, x86]
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #         architecture: ${{ matrix.target }}
-  #     - name: Build wheels
-  #       uses: PyO3/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist --find-interpreter
-  #         sccache: 'true'
-      # - name: Upload wheels
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheels
-      #     path: dist
-      # - name: Releasing assets
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       dist/*
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x64, x86]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          architecture: ${{ matrix.target }}
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # macos:
-  #   runs-on: macos-latest
-  #   strategy:
-  #     matrix:
-  #       target: [x86_64, aarch64]
-  #   env:
-  #     OPENSSL_DIR: /opt/homebrew/Cellar/openssl@3/3.3.1
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-      # - name: Brew update
-      #   run: brew update
-      # - name: brew upgrade
-      #   run: brew upgrade
-      # - name: brew ssl
-      #   run: brew info openssl
-      # - name: Install openssl deps
-      #   run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
+  macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    env:
+      OPENSSL_DIR: /opt/homebrew/Cellar/openssl@3/3.3.1
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Brew update
+        run: brew update
+      - name: brew upgrade
+        run: brew upgrade
+      - name: brew ssl
+        run: brew info openssl
+      - name: Install openssl deps
+        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
 
-      # - name: Build wheels
-      #   uses: PyO3/maturin-action@v1
-      #   with:
-      #     target: ${{ matrix.target }}
-      #     args: --release --out dist --find-interpreter
-      #     sccache: 'true'
-      # - name: Upload wheels
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheels
-      #     path: dist
-      # - name: Releasing assets
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       dist/*
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # sdist:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - name: Build sdist
-  #       uses: PyO3/maturin-action@v1
-  #       with:
-  #         command: sdist
-  #         args: --out dist
-      # - name: Upload sdist
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheels
-      #     path: dist
-      # - name: Releasing assets
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       dist/*
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # musllinux:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       target:
-  #         - x86_64-unknown-linux-musl
-  #         - i686-unknown-linux-musl
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #         architecture: x64
-  #     - name: Build wheels
-  #       uses: messense/maturin-action@v1
-  #       with:
-  #         target: ${{ matrix.target }}
-  #         args: --release --out dist --find-interpreter
-  #         manylinux: musllinux_1_2
-      # - name: Upload wheels
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheels
-      #     path: dist
-      # - name: Releasing assets
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       dist/*
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  musllinux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - i686-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          architecture: x64
+      - name: Build wheels
+        uses: messense/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          manylinux: musllinux_1_2
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # release:
-  #   name: Release
-  #   runs-on: ubuntu-latest
-  #   needs: [linux, windows, macos, musllinux, sdist]
-  #   steps:
-  #     - uses: actions/download-artifact@v3
-  #       with:
-  #         name: wheels
-  #     - name: Publish to PyPI
-  #       uses: PyO3/maturin-action@v1
-  #       env:
-  #         MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-  #       with:
-  #         command: upload
-  #         args: --non-interactive --skip-existing *
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [linux, windows, macos, musllinux, sdist]
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing *
