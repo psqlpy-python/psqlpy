@@ -4,53 +4,41 @@ Here you can load test a `psqlpy`, `asycnpg` and `psycopg` drivers in order to c
 
 ## How to run
 
-1. First of all you have to launch `grafana` and `influxdb` that are present in docker-compose.yaml file.
-   You can lanch it via:
+1. Run Postgresql database somewhere. We recommend run an external database outside of your local machine.
+2. Store `database_dsn` in `settings.py`
+3. Install dependencies: `poetry install`
+4. Fill database with mock data: `python psqlpy_stress/mocker.py`
+5. Run the application: `gunicorn psqlpy_stress.app:app -b 127.0.0.1:8080 -w 4 -k aiohttp.GunicornWebWorkeron`
+6. Install [bombardier](https://github.com/codesenberg/bombardier)
+7. Start bombarding application: `bombardier -c 10 -d 60s -l http://127.0.0.1:8080/psqlpy-simple-transaction-select`
 
-```bash
-docker compose up
+You can change driver inside your url in order to test specific driver like:
+
+- `http://127.0.0.1:8080/psqlpy-simple-transaction-select`
+- `http://127.0.0.1:8080/asyncpg-simple-transaction-select`
+- `http://127.0.0.1:8080/psycopg-simple-transaction-select`
+
+Also you can go and check out all available urls in `psqlpy_stress.api.plain_queries`
+
+## Results interpretation
+
+You would receive such data as output after bombarding
+
+```
+Done!
+Statistics        Avg      Stdev        Max
+  Reqs/sec       485.28    115.61     1065.30
+   Latency       20.60ms   5.01ms     67.93ms
+   Latency Distribution
+      50%   20.89ms
+      75%   23.41ms
+      90%   24.4ms
+      95%   30.76ms
+      99%   32.73ms
+   HTTP codes:
+      1xx - 0, 2xx - 29117, 3xx - 0, 4xx - 0, 5xx - 0
+      others - 0
+   Throughput: 116.55KB/s
 ```
 
-2. Log in to IfluxDB. Default credential are `admin`:`admin`. Save token that will be shown to you after login.
-3. Create InfluxDB abstractions
-
-   - Create an InfluxDB organization named `psqlpy-stress-test`.
-   - Create a bucket inside InfluxDB named `psqlpy-stress-bucket`.
-
-   > You can create bucket and organization with different names.  
-   > But do not forget to replace those values within `psqlpy_stress.settings` file.
-
-4. Connect InfluxDB to grafana.  
-   host: `http://influxdb:8086`  
-   database: `psqlpy-stress-bucket`  
-   user: `admin`  
-   password: is your token that you have saved at `step 2`
-
-5. Import a dashboard to a grafana, named `dashboad.yaml`, located in root directory.  
-   This dashboard displays certain important parameters:
-
-   - p99 latency
-   - p95 latency
-   - p90 latency
-   - p50 latency
-   - mean latency
-   - p50 rps
-
-6. Run poetry install in root
-7. Apply migrations to database (default database is in docker-compose).  
-   You can change `database_url` inside `psqlpy_stress.settings` file in order to connect to external database.
-
-   Migrations can be applied via:
-
-   ```bash
-   alembic upgrade head
-   ```
-
-8. Past in your InfluxDB token into `psqlpy_stress.settings` file.
-9. Launch application via
-
-```bash
-python -m psqlpy_stress.app
-```
-
-10. You can start load testing drivers.
+You can compare drivers by received percentiles and reqs/sec performance.
