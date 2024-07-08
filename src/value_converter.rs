@@ -264,10 +264,10 @@ impl ToSql for PythonDTO {
                 for inner in py_iterable {
                     items.push(inner);
                 }
-                if items.len() > 1 {
-                    items.to_sql(&items[0].array_type()?, out)?;
-                } else {
+                if items.is_empty() {
                     return_is_null_true = true;
+                } else {
+                    items.to_sql(&items[0].array_type()?, out)?;
                 }
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
