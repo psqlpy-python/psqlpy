@@ -1,9 +1,10 @@
 import types
 from enum import Enum
+from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union
 
-from typing_extensions import Self
+from typing_extensions import Buffer, Self
 
 _CustomClass = TypeVar(
     "_CustomClass",
@@ -809,6 +810,30 @@ class Transaction:
             await cursor.close()
         ```
         """
+    async def binary_copy_to_table(
+        self: Self,
+        source: Union[bytes, bytearray, Buffer, BytesIO],
+        table_name: str,
+        columns: Optional[Sequence[str]] = None,
+        schema_name: Optional[str] = None,
+    ) -> int:
+        """Perform binary copy to PostgreSQL.
+
+        Execute `COPY table_name (<columns>) FROM STDIN (FORMAT binary)`
+        and start sending bytes to PostgreSQL.
+
+        IMPORTANT! User is responsible for the bytes passed to the database.
+        If bytes are incorrect user will get error from the database.
+
+        ### Parameters:
+        - `source`: source of bytes.
+        - `table_name`: name of the table.
+        - `columns`: sequence of str columns.
+        - `schema_name`: name of the schema.
+
+        ### Returns:
+        number of inserted rows;
+        """
 
 class Connection:
     """Connection from Database Connection Pool.
@@ -1052,6 +1077,30 @@ class Connection:
 
         It necessary to commit all transactions and close all cursor
         made by this connection. Otherwise, it won't have any practical usage.
+        """
+    async def binary_copy_to_table(
+        self: Self,
+        source: Union[bytes, bytearray, Buffer, BytesIO],
+        table_name: str,
+        columns: Optional[Sequence[str]] = None,
+        schema_name: Optional[str] = None,
+    ) -> int:
+        """Perform binary copy to PostgreSQL.
+
+        Execute `COPY table_name (<columns>) FROM STDIN (FORMAT binary)`
+        and start sending bytes to PostgreSQL.
+
+        IMPORTANT! User is responsible for the bytes passed to the database.
+        If bytes are incorrect user will get error from the database.
+
+        ### Parameters:
+        - `source`: source of bytes.
+        - `table_name`: name of the table.
+        - `columns`: sequence of str columns.
+        - `schema_name`: name of the schema.
+
+        ### Returns:
+        number of inserted rows;
         """
 
 class ConnectionPoolStatus:
