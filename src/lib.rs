@@ -3,6 +3,7 @@ pub mod common;
 pub mod driver;
 pub mod exceptions;
 pub mod extra_types;
+pub mod format_helpers;
 pub mod query_result;
 pub mod row_factories;
 pub mod runtime;
