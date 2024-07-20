@@ -1,13 +1,17 @@
+use bytes::BytesMut;
 use deadpool_postgres::Object;
-use futures_util::future;
+use futures_util::{future, pin_mut};
 use pyo3::{
+    buffer::PyBuffer,
     prelude::*,
     pyclass,
     types::{PyList, PyTuple},
 };
+use tokio_postgres::binary_copy::BinaryCopyInWriter;
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
@@ -784,5 +788,62 @@ impl Transaction {
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
+    }
+
+    /// Perform binary copy to postgres table.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot get bytes,
+    /// cannot perform request to the database,
+    /// cannot write bytes to the database.
+    pub async fn binary_copy_to_table(
+        self_: pyo3::Py<Self>,
+        source: Py<PyAny>,
+        table_name: String,
+        columns: Option<Vec<String>>,
+        schema_name: Option<String>,
+    ) -> RustPSQLDriverPyResult<u64> {
+        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
+        let mut table_name = quote_ident(&table_name);
+        if let Some(schema_name) = schema_name {
+            table_name = format!("{}.{}", quote_ident(&schema_name), table_name);
+        }
+
+        let mut formated_columns = String::default();
+        if let Some(columns) = columns {
+            formated_columns = format!("({})", columns.join(", "));
+        }
+
+        let copy_qs = format!("COPY {table_name}{formated_columns} FROM STDIN (FORMAT binary)");
+
+        if let Some(db_client) = db_client {
+            let mut psql_bytes: BytesMut = Python::with_gil(|gil| {
+                let possible_py_buffer: Result<PyBuffer<u8>, PyErr> =
+                    source.extract::<PyBuffer<u8>>(gil);
+                if let Ok(py_buffer) = possible_py_buffer {
+                    let vec_buf = py_buffer.to_vec(gil)?;
+                    return Ok(BytesMut::from(vec_buf.as_slice()));
+                }
+
+                if let Ok(py_bytes) = source.call_method0(gil, "getvalue") {
+                    if let Ok(bytes) = py_bytes.extract::<Vec<u8>>(gil) {
+                        return Ok(BytesMut::from(bytes.as_slice()));
+                    }
+                }
+
+                Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "source must be bytes or support Buffer protocol".into(),
+                ))
+            })?;
+
+            let sink = db_client.copy_in(&copy_qs).await?;
+            let writer = BinaryCopyInWriter::new_empty_buffer(sink, &[]);
+            pin_mut!(writer);
+            writer.as_mut().write_raw_bytes(&mut psql_bytes).await?;
+            let rows_created = writer.as_mut().finish_empty().await?;
+            return Ok(rows_created);
+        }
+
+        Ok(0)
     }
 }
