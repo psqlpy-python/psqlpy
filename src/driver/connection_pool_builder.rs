@@ -1,14 +1,14 @@
 use std::{net::IpAddr, time::Duration};
 
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
-use openssl::ssl::{SslConnector, SslMethod};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pymethods, Py, Python};
 use tokio_postgres::NoTls;
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::connection_pool::ConnectionPool;
+use super::{common_options, connection_pool::ConnectionPool};
 
 #[pyclass]
 pub struct ConnectionPoolBuilder {
@@ -16,6 +16,7 @@ pub struct ConnectionPoolBuilder {
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<RecyclingMethod>,
     ca_file: Option<String>,
+    ssl_mode: Option<common_options::SslMode>,
 }
 
 #[pymethods]
@@ -28,6 +29,7 @@ impl ConnectionPoolBuilder {
             max_db_pool_size: Some(2),
             conn_recycling_method: None,
             ca_file: None,
+            ssl_mode: None,
         }
     }
 
@@ -53,6 +55,15 @@ impl ConnectionPoolBuilder {
             builder.set_ca_file(ca_file)?;
             let tls_connector = MakeTlsConnector::new(builder.build());
             mgr = Manager::from_config(self.config.clone(), tls_connector, mgr_config);
+        } else if let Some(ssl_mode) = self.ssl_mode {
+            if ssl_mode == common_options::SslMode::Require {
+                let mut builder = SslConnector::builder(SslMethod::tls())?;
+                builder.set_verify(SslVerifyMode::NONE);
+                let tls_connector = MakeTlsConnector::new(builder.build());
+                mgr = Manager::from_config(self.config.clone(), tls_connector, mgr_config);
+            } else {
+                mgr = Manager::from_config(self.config.clone(), NoTls, mgr_config);
+            }
         } else {
             mgr = Manager::from_config(self.config.clone(), NoTls, mgr_config);
         }
@@ -167,6 +178,7 @@ impl ConnectionPoolBuilder {
     pub fn ssl_mode(self_: Py<Self>, ssl_mode: crate::driver::common_options::SslMode) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
+            self_.ssl_mode = Some(ssl_mode);
             self_.config.ssl_mode(ssl_mode.to_internal());
         });
         self_
