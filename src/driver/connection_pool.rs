@@ -1,6 +1,6 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use openssl::ssl::{SslConnector, SslMethod};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
 use std::{sync::Arc, vec};
@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+    common_options::{self, ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     utils::build_connection_config,
 };
@@ -104,6 +104,15 @@ pub fn connect(
         builder.set_ca_file(ca_file)?;
         let tls_connector = MakeTlsConnector::new(builder.build());
         mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+    } else if let Some(ssl_mode) = ssl_mode {
+        if ssl_mode == common_options::SslMode::Require {
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::NONE);
+            let tls_connector = MakeTlsConnector::new(builder.build());
+            mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+        } else {
+            mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+        }
     } else {
         mgr = Manager::from_config(pg_config, NoTls, mgr_config);
     }
