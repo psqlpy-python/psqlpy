@@ -36,10 +36,7 @@ async def pg_pool_example(request: Request) -> list[dict[Any, Any]]:
 
 
 async def main() -> None:
-    try:
-        app.start(host="127.0.0.1", port=8000)
-    finally:
-        db_pool.close()
+    await app.start(host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
