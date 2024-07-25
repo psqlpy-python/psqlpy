@@ -12,7 +12,7 @@ export default defineUserConfig({
   bundler: viteBundler(),
 
   theme: hopeTheme({
-    repo: "qaspen-python/psqlpy",
+    repo: "psqlpy-python/psqlpy",
 
     repoLabel: "GitHub",
 
@@ -20,7 +20,7 @@ export default defineUserConfig({
 
     sidebar,
 
-    hostname: "https://qaspen-python.github.io/",
+    hostname: "https://psqlpy-python.github.io/",
 
     plugins: {
       readingTime: false,

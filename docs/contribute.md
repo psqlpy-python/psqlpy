@@ -8,7 +8,7 @@ There are several rules for contributors:
 - Please do not add malware.
 - Please make sure that your request solves the problem.
 
-If you struggle with something or feel frustrated, you either create an issue, create a [discussions](https://github.com/qaspen-python/psqlpy/discussions). page or publish a draft PR and ask your question in the description.
+If you struggle with something or feel frustrated, you either create an issue, create a [discussions](https://github.com/psqlpy-python/psqlpy/discussions). page or publish a draft PR and ask your question in the description.
 
 We have lots of tests in CI. But since CI runs from first-time contributors should be approved, you better test locally. It just takes less time to prepare PR for merging.
 

@@ -1087,7 +1087,7 @@ psqlpy = "^0.6.0"
 
 [package.source]
 type = "git"
-url = "https://github.com/qaspen-python/psqlpy-piccolo"
+url = "https://github.com/psqlpy-python/psqlpy-piccolo"
 reference = "HEAD"
 resolved_reference = "aa0aa39ada317e451537b08d8a1d6c7aafd1acfb"
 

@@ -52,7 +52,7 @@ poetry add psqlpy
 @tab git
 
 ```bash
-pip install git+https://github.com/qaspen-python/psqlpy
+pip install git+https://github.com/psqlpy-python/psqlpy
 ```
 
 :::

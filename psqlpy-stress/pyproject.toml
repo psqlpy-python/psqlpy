@@ -21,7 +21,7 @@ pytz = "^2024.1"
 psycopg2-binary = "^2.9.9"
 gunicorn = "^21.2.0"
 uvicorn = "^0.29.0"
-psqlpy-piccolo = { git = "https://github.com/qaspen-python/psqlpy-piccolo" }
+psqlpy-piccolo = { git = "https://github.com/psqlpy-python/psqlpy-piccolo" }
 piccolo = "^1.12.0"
 
 
