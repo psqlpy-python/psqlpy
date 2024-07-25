@@ -46,7 +46,6 @@ async def pg_pool_example(request: Request) -> list[dict[Any, Any]]:
 app = Litestar(
     [pg_pool_example],
     on_startup=[start_db_pool],
-    on_shutdown=[stop_db_pool],
 )
 
 
