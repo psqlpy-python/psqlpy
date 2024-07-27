@@ -33,6 +33,13 @@ def start_db_pool(app: Litestar) -> ConnectionPool:
     return cast("ConnectionPool", app.state.db_pool)
 
 
+async def stop_db_pool(app: Litestar) -> None:
+    """Close database connection pool."""
+    if getattr(app.state, "db_pool", None):
+        db_pool = cast(ConnectionPool, app.state.db_pool)
+        db_pool.close()
+
+
 @get("/")
 async def pg_pool_example(request: Request) -> list[dict[Any, Any]]:
     db_pool = cast(ConnectionPool, request.app.state.db_pool)
@@ -46,6 +53,7 @@ async def pg_pool_example(request: Request) -> list[dict[Any, Any]]:
 app = Litestar(
     [pg_pool_example],
     on_startup=[start_db_pool],
+    on_shutdown=[stop_db_pool],
 )
 
 

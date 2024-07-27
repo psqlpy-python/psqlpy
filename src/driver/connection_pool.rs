@@ -422,7 +422,7 @@ impl ConnectionPool {
         Ok(Connection::new(Some(Arc::new(db_connection)), None))
     }
 
-    /// Return new single connection.
+    /// Close connection pool.
     ///
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.

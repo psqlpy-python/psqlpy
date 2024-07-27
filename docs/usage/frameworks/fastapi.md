@@ -30,6 +30,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         max_db_pool_size=10,
     )
     app.state.db_pool = db_pool
+    yield
+    db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -82,6 +84,8 @@ db_pool = ConnectionPool(
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup database connection pool and close it on shutdown."""
     app.state.db_pool = db_pool
+    yield
+    db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)

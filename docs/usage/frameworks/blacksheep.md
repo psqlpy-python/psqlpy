@@ -32,6 +32,17 @@ async def on_start(app: Application) -> None:
     app.services.add_instance(db_pool)
 
 
+@app.on_stop
+async def on_stop(app: Application) -> None:
+    """Close a database pool if it exists in app scope."""
+    try:
+        db_pool = app.services.resolve(ConnectionPool)
+    except Exception:
+        ...
+    else:
+        db_pool.close()
+
+
 @get("/")
 async def pg_pool_example(db_pool: ConnectionPool) -> list[dict[Any, Any]]:
     connection = await db_pool.connection()
