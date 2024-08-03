@@ -1,3 +1,4 @@
+use openssl::error::ErrorStack;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -5,11 +6,12 @@ use crate::exceptions::python_errors::{PyToRustValueMappingError, RustToPyValueM
 
 use super::python_errors::{
     BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseTransactionError,
-    ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolConfigurationError,
-    ConnectionPoolExecuteError, CursorCloseError, CursorFetchError, CursorStartError, DriverError,
-    MacAddrParseError, RuntimeJoinError, TransactionBeginError, TransactionCommitError,
-    TransactionExecuteError, TransactionRollbackError, TransactionSavepointError,
-    UUIDValueConvertError,
+    ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
+    ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
+    CursorClosedError, CursorFetchError, CursorStartError, DriverError, MacAddrParseError,
+    RuntimeJoinError, SSLError, TransactionBeginError, TransactionClosedError,
+    TransactionCommitError, TransactionExecuteError, TransactionRollbackError,
+    TransactionSavepointError, UUIDValueConvertError,
 };
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
@@ -31,6 +33,8 @@ pub enum RustPSQLDriverError {
     BaseConnectionError(String),
     #[error("Connection execute error: {0}.")]
     ConnectionExecuteError(String),
+    #[error("Underlying connection is returned to the pool")]
+    ConnectionClosedError,
 
     // Transaction Errors
     #[error("Transaction error: {0}")]
@@ -45,6 +49,8 @@ pub enum RustPSQLDriverError {
     TransactionSavepointError(String),
     #[error("Transaction execute error: {0}")]
     TransactionExecuteError(String),
+    #[error("Underlying connection is returned to the pool")]
+    TransactionClosedError,
 
     // Cursor Errors
     #[error("Cursor error: {0}")]
@@ -55,6 +61,8 @@ pub enum RustPSQLDriverError {
     CursorCloseError(String),
     #[error("Cursor fetch error: {0}")]
     CursorFetchError(String),
+    #[error("Underlying connection is returned to the pool")]
+    CursorClosedError,
 
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
@@ -77,6 +85,8 @@ pub enum RustPSQLDriverError {
     RustRuntimeJoinError(#[from] JoinError),
     #[error("Cannot convert python Decimal into rust Decimal")]
     DecimalConversionError(#[from] rust_decimal::Error),
+    #[error("Cannot create set SSL: {0}")]
+    SSLError(#[from] ErrorStack),
 }
 
 impl From<RustPSQLDriverError> for pyo3::PyErr {
@@ -121,6 +131,9 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::ConnectionExecuteError(_) => {
                 ConnectionExecuteError::new_err((error_desc,))
             }
+            RustPSQLDriverError::ConnectionClosedError => {
+                ConnectionClosedError::new_err((error_desc,))
+            }
             RustPSQLDriverError::BaseTransactionError(_) => {
                 BaseTransactionError::new_err((error_desc,))
             }
@@ -139,10 +152,15 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::TransactionExecuteError(_) => {
                 TransactionExecuteError::new_err((error_desc,))
             }
+            RustPSQLDriverError::TransactionClosedError => {
+                TransactionClosedError::new_err((error_desc,))
+            }
             RustPSQLDriverError::BaseCursorError(_) => BaseCursorError::new_err((error_desc,)),
             RustPSQLDriverError::CursorStartError(_) => CursorStartError::new_err((error_desc,)),
             RustPSQLDriverError::CursorCloseError(_) => CursorCloseError::new_err((error_desc,)),
             RustPSQLDriverError::CursorFetchError(_) => CursorFetchError::new_err((error_desc,)),
+            RustPSQLDriverError::SSLError(_) => SSLError::new_err((error_desc,)),
+            RustPSQLDriverError::CursorClosedError => CursorClosedError::new_err((error_desc,)),
         }
     }
 }

@@ -64,7 +64,7 @@ impl TargetSessionAttrs {
 }
 
 #[pyclass]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum SslMode {
     /// Do not use TLS.
     Disable,
@@ -116,6 +116,25 @@ impl KeepaliveConfig {
             idle: Duration::from_secs(idle),
             interval: interval_internal,
             retries,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Copy)]
+pub enum CopyCommandFormat {
+    TEXT,
+    CSV,
+    BINARY,
+}
+
+impl CopyCommandFormat {
+    #[must_use]
+    pub fn to_internal(&self) -> String {
+        match self {
+            CopyCommandFormat::TEXT => "text".into(),
+            CopyCommandFormat::CSV => "csv".into(),
+            CopyCommandFormat::BINARY => "binary".into(),
         }
     }
 }

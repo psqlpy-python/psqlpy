@@ -1,9 +1,10 @@
 import types
 from enum import Enum
+from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union
 
-from typing_extensions import Self
+from typing_extensions import Buffer, Self
 
 _CustomClass = TypeVar(
     "_CustomClass",
@@ -809,6 +810,30 @@ class Transaction:
             await cursor.close()
         ```
         """
+    async def binary_copy_to_table(
+        self: Self,
+        source: Union[bytes, bytearray, Buffer, BytesIO],
+        table_name: str,
+        columns: Optional[Sequence[str]] = None,
+        schema_name: Optional[str] = None,
+    ) -> int:
+        """Perform binary copy to PostgreSQL.
+
+        Execute `COPY table_name (<columns>) FROM STDIN (FORMAT binary)`
+        and start sending bytes to PostgreSQL.
+
+        IMPORTANT! User is responsible for the bytes passed to the database.
+        If bytes are incorrect user will get error from the database.
+
+        ### Parameters:
+        - `source`: source of bytes.
+        - `table_name`: name of the table.
+        - `columns`: sequence of str columns.
+        - `schema_name`: name of the schema.
+
+        ### Returns:
+        number of inserted rows;
+        """
 
 class Connection:
     """Connection from Database Connection Pool.
@@ -816,6 +841,13 @@ class Connection:
     It can be created only from connection pool.
     """
 
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
     async def execute(
         self: Self,
         querystring: str,
@@ -1040,6 +1072,42 @@ class Connection:
                         ... # do something with this result.
         ```
         """
+    def back_to_pool(self: Self) -> None:
+        """Return connection back to the pool.
+
+        It necessary to commit all transactions and close all cursor
+        made by this connection. Otherwise, it won't have any practical usage.
+        """
+    async def binary_copy_to_table(
+        self: Self,
+        source: Union[bytes, bytearray, Buffer, BytesIO],
+        table_name: str,
+        columns: Optional[Sequence[str]] = None,
+        schema_name: Optional[str] = None,
+    ) -> int:
+        """Perform binary copy to PostgreSQL.
+
+        Execute `COPY table_name (<columns>) FROM STDIN (FORMAT binary)`
+        and start sending bytes to PostgreSQL.
+
+        IMPORTANT! User is responsible for the bytes passed to the database.
+        If bytes are incorrect user will get error from the database.
+
+        ### Parameters:
+        - `source`: source of bytes.
+        - `table_name`: name of the table.
+        - `columns`: sequence of str columns.
+        - `schema_name`: name of the schema.
+
+        ### Returns:
+        number of inserted rows;
+        """
+
+class ConnectionPoolStatus:
+    max_size: int
+    size: int
+    available: int
+    waiting: int
 
 class ConnectionPool:
     """Connection pool for executing queries.
@@ -1073,6 +1141,8 @@ class ConnectionPool:
         load_balance_hosts: Optional[LoadBalanceHosts] = None,
         max_db_pool_size: int = 2,
         conn_recycling_method: Optional[ConnRecyclingMethod] = None,
+        ssl_mode: Optional[SslMode] = None,
+        ca_file: Optional[str] = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
 
@@ -1141,6 +1211,24 @@ class ConnectionPool:
             Defaults to disable.
         - `max_db_pool_size`: maximum size of the connection pool.
         - `conn_recycling_method`: how a connection is recycled.
+        - `ssl_mode`: mode for ssl.
+        - `ca_file`: Loads trusted root certificates from a file.
+            The file should contain a sequence of PEM-formatted CA certificates.
+        """
+    def status(self: Self) -> ConnectionPoolStatus:
+        """Return information about connection pool.
+
+        ### Returns
+        `ConnectionPoolStatus`
+        """
+    def resize(self: Self, new_max_size: int) -> None:
+        """Resize the connection pool.
+
+        This change the max_size of the pool dropping
+        excess objects and/or making space for new ones.
+
+        ### Parameters:
+        - `new_max_size`: new size for the connection pool.
         """
     async def execute(
         self: Self,
@@ -1202,6 +1290,24 @@ class ConnectionPool:
 
         It acquires new connection from the database pool.
         """
+    def acquire(self: Self) -> Connection:
+        """Create new connection for async context manager.
+
+        Must be used only in async context manager.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            async with db_pool.acquire() as connection:
+                res = await connection.execute(...)
+        ```
+        """
     def close(self: Self) -> None:
         """Close the connection pool."""
 
@@ -1230,6 +1336,8 @@ def connect(
     load_balance_hosts: Optional[LoadBalanceHosts] = None,
     max_db_pool_size: int = 2,
     conn_recycling_method: Optional[ConnRecyclingMethod] = None,
+    ssl_mode: Optional[SslMode] = None,
+    ca_file: Optional[str] = None,
 ) -> ConnectionPool:
     """Create new PostgreSQL connection pool.
 
@@ -1298,6 +1406,9 @@ def connect(
         Defaults to disable.
     - `max_db_pool_size`: maximum size of the connection pool.
     - `conn_recycling_method`: how a connection is recycled.
+    - `ssl_mode`: mode for ssl.
+    - `ca_file`: Loads trusted root certificates from a file.
+        The file should contain a sequence of PEM-formatted CA certificates.
     """
 
 class ConnectionPoolBuilder:
@@ -1393,6 +1504,16 @@ class ConnectionPoolBuilder:
 
         ### Parameters:
         - `ssl_mode`: mode for TLS.
+
+        ### Returns:
+        `ConnectionPoolBuilder`
+        """
+    def ca_file(self: Self, ca_file: str) -> Self:
+        """
+        Set ca_file for SSL.
+
+        ### Parameters:
+        - `ca_file`: certificate file to connection to PostgreSQL.
 
         ### Returns:
         `ConnectionPoolBuilder`

@@ -1,7 +1,9 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pyfunction, pymethods, PyAny};
-use std::vec;
+use std::{sync::Arc, vec};
 use tokio_postgres::NoTls;
 
 use crate::{
@@ -11,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, TargetSessionAttrs},
+    common_options::{self, ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     utils::build_connection_config,
 };
@@ -45,6 +47,8 @@ pub fn connect(
     keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
     load_balance_hosts: Option<LoadBalanceHosts>,
+    ssl_mode: Option<SslMode>,
+    ca_file: Option<String>,
 
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
@@ -80,6 +84,7 @@ pub fn connect(
         keepalives_interval_nanosec,
         keepalives_retries,
         load_balance_hosts,
+        ssl_mode,
     )?;
 
     let mgr_config: ManagerConfig;
@@ -92,7 +97,25 @@ pub fn connect(
             recycling_method: RecyclingMethod::Fast,
         };
     }
-    let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+
+    let mgr: Manager;
+    if let Some(ca_file) = ca_file {
+        let mut builder = SslConnector::builder(SslMethod::tls())?;
+        builder.set_ca_file(ca_file)?;
+        let tls_connector = MakeTlsConnector::new(builder.build());
+        mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+    } else if let Some(ssl_mode) = ssl_mode {
+        if ssl_mode == common_options::SslMode::Require {
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::NONE);
+            let tls_connector = MakeTlsConnector::new(builder.build());
+            mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+        } else {
+            mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+        }
+    } else {
+        mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+    }
 
     let mut db_pool_builder = Pool::builder(mgr);
     if let Some(max_db_pool_size) = max_db_pool_size {
@@ -102,6 +125,63 @@ pub fn connect(
     let db_pool = db_pool_builder.build()?;
 
     Ok(ConnectionPool(db_pool))
+}
+
+#[pyclass]
+#[allow(clippy::module_name_repetitions)]
+pub struct ConnectionPoolStatus {
+    /// The maximum size of the pool.
+    pub max_size: usize,
+
+    /// The current size of the pool.
+    pub size: usize,
+
+    /// The number of available objects in the pool.
+    pub available: usize,
+
+    /// The number of futures waiting for an object.
+    pub waiting: usize,
+}
+
+impl ConnectionPoolStatus {
+    fn new(max_size: usize, size: usize, available: usize, waiting: usize) -> Self {
+        ConnectionPoolStatus {
+            max_size,
+            size,
+            available,
+            waiting,
+        }
+    }
+}
+
+#[pymethods]
+impl ConnectionPoolStatus {
+    #[getter]
+    fn get_max_size(&self) -> usize {
+        self.max_size
+    }
+
+    #[getter]
+    fn get_size(&self) -> usize {
+        self.size
+    }
+
+    #[getter]
+    fn get_available(&self) -> usize {
+        self.available
+    }
+
+    #[getter]
+    fn get_waiting(&self) -> usize {
+        self.waiting
+    }
+
+    fn __str__(&self) -> String {
+        format!(
+            "Connection Pool Status - [max_size: {}, size: {}, available: {}, waiting: {}]",
+            self.max_size, self.size, self.available, self.waiting,
+        )
+    }
 }
 
 #[pyclass]
@@ -140,6 +220,8 @@ impl ConnectionPool {
         load_balance_hosts: Option<LoadBalanceHosts>,
         max_db_pool_size: Option<usize>,
         conn_recycling_method: Option<ConnRecyclingMethod>,
+        ssl_mode: Option<SslMode>,
+        ca_file: Option<String>,
     ) -> RustPSQLDriverPyResult<Self> {
         connect(
             dsn,
@@ -164,9 +246,27 @@ impl ConnectionPool {
             keepalives_interval_nanosec,
             keepalives_retries,
             load_balance_hosts,
+            ssl_mode,
+            ca_file,
             max_db_pool_size,
             conn_recycling_method,
         )
+    }
+
+    #[must_use]
+    pub fn status(&self) -> ConnectionPoolStatus {
+        let inner_status = self.0.status();
+
+        ConnectionPoolStatus::new(
+            inner_status.max_size,
+            inner_status.size,
+            inner_status.available,
+            inner_status.waiting,
+        )
+    }
+
+    pub fn resize(&self, new_max_size: usize) {
+        self.0.resize(new_max_size);
     }
 
     /// Execute querystring with parameters.
@@ -179,8 +279,8 @@ impl ConnectionPool {
     pub async fn execute<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
 
@@ -242,8 +342,8 @@ impl ConnectionPool {
     pub async fn fetch<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
-        prepared: Option<bool>,
         parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
 
@@ -297,6 +397,11 @@ impl ConnectionPool {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    #[must_use]
+    pub fn acquire(&self) -> Connection {
+        Connection::new(None, Some(self.0.clone()))
+    }
+
     /// Return new single connection.
     ///
     /// # Errors
@@ -309,10 +414,10 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(db_connection))
+        Ok(Connection::new(Some(Arc::new(db_connection)), None))
     }
 
-    /// Return new single connection.
+    /// Close connection pool.
     ///
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.

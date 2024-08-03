@@ -8,7 +8,7 @@ Driver for PostgreSQL written fully in Rust and exposed to Python.
 Main goals of the library is speed and type safety.
 
 ## Documentation
-You can find full documentation here - [PSQLPy documentation](https://qaspen-python.github.io/psqlpy-docs/)
+You can find full documentation here - [PSQLPy documentation](https://psqlpy-python.github.io/)
 
 ## Installation
 

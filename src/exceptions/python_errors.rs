@@ -51,6 +51,11 @@ create_exception!(
     ConnectionExecuteError,
     BaseConnectionError
 );
+create_exception!(
+    psqlpy.exceptions,
+    ConnectionClosedError,
+    BaseConnectionError
+);
 
 // Transaction exceptions
 create_exception!(
@@ -83,6 +88,11 @@ create_exception!(
     TransactionExecuteError,
     BaseTransactionError
 );
+create_exception!(
+    psqlpy.exceptions,
+    TransactionClosedError,
+    BaseTransactionError
+);
 
 // Cursor exceptions
 create_exception!(
@@ -93,6 +103,7 @@ create_exception!(
 create_exception!(psqlpy.exceptions, CursorStartError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorCloseError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorFetchError, BaseCursorError);
+create_exception!(psqlpy.exceptions, CursorClosedError, BaseCursorError);
 
 // Inner exceptions
 create_exception!(
@@ -117,6 +128,8 @@ create_exception!(
     MacAddrConversionError,
     RustPSQLDriverPyBaseError
 );
+
+create_exception!(psqlpy.exceptions, SSLError, RustPSQLDriverPyBaseError);
 
 #[allow(clippy::missing_errors_doc)]
 pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -150,6 +163,10 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
         "ConnectionExecuteError",
         py.get_type_bound::<ConnectionExecuteError>(),
     )?;
+    pymod.add(
+        "ConnectionClosedError",
+        py.get_type_bound::<ConnectionClosedError>(),
+    )?;
 
     pymod.add(
         "BaseTransactionError",
@@ -175,11 +192,19 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
         "TransactionExecuteError",
         py.get_type_bound::<TransactionExecuteError>(),
     )?;
+    pymod.add(
+        "TransactionClosedError",
+        py.get_type_bound::<TransactionClosedError>(),
+    )?;
 
     pymod.add("BaseCursorError", py.get_type_bound::<BaseCursorError>())?;
     pymod.add("CursorStartError", py.get_type_bound::<CursorStartError>())?;
     pymod.add("CursorCloseError", py.get_type_bound::<CursorCloseError>())?;
     pymod.add("CursorFetchError", py.get_type_bound::<CursorFetchError>())?;
+    pymod.add(
+        "CursorClosedError",
+        py.get_type_bound::<CursorClosedError>(),
+    )?;
 
     pymod.add(
         "RustToPyValueMappingError",

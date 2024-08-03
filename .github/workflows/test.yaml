@@ -61,11 +61,13 @@ jobs:
     runs-on: ${{matrix.job.os}}
     steps:
     - uses: actions/checkout@v1
-    - uses: ikalnytskyi/action-setup-postgres@v4
+    - name: Setup Postgres
+      uses: ./.github/actions/setup_postgres/
       with:
         username: postgres
         password: postgres
         database: psqlpy_test
+        ssl_on: "on"
       id: postgres
     - uses: actions-rs/toolchain@v1
       with:
@@ -81,4 +83,4 @@ jobs:
     - name: Install tox
       run: pip install "tox-gh>=1.2,<2"
     - name: Run pytest
-      run: tox -v
+      run: tox -v -c tox.ini

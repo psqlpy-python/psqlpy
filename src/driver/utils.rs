@@ -2,13 +2,14 @@ use std::{str::FromStr, time::Duration};
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::common_options::{LoadBalanceHosts, TargetSessionAttrs};
+use super::common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs};
 
 /// Create new config.
 ///
 /// # Errors
 /// May return Err Result if cannot build new config.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 pub fn build_connection_config(
     dsn: Option<String>,
     username: Option<String>,
@@ -32,6 +33,7 @@ pub fn build_connection_config(
     keepalives_interval_nanosec: Option<u32>,
     keepalives_retries: Option<u32>,
     load_balance_hosts: Option<LoadBalanceHosts>,
+    ssl_mode: Option<SslMode>,
 ) -> RustPSQLDriverPyResult<tokio_postgres::Config> {
     if tcp_user_timeout_nanosec.is_some() && tcp_user_timeout_sec.is_none() {
         return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
@@ -153,6 +155,10 @@ pub fn build_connection_config(
 
     if let Some(load_balance_hosts) = load_balance_hosts {
         pg_config.load_balance_hosts(load_balance_hosts.to_internal());
+    }
+
+    if let Some(ssl_mode) = ssl_mode {
+        pg_config.ssl_mode(ssl_mode.to_internal());
     }
 
     Ok(pg_config)

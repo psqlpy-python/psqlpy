@@ -44,9 +44,9 @@ module-name = "psqlpy._internal"
 features = ["pyo3/extension-module"]
 
 [project.urls]
-homepage = "https://github.com/qaspen-python/psqlpy"
-repository = "https://github.com/qaspen-python/psqlpy"
-documentation = "https://qaspen-python.github.io/psqlpy-docs/"
+homepage = "https://github.com/psqlpy-python/psqlpy"
+repository = "https://github.com/psqlpy-python/psqlpy"
+documentation = "https://psqlpy-python.github.io/"
 
 [tool.isort]
 profile = "black"
