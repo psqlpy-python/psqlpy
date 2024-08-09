@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use geo_types::{Line as LineSegment, LineString, Point, Polygon, Rect};
+use geo_types::{Line as LineSegment, LineString, Point, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{
     pyclass, pymethods,
@@ -211,7 +211,6 @@ build_geo_type!(PyBox, Rect);
 build_geo_type!(PyPath, LineString);
 build_geo_type!(PyLine, Line);
 build_geo_type!(PyLineSegment, LineSegment);
-build_geo_type!(PyPolygon, Polygon);
 build_geo_type!(PyCircle, Circle);
 
 #[pymethods]
@@ -280,19 +279,6 @@ impl PyLineSegment {
 }
 
 #[pymethods]
-impl PyPolygon {
-    #[new]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn new_polygon(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
-        let polygon_coords = build_geo_coords(value, None)?;
-
-        Ok(Self {
-            inner: Polygon::new(LineString::from(polygon_coords), vec![]),
-        })
-    }
-}
-
-#[pymethods]
 impl PyCircle {
     #[new]
     #[allow(clippy::missing_errors_doc)]
@@ -325,7 +311,6 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyPath>()?;
     pymod.add_class::<PyLine>()?;
     pymod.add_class::<PyLineSegment>()?;
-    pymod.add_class::<PyPolygon>()?;
     pymod.add_class::<PyCircle>()?;
     Ok(())
 }

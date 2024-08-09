@@ -15,7 +15,6 @@ from ._internal.extra_types import (
     PyMacAddr8,
     PyPath,
     PyPoint,
-    PyPolygon,
     PyText,
     PyVarChar,
     SmallInt,
@@ -40,6 +39,5 @@ __all__ = [
     "PyPath",
     "PyLine",
     "PyLineSegment",
-    "PyPolygon",
     "PyCircle",
 ]

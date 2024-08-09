@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
-from typing import Annotated, Any, Dict, List, Union
+from typing import Annotated, Any, Dict, List, Tuple, Union
 
 import pytest
 from pydantic import BaseModel
@@ -27,7 +27,6 @@ from psqlpy.extra_types import (
     PyMacAddr8,
     PyPath,
     PyPoint,
-    PyPolygon,
     PyText,
     SmallInt,
 )
@@ -164,16 +163,6 @@ async def test_as_class(
         ("LINE", PyLine([1, -2, 3]), (1.0, -2.0, 3.0)),
         ("LSEG", PyLineSegment({(1, 2), (9, 9)}), [(1.0, 2.0), (9.0, 9.0)]),
         ("LSEG", PyLineSegment(((1.7, 2.8), (9, 9))), [(1.7, 2.8), (9.0, 9.0)]),
-        (
-            "POLYGON",
-            PyPolygon((1.7, 2.8, 3.3, 2.5, 9, 9, 8, 8, 1.7, 2.8)),
-            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (8.0, 8.0), (1.7, 2.8)),
-        ),
-        (
-            "POLYGON",
-            PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (8, 8), (1.7, 2.8))),
-            ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (8.0, 8.0), (1.7, 2.8)),
-        ),
         (
             "CIRCLE",
             PyCircle((1.7, 2.8, 3)),
@@ -371,17 +360,6 @@ async def test_as_class(
             ],
         ),
         (
-            "POLYGON ARRAY",
-            [
-                PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
-                PyPolygon([{-1.0, 0.5}, {-0.3, 0.3}, {0.3, 0.7}, {0.6, -0.6}]),
-            ],
-            [
-                ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
-                ((-1.0, 0.5), (-0.3, 0.3), (0.3, 0.7), (0.6, -0.6)),
-            ],
-        ),
-        (
             "CIRCLE ARRAY",
             [
                 PyCircle([1.7, 2.8, 3]),
@@ -456,7 +434,6 @@ async def test_deserialization_composite_into_python(
         path_ PATH,
         line_ LINE,
         lseg_ LSEG,
-        polygon_ POLYGON,
         circle_ CIRCLE,
 
         varchar_arr VARCHAR ARRAY,
@@ -481,7 +458,6 @@ async def test_deserialization_composite_into_python(
         path_arr PATH ARRAY,
         line_arr LINE ARRAY,
         lseg_arr LSEG ARRAY,
-        polygon_arr POLYGON ARRAY,
         circle_arr CIRCLE ARRAY
     )
     """
@@ -501,9 +477,9 @@ async def test_deserialization_composite_into_python(
         SAD = "sad"
         HAPPY = "happy"
 
-    row_values = ", ".join([f"${index}" for index in range(1, 41)])
-    row_values += ", ROW($41, $42), "
-    row_values += ", ".join([f"${index}" for index in range(43, 51)])
+    row_values = ", ".join([f"${index}" for index in range(1, 40)])
+    row_values += ", ROW($40, $41), "
+    row_values += ", ".join([f"${index}" for index in range(42, 49)])
 
     await psql_pool.execute(
         querystring=f"INSERT INTO for_test VALUES (ROW({row_values}))",
@@ -539,7 +515,6 @@ async def test_deserialization_composite_into_python(
             PyPath(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
             PyLine({-2, 1, 2}),
             PyLineSegment(((1.7, 2.8), (9, 9))),
-            PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
             PyCircle([1.7, 2.8, 3]),
             ["Some String", "Some String"],
             [PyText("Some String"), PyText("Some String")],
@@ -602,10 +577,6 @@ async def test_deserialization_composite_into_python(
                 PyLineSegment([(5.6, 3.1), (4, 5)]),
             ],
             [
-                PyPolygon(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
-                PyPolygon([{-1.0, 0.5}, {-0.3, 0.3}, {0.3, 0.7}, {0.6, -0.6}]),
-            ],
-            [
                 PyCircle([1.7, 2.8, 3]),
                 PyCircle([5, 1.8, 10]),
             ],
@@ -635,13 +606,12 @@ async def test_deserialization_composite_into_python(
         inet_: IPv4Address
         jsonb_: Dict[str, List[Union[str, int, List[str]]]]
         json_: Dict[str, List[Union[str, int, List[str]]]]
-        point_: tuple[float, float]
-        box_: tuple[tuple[float, float], tuple[float, float]]
-        path_: list[tuple[float, float]]
+        point_: Tuple[float, float]
+        box_: Tuple[Tuple[float, float], Tuple[float, float]]
+        path_: List[Tuple[float, float]]
         line_: Annotated[list[float], 3]
-        lseg_: Annotated[list[tuple[float, float]], 2]
-        polygon_: tuple[tuple[float, float], ...]
-        circle_: tuple[float, float, float]
+        lseg_: Annotated[list[Tuple[float, float]], 2]
+        circle_: Tuple[Tuple[float, float], float]
 
         varchar_arr: List[str]
         text_arr: List[str]
@@ -658,13 +628,12 @@ async def test_deserialization_composite_into_python(
         inet_arr: List[IPv4Address]
         jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
         json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
-        point_arr: list[tuple[float, float]]
-        box_arr: list[tuple[tuple[float, float], tuple[float, float]]]
-        path_arr: list[list[tuple[float, float]]]
-        line_arr: list[Annotated[list[float], 3]]
-        lseg_arr: list[Annotated[list[tuple[float, float]], 2]]
-        polygon_arr: list[tuple[tuple[float, float], ...]]
-        circle_arr: list[tuple[float, float, float]]
+        point_arr: List[Tuple[float, float]]
+        box_arr: List[Tuple[Tuple[float, float], Tuple[float, float]]]
+        path_arr: List[list[Tuple[float, float]]]
+        line_arr: List[Annotated[List[float], 3]]
+        lseg_arr: List[Annotated[List[Tuple[float, float]], 2]]
+        circle_arr: List[Tuple[Tuple[float, float], float]]
 
         test_inner_value: ValidateModelForInnerValueType
         test_enum_type: TestEnum

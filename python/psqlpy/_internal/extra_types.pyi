@@ -230,22 +230,6 @@ class PyLineSegment:
         - `value`: any valid structure with int/float numbers in every combination.
         """
 
-class PyPolygon:
-    """Represent polygon field in PostgreSQL and Polygon in Rust."""
-
-    def __init__(self: Self, value: PairsOfCoordinates) -> None:
-        """Create new instance of PyPolygon.
-
-        You need to pass any of this structures:
-        - sequence(List, Tuple or Set) of sequences(List, Tuple or Set),
-            each with pair of int/float numbers in every combination
-        - sequence(List, Tuple or Set) with pairs
-            of int/float numbers in every combination
-
-        ### Parameters:
-        - `value`: any valid structure with int/float numbers in every combination.
-        """
-
 class PyCircle:
     """Represent line field in PostgreSQL and Line in Rust."""
 

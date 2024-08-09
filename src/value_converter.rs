@@ -1,5 +1,5 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Polygon, Rect};
+use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind, ToSql};
@@ -26,13 +26,13 @@ use tokio_postgres::{
 use crate::{
     additional_types::{
         Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
-        RustPolygon, RustRect,
+        RustRect,
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
         BigInt, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB,
-        PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyPolygon, PyText,
-        PyVarChar, SmallInt,
+        PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
+        SmallInt,
     },
 };
 
@@ -108,7 +108,6 @@ pub enum PythonDTO {
     PyPath(LineString),
     PyLine(Line),
     PyLineSegment(LineSegment),
-    PyPolygon(Polygon),
     PyCircle(Circle),
 }
 
@@ -152,7 +151,6 @@ impl PythonDTO {
             PythonDTO::PyPath(_) => Ok(tokio_postgres::types::Type::PATH_ARRAY),
             PythonDTO::PyLine(_) => Ok(tokio_postgres::types::Type::LINE_ARRAY),
             PythonDTO::PyLineSegment(_) => Ok(tokio_postgres::types::Type::LSEG_ARRAY),
-            PythonDTO::PyPolygon(_) => Ok(tokio_postgres::types::Type::POLYGON_ARRAY),
             PythonDTO::PyCircle(_) => Ok(tokio_postgres::types::Type::CIRCLE_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
@@ -298,9 +296,6 @@ impl ToSql for PythonDTO {
                     ty,
                     out,
                 )?;
-            }
-            PythonDTO::PyPolygon(pypolygon) => {
-                <&RustPolygon as ToSql>::to_sql(&&RustPolygon::new(pypolygon.clone()), ty, out)?;
             }
             PythonDTO::PyCircle(pycircle) => {
                 <&Circle as ToSql>::to_sql(&pycircle, ty, out)?;
@@ -570,12 +565,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         ));
     }
 
-    if parameter.is_instance_of::<PyPolygon>() {
-        return Ok(PythonDTO::PyPolygon(
-            parameter.extract::<PyPolygon>()?.retrieve_value(),
-        ));
-    }
-
     if parameter.is_instance_of::<PyCircle>() {
         return Ok(PythonDTO::PyCircle(
             parameter.extract::<PyCircle>()?.retrieve_value(),
@@ -780,14 +769,6 @@ fn postgres_bytes_to_py(
                 None => Ok(py.None().to_object(py)),
             }
         }
-        Type::POLYGON => {
-            let polygon_ = _composite_field_postgres_to_py::<Option<RustPolygon>>(type_, buf, is_simple)?;
-
-            match polygon_ {
-                Some(polygon_) => Ok(polygon_.into_py(py)),
-                None => Ok(py.None().to_object(py)),
-            }
-        }
         Type::CIRCLE => {
             let circle_ = _composite_field_postgres_to_py::<Option<Circle>>(type_, buf, is_simple)?;
 
@@ -981,23 +962,6 @@ fn postgres_bytes_to_py(
                         lseg_array_vec
                             .iter()
                             .map(|lseg_| lseg_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
-        }
-        Type::POLYGON_ARRAY => {
-            let polygon_array_ = _composite_field_postgres_to_py::<Option<Vec<RustPolygon>>>(type_, buf, is_simple)?;
-
-            match polygon_array_ {
-                Some(polygon_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        polygon_array_vec
-                            .iter()
-                            .map(|polygon_| polygon_.into_py(py))
                             .collect::<Vec<Py<PyAny>>>(),
                     )
                     .to_object(py))

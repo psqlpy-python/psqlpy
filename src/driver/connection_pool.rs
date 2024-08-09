@@ -304,6 +304,11 @@ impl ConnectionPool {
                                 .collect::<Vec<&QueryParameter>>(),
                         )
                         .await
+                        .map_err(|err| {
+                            RustPSQLDriverError::ConnectionExecuteError(format!(
+                                "Cannot execute statement from ConnectionPool, error - {err}"
+                            ))
+                        })
                 })
                 .await??
         } else {

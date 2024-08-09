@@ -2,10 +2,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, BytesMut};
-use geo_types::{
-    coord, Coord, CoordFloat, CoordNum, Line as LineSegment, LineString, Point, Polygon, Rect,
-};
-use itertools::Itertools;
+use geo_types::{coord, Coord, CoordFloat, CoordNum, Line as LineSegment, LineString, Point, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_protocol::types;
 use postgres_types::{to_sql_checked, IsNull, ToSql};
@@ -79,7 +76,6 @@ build_additional_rust_type!(RustPoint, Point);
 build_additional_rust_type!(RustRect, Rect);
 build_additional_rust_type!(RustLineString, LineString);
 build_additional_rust_type!(RustLineSegment, LineSegment);
-build_additional_rust_type!(RustPolygon, Polygon);
 
 impl<'a> IntoPy<PyObject> for &'a RustPoint {
     #[inline]
@@ -289,76 +285,6 @@ impl<'a> FromSql<'a> for RustLineSegment {
 
         let new_line = LineSegment::new(first_coord, second_coord);
         Ok(RustLineSegment::new(new_line))
-    }
-
-    fn accepts(_ty: &Type) -> bool {
-        true
-    }
-}
-
-impl<'a> IntoPy<PyObject> for &'a RustPolygon {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let inner_value = self.inner();
-
-        let mut result_vec: Vec<Py<PyAny>> = vec![];
-        for coordinate in inner_value.exterior() {
-            result_vec.push(
-                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
-                    .into(),
-            );
-        }
-
-        return PyTuple::new_bound(py, result_vec).into();
-    }
-}
-
-impl ToSql for RustPolygon {
-    fn to_sql(
-        &self,
-        _: &Type,
-        out: &mut BytesMut,
-    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
-        for coord in &self.inner().exterior().0 {
-            let coordinates_pair = format!("{} {}", coord.x, coord.y);
-            let coordinates_bytes_repr = coordinates_pair.as_bytes();
-            out.extend_from_slice(coordinates_bytes_repr);
-        }
-
-        Ok(IsNull::No)
-    }
-
-    to_sql_checked!();
-
-    fn accepts(_ty: &Type) -> bool {
-        true
-    }
-}
-
-impl<'a> FromSql<'a> for RustPolygon {
-    fn from_sql(
-        _ty: &Type,
-        raw: &'a [u8],
-    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let mut vec_raw = vec![];
-        vec_raw.extend_from_slice(raw);
-        let mut buf = vec_raw.as_slice();
-
-        let mut vec_raw_coord = vec![];
-        buf.read_f64_into::<BigEndian>(&mut vec_raw_coord)?;
-
-        let mut vec_coord = vec![];
-        for (x1, y1) in vec_raw_coord.into_iter().tuples() {
-            vec_coord.push(coord!(x: x1, y: y1));
-        }
-
-        if !buf.is_empty() {
-            return Err("Cannot convert PostgreSQL POLYGON into rust Polygon".into());
-        }
-
-        let polygon_exterior = LineString::from(vec_coord);
-        let new_polygon = Polygon::new(polygon_exterior, vec![]);
-        Ok(RustPolygon::new(new_polygon))
     }
 
     fn accepts(_ty: &Type) -> bool {
