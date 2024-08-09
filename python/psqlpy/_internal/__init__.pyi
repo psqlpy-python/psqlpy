@@ -1215,6 +1215,14 @@ class ConnectionPool:
         - `ca_file`: Loads trusted root certificates from a file.
             The file should contain a sequence of PEM-formatted CA certificates.
         """
+    def __iter__(self: Self) -> Self: ...
+    def __enter__(self: Self) -> Self: ...
+    def __exit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
     def status(self: Self) -> ConnectionPoolStatus:
         """Return information about connection pool.
 

@@ -175,3 +175,15 @@ async def test_close_connection_pool() -> None:
 
     with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
         await pg_pool.execute("SELECT 1")
+
+
+async def test_connection_pool_as_context_manager() -> None:
+    """Test connection pool as context manager."""
+    with ConnectionPool(
+        dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
+    ) as pg_pool:
+        res = await pg_pool.execute("SELECT 1")
+        assert res.result()
+
+    with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
+        await pg_pool.execute("SELECT 1")
