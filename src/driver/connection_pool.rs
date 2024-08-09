@@ -2,7 +2,7 @@ use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
-use pyo3::{pyclass, pyfunction, pymethods, PyAny};
+use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::{sync::Arc, vec};
 use tokio_postgres::NoTls;
 
@@ -251,6 +251,28 @@ impl ConnectionPool {
             max_db_pool_size,
             conn_recycling_method,
         )
+    }
+
+    #[must_use]
+    pub fn __iter__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __enter__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __exit__(
+        self_: Py<Self>,
+        _exception_type: Py<PyAny>,
+        _exception: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) {
+        pyo3::Python::with_gil(|gil| {
+            self_.borrow(gil).close();
+        });
     }
 
     #[must_use]
