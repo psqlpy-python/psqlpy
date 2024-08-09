@@ -3,11 +3,12 @@ import uuid
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
-from typing import Annotated, Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import pytest
 from pydantic import BaseModel
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
+from typing_extensions import Annotated
 
 from psqlpy import ConnectionPool
 from psqlpy._internal.extra_types import PyCustomType

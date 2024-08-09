@@ -10,6 +10,7 @@ use pyo3::{
     types::{PyList, PyTuple},
     IntoPy, Py, PyAny, PyObject, Python,
 };
+use serde::{Deserialize, Serialize};
 use tokio_postgres::types::{FromSql, Type};
 
 macro_rules! build_additional_rust_type {
@@ -292,8 +293,7 @@ impl<'a> FromSql<'a> for RustLineSegment {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash, Serialize, Deserialize)]
 pub struct Line<T: CoordNum = f64> {
     a: T,
     b: T,
@@ -471,7 +471,6 @@ impl<'a> FromSql<'a> for Line {
 // add macro for creating circles
 
 #[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Circle<T: CoordNum = f64> {
     center: Coord<T>,
     radius: T,
