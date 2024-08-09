@@ -202,7 +202,7 @@ class PyPath:
         """
 
 class PyLine:
-    """Represent line field in PostgreSQL and Line in Rust."""
+    """Represent line field in PostgreSQL and LineSegment in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
         """Create new instance of PyLine.
@@ -215,7 +215,7 @@ class PyLine:
         """
 
 class PyLineSegment:
-    """Represent lseg field in PostgreSQL and Line in Rust."""
+    """Represent lseg field in PostgreSQL and LineSegment in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
         """Create new instance of PyLineSegment.
@@ -231,7 +231,7 @@ class PyLineSegment:
         """
 
 class PyCircle:
-    """Represent line field in PostgreSQL and Line in Rust."""
+    """Represent circle field in PostgreSQL and Circle in Rust."""
 
     def __init__(
         self: Self,

@@ -18,6 +18,13 @@ All extra types available from Python with mapping to PostgreSQL type and Rust t
 | PyJSONB | JSONB | serde::Value |
 | PyMacAddr6 | MacAddr | MacAddr6 |
 | PyMacAddr8 | MacAddr8 | MacAddr8 |
+| PyPoint | Point | Point |
+| PyBox | Rect | Box |
+| PyPath | LineString | Path |
+| PyLine | LineSegment | Line |
+| PyLineSegment | LineSegment | Lseg |
+| PyCircle | Circle | Circle |
+
 
 ## BigInt & Integer & SmallInt & Float32 & Float64
 When integer is passed from Python to Rust, it's impossible to understand what type is required on the Database side.
@@ -172,6 +179,46 @@ async def main() -> None:
         [
             PyMacAddr6("08:00:2b:01:02:03"),
             PyMacAddr8("08:00:2b:01:02:03:04:05"),
+        ],
+    )
+
+    db_pool.close()
+```
+
+## Geo Types
+Also in package exists support of PostgreSQL geo types(except Polygon for now).
+To use geo types you need specify them directly.
+
+Let's assume we have table `geo_info` with all PostgreSQL geo types in the database:
+|  database type | database column name |
+| :---: | :---: |
+| POINT | map_point |
+| BOX | point_district |
+| PATH | path_to_point |
+| LINE | points_line |
+| LSEG | lseg_between_points |
+| CIRCLE | point_radius_circle |
+
+```python
+from typing import Final
+
+from psqlpy import ConnectionPool, QueryResult
+from psqlpy.extra_types import PyPoint, PyBox, PyPath, PyLine, PyLineSegment, PyCircle
+
+
+async def main() -> None:
+    # It uses default connection parameters
+    db_pool: Final = ConnectionPool()
+
+    await db_pool.execute(
+        "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
+        [
+            PyPoint([1.5, 2]),
+            PyBox([(1.7, 2.8), (9, 9)]),
+            PyPath([(3.5, 3), (9, 9), (8, 8)]),
+            PyLine([1, -2, 3]),
+            PyLineSegment([(5.6, 3.1), (4, 5)]),
+            PyCircle([5, 1.8, 10]),
         ],
     )
 
