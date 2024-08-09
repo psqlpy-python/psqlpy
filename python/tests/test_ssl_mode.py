@@ -74,3 +74,25 @@ async def test_ssl_mode_require_pool_builder(
     pool = builder.build()
 
     await pool.execute("SELECT 1")
+
+
+async def test_ssl_mode_require_without_ca_file(
+    postgres_host: str,
+    postgres_user: str,
+    postgres_password: str,
+    postgres_port: int,
+    postgres_dbname: str,
+) -> None:
+    builder = (
+        ConnectionPoolBuilder()
+        .max_pool_size(10)
+        .host(postgres_host)
+        .port(postgres_port)
+        .user(postgres_user)
+        .password(postgres_password)
+        .dbname(postgres_dbname)
+        .ssl_mode(SslMode.Require)
+    )
+    pool = builder.build()
+
+    await pool.execute("SELECT 1")

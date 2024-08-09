@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     app.state.db_pool = db_pool
     yield
-    await db_pool.close()
+    db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)

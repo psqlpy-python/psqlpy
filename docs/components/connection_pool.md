@@ -13,8 +13,6 @@ You cannot set the minimum size for the connection pool, by it is 0.
 So, if you set `max_db_pool_size` to 100, pool will create new connection every time there aren't enough connections to handle the load.
 :::
 
-## Connection pool methods
-
 ### All available ConnectionPool parameters
 
 - `dsn`: Full dsn connection string.
@@ -105,9 +103,6 @@ db_pool: Final = ConnectionPool(
     db_name="postgres",
     max_db_pool_size=10,
 )
-
-async def main() -> None:
-
 ```
 
 ### Initialize Connection Pool with DSN
@@ -124,9 +119,6 @@ db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
     max_db_pool_size=10,
 )
-
-async def main() -> None:
-
 ```
 
 ### Create Connection Pool with one function
@@ -142,6 +134,26 @@ db_pool: Final = connect(
 )
 ```
 `connect` function has the same parameters as `ConnectionPool`.
+
+### Use Connection Pool as context manager
+```py
+from typing import Final
+
+from psqlpy import ConnectionPool
+
+
+async def main() -> None:
+    with ConnectionPool(
+        dsn="postgres://postgres:postgres@localhost:5432/postgres",
+        max_db_pool_size=10,
+    ) as db_pool:
+        # ConnectionPool is opened
+        await db_pool.execute("SOME_SQL")
+        # ConnectionPool is opened
+    # ConnectionPool is closed
+```
+
+## Connection pool methods
 
 ### Resize
 Resize connection pool capacity.

@@ -1,6 +1,6 @@
 {
   "name": "psqlpy-docs",
-  "repository": "git@github.com:qaspen-python/psqlpy.git",
+  "repository": "git@github.com:psqlpy-python/psqlpy.git",
   "author": "Kiselev Aleksandr <askiselev00@gmail.com>",
   "license": "MIT",
   "private": false,

@@ -1,8 +1,8 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use openssl::ssl::{SslConnector, SslMethod};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
-use pyo3::{pyclass, pyfunction, pymethods, PyAny};
+use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::{sync::Arc, vec};
 use tokio_postgres::NoTls;
 
@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+    common_options::{self, ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     utils::build_connection_config,
 };
@@ -104,6 +104,15 @@ pub fn connect(
         builder.set_ca_file(ca_file)?;
         let tls_connector = MakeTlsConnector::new(builder.build());
         mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+    } else if let Some(ssl_mode) = ssl_mode {
+        if ssl_mode == common_options::SslMode::Require {
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::NONE);
+            let tls_connector = MakeTlsConnector::new(builder.build());
+            mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
+        } else {
+            mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+        }
     } else {
         mgr = Manager::from_config(pg_config, NoTls, mgr_config);
     }
@@ -242,6 +251,28 @@ impl ConnectionPool {
             max_db_pool_size,
             conn_recycling_method,
         )
+    }
+
+    #[must_use]
+    pub fn __iter__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __enter__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn __exit__(
+        self_: Py<Self>,
+        _exception_type: Py<PyAny>,
+        _exception: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) {
+        pyo3::Python::with_gil(|gil| {
+            self_.borrow(gil).close();
+        });
     }
 
     #[must_use]
@@ -413,7 +444,7 @@ impl ConnectionPool {
         Ok(Connection::new(Some(Arc::new(db_connection)), None))
     }
 
-    /// Return new single connection.
+    /// Close connection pool.
     ///
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.

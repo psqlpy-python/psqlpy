@@ -35,7 +35,7 @@ def start_db_pool(app: Litestar) -> ConnectionPool:
 
 async def stop_db_pool(app: Litestar) -> None:
     """Close database connection pool."""
-    if getattr(app.state, "engine", None):
+    if getattr(app.state, "db_pool", None):
         db_pool = cast(ConnectionPool, app.state.db_pool)
         db_pool.close()
 

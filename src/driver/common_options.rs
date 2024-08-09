@@ -64,7 +64,7 @@ impl TargetSessionAttrs {
 }
 
 #[pyclass]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum SslMode {
     /// Do not use TLS.
     Disable,
