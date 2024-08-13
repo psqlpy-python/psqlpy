@@ -37,6 +37,7 @@ export default defineUserConfig({
       mdEnhance: {
         tabs: true,
         mermaid: true,
+        chart: true,
       },
 
       sitemap: {

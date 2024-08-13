@@ -70,5 +70,10 @@ export default sidebar({
       prefix: "/contribution_guide",
       link: "/contribute.md"
     },
+    {
+      text: "Benchmarks",
+      prefix: "/benchmarks",
+      link: "/benchmarks.md"
+    },
   ],
 });

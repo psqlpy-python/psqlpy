@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+dependencies:
+  chart.js:
+    specifier: ^4.4.3
+    version: 4.4.3
+
 devDependencies:
   '@vuepress/bundler-vite':
     specifier: 2.0.0-rc.9
@@ -25,7 +30,7 @@ devDependencies:
     version: 2.0.0-rc.36(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
   vuepress-theme-hope:
     specifier: 2.0.0-rc.36
-    version: 2.0.0-rc.36(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress-plugin-search-pro@2.0.0-rc.36)(vuepress@2.0.0-rc.9)
+    version: 2.0.0-rc.36(chart.js@4.4.3)(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress-plugin-search-pro@2.0.0-rc.36)(vuepress@2.0.0-rc.9)
 
 packages:
 
@@ -270,6 +275,9 @@ packages:
   /@jridgewell/sourcemap-codec@1.4.15:
     resolution: {integrity: sha512-eF2rxCRulEKXHTRiDrDy6erMYWqNw4LPdQ8UQA4huuxaQsVeRPFl2oM8oDGxMFhJUWZf9McpLtJasDDZb/Bpeg==}
     dev: true
+
+  /@kurkle/color@0.3.2:
+    resolution: {integrity: sha512-fuscdXJ9G1qb7W8VdHi+IwRqij3lBkosAm4ydQtEmbY58OzHXqQhvlxqEkoz0yssNVn38bcpRWgA9PP+OGoisw==}
 
   /@lit-labs/ssr-dom-shim@1.2.0:
     resolution: {integrity: sha512-yWJKmpGE6lUURKAaIltoPIE/wrbY3TEkqQt+X0m+7fQNnAv0keydnYvbiJFP1PnMhizmIWRWOG5KLhYyc/xl+g==}
@@ -1489,6 +1497,12 @@ packages:
   /character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
     dev: true
+
+  /chart.js@4.4.3:
+    resolution: {integrity: sha512-qK1gkGSRYcJzqrrzdR6a+I0vQ4/R+SoODXyAjscQ/4mzuNzySaMCd+hyVxitSY1+L2fjPD1Gbn+ibNqRmwQeLw==}
+    engines: {pnpm: '>=8'}
+    dependencies:
+      '@kurkle/color': 0.3.2
 
   /cheerio-select@2.1.0:
     resolution: {integrity: sha512-9v9kG0LvzrlcungtnJtpGNxY+fzECQKhK4EGJX2vByejiMX84MFNQw4UxPJl3bFbTMw+Dfs37XaIkCwTZfLh4g==}
@@ -3318,7 +3332,7 @@ packages:
       - typescript
     dev: true
 
-  /vuepress-plugin-md-enhance@2.0.0-rc.36(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress@2.0.0-rc.9):
+  /vuepress-plugin-md-enhance@2.0.0-rc.36(chart.js@4.4.3)(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress@2.0.0-rc.9):
     resolution: {integrity: sha512-FvQ4foaqsE13WEXN2TaBqtSEN3tKnkkuDX7daLbNPQ1z0ghaMgcCDJ+ehEwwcNgXSs1vlbTRYL/Tf4M4RC1nfA==}
     engines: {node: '>=18.16.0', npm: '>=8', pnpm: '>=7', yarn: '>=2'}
     peerDependencies:
@@ -3395,6 +3409,7 @@ packages:
       '@vuepress/helper': 2.0.0-rc.24(vuepress@2.0.0-rc.9)
       '@vueuse/core': 10.11.0(vue@3.4.30)
       balloon-css: 1.2.0
+      chart.js: 4.4.3
       js-yaml: 4.1.0
       mermaid: 10.9.1
       sass-loader: 14.2.1
@@ -3475,7 +3490,7 @@ packages:
       - typescript
     dev: true
 
-  /vuepress-theme-hope@2.0.0-rc.36(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress-plugin-search-pro@2.0.0-rc.36)(vuepress@2.0.0-rc.9):
+  /vuepress-theme-hope@2.0.0-rc.36(chart.js@4.4.3)(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress-plugin-search-pro@2.0.0-rc.36)(vuepress@2.0.0-rc.9):
     resolution: {integrity: sha512-kMCmlwPw4S0P0LYnAulaT98L3Z2jD+A4bgQ93rfuCVxmfCJEUs99V6ms9iu/GZ8CqJC10anDqwfJ+SjHCs0V8g==}
     engines: {node: '>=18.16.0', npm: '>=8', pnpm: '>=7', yarn: '>=2'}
     peerDependencies:
@@ -3535,7 +3550,7 @@ packages:
       vue: 3.4.30
       vuepress: 2.0.0-rc.9(@vuepress/bundler-vite@2.0.0-rc.9)(vue@3.4.30)
       vuepress-plugin-components: 2.0.0-rc.36(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
-      vuepress-plugin-md-enhance: 2.0.0-rc.36(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
+      vuepress-plugin-md-enhance: 2.0.0-rc.36(chart.js@4.4.3)(markdown-it@14.1.0)(mermaid@10.9.1)(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
       vuepress-plugin-sass-palette: 2.0.0-rc.36(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
       vuepress-plugin-search-pro: 2.0.0-rc.36(sass-loader@14.2.1)(vuepress@2.0.0-rc.9)
       vuepress-shared: 2.0.0-rc.36(vuepress@2.0.0-rc.9)
