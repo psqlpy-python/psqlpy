@@ -33,7 +33,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Simple Connection Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -86,7 +86,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Hard Connection Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -139,7 +139,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Combined Connection Query"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -192,7 +192,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Simple Transaction Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -245,7 +245,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Hard Transaction Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -298,7 +298,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Combined Transaction Query"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -355,7 +355,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Simple Connection Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -409,7 +409,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Hard Connection Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -463,7 +463,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Combined Connection Query"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -517,7 +517,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Simple Transaction Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -571,7 +571,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Hard Transaction Select"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
@@ -625,7 +625,7 @@ However, if you have application and database located on different machines, you
 {
   "type": "bar",
   "data": {
-    "labels": ["Combined Transaction Query"],
+    "labels": ["Requests Per Second"],
     "datasets": [
       {
         "label": "PSQLPy",
