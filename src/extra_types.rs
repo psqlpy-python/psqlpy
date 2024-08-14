@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use geo_types::{Line as LineSegment, LineString, Point, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{
     pyclass, pymethods,
@@ -8,7 +9,11 @@ use pyo3::{
 };
 use serde_json::Value;
 
-use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::build_serde_value};
+use crate::{
+    additional_types::{Circle, Line},
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    value_converter::{build_flat_geo_coords, build_geo_coords, build_serde_value},
+};
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -184,6 +189,107 @@ impl PyCustomType {
     }
 }
 
+macro_rules! build_geo_type {
+    ($st_name:ident, $rust_type:ty) => {
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct $st_name {
+            inner: $rust_type,
+        }
+
+        impl $st_name {
+            #[must_use]
+            pub fn retrieve_value(&self) -> $rust_type {
+                self.inner.clone()
+            }
+        }
+    };
+}
+
+build_geo_type!(PyPoint, Point);
+build_geo_type!(PyBox, Rect);
+build_geo_type!(PyPath, LineString);
+build_geo_type!(PyLine, Line);
+build_geo_type!(PyLineSegment, LineSegment);
+build_geo_type!(PyCircle, Circle);
+
+#[pymethods]
+impl PyPoint {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let point_coords = build_geo_coords(value, Some(1))?;
+
+        Ok(Self {
+            inner: Point::from(point_coords[0]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyBox {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let box_coords = build_geo_coords(value, Some(2))?;
+
+        Ok(Self {
+            inner: Rect::new(box_coords[0], box_coords[1]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyPath {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let path_coords = build_geo_coords(value, None)?;
+
+        Ok(Self {
+            inner: LineString::new(path_coords),
+        })
+    }
+}
+
+#[pymethods]
+impl PyLine {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let line_coords = build_flat_geo_coords(value, Some(3))?;
+
+        Ok(Self {
+            inner: Line::new(line_coords[0], line_coords[1], line_coords[2]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyLineSegment {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let line_segment_coords = build_geo_coords(value, Some(2))?;
+
+        Ok(Self {
+            inner: LineSegment::new(line_segment_coords[0], line_segment_coords[1]),
+        })
+    }
+}
+
+#[pymethods]
+impl PyCircle {
+    #[new]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+        let circle_coords = build_flat_geo_coords(value, Some(3))?;
+        Ok(Self {
+            inner: Circle::new(circle_coords[0], circle_coords[1], circle_coords[2]),
+        })
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
 pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -200,5 +306,11 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyMacAddr6>()?;
     pymod.add_class::<PyMacAddr8>()?;
     pymod.add_class::<PyCustomType>()?;
+    pymod.add_class::<PyPoint>()?;
+    pymod.add_class::<PyBox>()?;
+    pymod.add_class::<PyPath>()?;
+    pymod.add_class::<PyLine>()?;
+    pymod.add_class::<PyLineSegment>()?;
+    pymod.add_class::<PyCircle>()?;
     Ok(())
 }
