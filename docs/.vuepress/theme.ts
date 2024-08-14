@@ -55,6 +55,7 @@ export default hopeTheme({
       imgSize: true,
       include: true,
       mark: true,
+      chart: true,
       stylize: [
         {
           matcher: "Recommended",

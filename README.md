@@ -65,16 +65,4 @@ async def main() -> None:
 
 ## Benchmarks
 
-We have made some benchmark to compare `PSQLPy`, `AsyncPG`, `Psycopg3`.
-Main idea is do not compare clear drivers because there are a few situations in which you need to use only driver without any other dependencies.
-
-**So infrastructure consists of:**
-
-1. AioHTTP
-2. PostgreSQL driver (`PSQLPy`, `AsyncPG`, `Psycopg3`)
-3. PostgreSQL v15. Server is located in other part of the world, because we want to simulate network problems.
-4. Grafana (dashboards)
-5. InfluxDB
-6. JMeter (for load testing)
-
-The results are very promising! `PSQLPy` is faster than `AsyncPG` at best by 2 times, at worst by 45%. `PsycoPG` is 3.5 times slower than `PSQLPy` in the worst case, 60% in the best case.
+You can find benchmarks with visualization on our [docs](https://psqlpy-python.github.io/benchmarks.html)
