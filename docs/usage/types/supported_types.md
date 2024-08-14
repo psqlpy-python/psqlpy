@@ -18,7 +18,7 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | int | INTEGER | INTEGER |
 | int | - | INTEGER |
 | int | BIGINT | BIGINT |
-| float | - | FLOAT4 |
+| float | - | FLOAT8 |
 | float | Float32 | FLOAT4 |
 | float | Float64 | FLOAT8 |
 | datetime.date | - | DATE |

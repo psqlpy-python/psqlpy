@@ -1,4 +1,6 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Rect};
+use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
 use postgres_types::{Field, FromSql, Kind, ToSql};
 use rust_decimal::Decimal;
@@ -12,9 +14,9 @@ use pyo3::{
     sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
+        PyList, PyListMethods, PySet, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
     },
-    Bound, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
+    Bound, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, Type},
@@ -22,11 +24,15 @@ use tokio_postgres::{
 };
 
 use crate::{
-    additional_types::{RustMacAddr6, RustMacAddr8},
+    additional_types::{
+        Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
+        RustRect,
+    },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Float32, Float64, Integer, Money, PyCustomType, PyJSON, PyJSONB, PyMacAddr6,
-        PyMacAddr8, PyText, PyVarChar, SmallInt,
+        BigInt, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB,
+        PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
+        SmallInt,
     },
 };
 
@@ -97,6 +103,12 @@ pub enum PythonDTO {
     PyMacAddr8(MacAddr8),
     PyDecimal(Decimal),
     PyCustomType(Vec<u8>),
+    PyPoint(Point),
+    PyBox(Rect),
+    PyPath(LineString),
+    PyLine(Line),
+    PyLineSegment(LineSegment),
+    PyCircle(Circle),
 }
 
 impl PythonDTO {
@@ -134,6 +146,12 @@ impl PythonDTO {
             PythonDTO::PyMacAddr6(_) => Ok(tokio_postgres::types::Type::MACADDR_ARRAY),
             PythonDTO::PyMacAddr8(_) => Ok(tokio_postgres::types::Type::MACADDR8_ARRAY),
             PythonDTO::PyDecimal(_) => Ok(tokio_postgres::types::Type::NUMERIC_ARRAY),
+            PythonDTO::PyPoint(_) => Ok(tokio_postgres::types::Type::POINT_ARRAY),
+            PythonDTO::PyBox(_) => Ok(tokio_postgres::types::Type::BOX_ARRAY),
+            PythonDTO::PyPath(_) => Ok(tokio_postgres::types::Type::PATH_ARRAY),
+            PythonDTO::PyLine(_) => Ok(tokio_postgres::types::Type::LINE_ARRAY),
+            PythonDTO::PyLineSegment(_) => Ok(tokio_postgres::types::Type::LSEG_ARRAY),
+            PythonDTO::PyCircle(_) => Ok(tokio_postgres::types::Type::CIRCLE_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -197,6 +215,7 @@ impl ToSql for PythonDTO {
     /// # Errors
     ///
     /// May return Err Result if cannot write bytes into buffer.
+    #[allow(clippy::too_many_lines)]
     fn to_sql(
         &self,
         ty: &tokio_postgres::types::Type,
@@ -258,6 +277,28 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyMacAddr8(pymacaddr) => {
                 <&[u8] as ToSql>::to_sql(&pymacaddr.as_bytes(), ty, out)?;
+            }
+            PythonDTO::PyPoint(pypoint) => {
+                <&RustPoint as ToSql>::to_sql(&&RustPoint::new(*pypoint), ty, out)?;
+            }
+            PythonDTO::PyBox(pybox) => {
+                <&RustRect as ToSql>::to_sql(&&RustRect::new(*pybox), ty, out)?;
+            }
+            PythonDTO::PyPath(pypath) => {
+                <&RustLineString as ToSql>::to_sql(&&RustLineString::new(pypath.clone()), ty, out)?;
+            }
+            PythonDTO::PyLine(pyline) => {
+                <&Line as ToSql>::to_sql(&pyline, ty, out)?;
+            }
+            PythonDTO::PyLineSegment(pylinesegment) => {
+                <&RustLineSegment as ToSql>::to_sql(
+                    &&RustLineSegment::new(*pylinesegment),
+                    ty,
+                    out,
+                )?;
+            }
+            PythonDTO::PyCircle(pycircle) => {
+                <&Circle as ToSql>::to_sql(&pycircle, ty, out)?;
             }
             PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
                 let mut items = Vec::new();
@@ -358,7 +399,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     }
 
     if parameter.is_instance_of::<PyFloat>() {
-        return Ok(PythonDTO::PyFloat32(parameter.extract::<f32>()?));
+        return Ok(PythonDTO::PyFloat64(parameter.extract::<f64>()?));
     }
 
     if parameter.is_instance_of::<Float32>() {
@@ -492,6 +533,42 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             parameter.str()?.extract::<&str>()?,
         )?));
+    }
+
+    if parameter.is_instance_of::<PyPoint>() {
+        return Ok(PythonDTO::PyPoint(
+            parameter.extract::<PyPoint>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyBox>() {
+        return Ok(PythonDTO::PyBox(
+            parameter.extract::<PyBox>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyPath>() {
+        return Ok(PythonDTO::PyPath(
+            parameter.extract::<PyPath>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyLine>() {
+        return Ok(PythonDTO::PyLine(
+            parameter.extract::<PyLine>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyLineSegment>() {
+        return Ok(PythonDTO::PyLineSegment(
+            parameter.extract::<PyLineSegment>()?.retrieve_value(),
+        ));
+    }
+
+    if parameter.is_instance_of::<PyCircle>() {
+        return Ok(PythonDTO::PyCircle(
+            parameter.extract::<PyCircle>()?.retrieve_value(),
+        ));
     }
 
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
@@ -651,6 +728,55 @@ fn postgres_bytes_to_py(
             }
             Ok(py.None().to_object(py))
         }
+        // ---------- Geo Types ----------
+        Type::POINT => {
+            let point_ = _composite_field_postgres_to_py::<Option<RustPoint>>(type_, buf, is_simple)?;
+
+            match point_ {
+                Some(point_) => Ok(point_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::BOX => {
+            let box_ = _composite_field_postgres_to_py::<Option<RustRect>>(type_, buf, is_simple)?;
+
+            match box_ {
+                Some(box_) => Ok(box_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::PATH => {
+            let path_ = _composite_field_postgres_to_py::<Option<RustLineString>>(type_, buf, is_simple)?;
+
+            match path_ {
+                Some(path_) => Ok(path_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::LINE => {
+            let line_ = _composite_field_postgres_to_py::<Option<Line>>(type_, buf, is_simple)?;
+
+            match line_ {
+                Some(line_) => Ok(line_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::LSEG => {
+            let lseg_ = _composite_field_postgres_to_py::<Option<RustLineSegment>>(type_, buf, is_simple)?;
+
+            match lseg_ {
+                Some(lseg_) => Ok(lseg_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::CIRCLE => {
+            let circle_ = _composite_field_postgres_to_py::<Option<Circle>>(type_, buf, is_simple)?;
+
+            match circle_ {
+                Some(circle_) => Ok(circle_.into_py(py)),
+                None => Ok(py.None().to_object(py)),
+            }
+        }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
             type_, buf, is_simple,
@@ -757,6 +883,109 @@ fn postgres_bytes_to_py(
             };
             Ok(py.None().to_object(py))
         },
+        // ---------- Array Geo Types ----------
+        Type::POINT_ARRAY => {
+            let point_array_ = _composite_field_postgres_to_py::<Option<Vec<RustPoint>>>(type_, buf, is_simple)?;
+
+            match point_array_ {
+                Some(point_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        point_array_vec
+                            .iter()
+                            .map(|point_| point_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::BOX_ARRAY => {
+            let box_array_ = _composite_field_postgres_to_py::<Option<Vec<RustRect>>>(type_, buf, is_simple)?;
+
+            match box_array_ {
+                Some(box_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        box_array_vec
+                            .iter()
+                            .map(|box_| box_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::PATH_ARRAY => {
+            let path_array_ = _composite_field_postgres_to_py::<Option<Vec<RustLineString>>>(type_, buf, is_simple)?;
+
+            match path_array_ {
+                Some(path_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        path_array_vec
+                            .iter()
+                            .map(|path_| path_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::LINE_ARRAY => {
+            let line_array_ = _composite_field_postgres_to_py::<Option<Vec<Line>>>(type_, buf, is_simple)?;
+
+            match line_array_ {
+                Some(line_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        line_array_vec
+                            .iter()
+                            .map(|line_| line_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::LSEG_ARRAY => {
+            let lseg_array_ = _composite_field_postgres_to_py::<Option<Vec<RustLineSegment>>>(type_, buf, is_simple)?;
+
+            match lseg_array_ {
+                Some(lseg_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        lseg_array_vec
+                            .iter()
+                            .map(|lseg_| lseg_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
+        Type::CIRCLE_ARRAY => {
+            let circle_array_ = _composite_field_postgres_to_py::<Option<Vec<Circle>>>(type_, buf, is_simple)?;
+
+            match circle_array_ {
+                Some(circle_array_vec) => {
+                    return Ok(PyList::new_bound(
+                        py,
+                        circle_array_vec
+                            .iter()
+                            .map(|circle_| circle_.into_py(py))
+                            .collect::<Vec<Py<PyAny>>>(),
+                    )
+                    .to_object(py))
+                },
+                None => Ok(py.None().to_object(py)),
+            }
+        }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
         )),
@@ -975,4 +1204,204 @@ pub fn build_python_from_serde_value(
         Value::String(string) => Ok(string.to_object(py)),
         Value::Null => Ok(py.None()),
     }
+}
+
+/// Convert Python sequence to Rust vector.
+/// Also it checks that sequence has set/list/tuple type.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if parameters type isn't correct.
+fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> RustPSQLDriverPyResult<Vec<Py<PyAny>>> {
+    let mut coord_values_sequence_vec: Vec<Py<PyAny>> = vec![];
+
+    if bind_parameters.is_instance_of::<PySet>() {
+        let bind_pyset_parameters = bind_parameters.downcast::<PySet>().unwrap();
+
+        for one_parameter in bind_pyset_parameters {
+            let extracted_parameter = one_parameter.extract::<Py<PyAny>>().map_err(|_| {
+                RustPSQLDriverError::PyToRustValueConversionError(
+                    format!("Error on sequence type extraction, please use correct list/tuple/set, {bind_parameters}")
+                )
+            })?;
+            coord_values_sequence_vec.push(extracted_parameter);
+        }
+    } else if bind_parameters.is_instance_of::<PyList>()
+        | bind_parameters.is_instance_of::<PyTuple>()
+    {
+        coord_values_sequence_vec = bind_parameters.extract::<Vec<Py<PyAny>>>().map_err(|_| {
+            RustPSQLDriverError::PyToRustValueConversionError(
+                format!("Error on sequence type extraction, please use correct list/tuple/set, {bind_parameters}")
+            )
+        })?;
+    } else {
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Invalid sequence type, please use list/tuple/set, {bind_parameters}"
+        )));
+    };
+
+    Ok::<Vec<Py<PyAny>>, RustPSQLDriverError>(coord_values_sequence_vec)
+}
+
+/// Convert two python parameters(x and y) to Coord from `geo_type`.
+/// Also it checks that passed values is int or float.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if parameters type isn't correct.
+fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriverPyResult<Vec<f64>> {
+    Python::with_gil(|gil| {
+        let mut coord_values_vec: Vec<f64> = vec![];
+
+        for one_parameter in parameters {
+            let parameter_bind = one_parameter.bind(gil);
+
+            if !parameter_bind.is_instance_of::<PyFloat>()
+                & !parameter_bind.is_instance_of::<PyInt>()
+            {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Incorrect types of coordinate values. It must be int or float".into(),
+                ));
+            }
+
+            let python_dto = py_to_rust(parameter_bind)?;
+            match python_dto {
+                PythonDTO::PyIntI16(pyint) => coord_values_vec.push(f64::from(pyint)),
+                PythonDTO::PyIntI32(pyint) => coord_values_vec.push(f64::from(pyint)),
+                PythonDTO::PyIntU32(pyint) => coord_values_vec.push(f64::from(pyint)),
+                PythonDTO::PyFloat32(pyfloat) => coord_values_vec.push(f64::from(pyfloat)),
+                PythonDTO::PyFloat64(pyfloat) => coord_values_vec.push(pyfloat),
+                PythonDTO::PyIntI64(_) | PythonDTO::PyIntU64(_) => {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "Not implemented this type yet".into(),
+                    ))
+                }
+                _ => {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "Incorrect types of coordinate values. It must be int or float".into(),
+                    ))
+                }
+            };
+        }
+
+        Ok::<Vec<f64>, RustPSQLDriverError>(coord_values_vec)
+    })
+}
+
+/// Convert Python values with coordinates into vector of Coord's for building Geo types later.
+///
+/// Passed parameter can be either a list or a tuple or a set.
+/// Inside this parameter may be multiple list/tuple/set with int/float or only int/float values flat.
+/// We parse every parameter from python object and make from them Coord's.
+/// Additionally it checks for correct length of coordinates parsed from Python values.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if parsed number of coordinates is not expected by allowed length.
+#[allow(clippy::needless_pass_by_value)]
+pub fn build_geo_coords(
+    py_parameters: Py<PyAny>,
+    allowed_length_option: Option<usize>,
+) -> RustPSQLDriverPyResult<Vec<Coord>> {
+    let mut result_vec: Vec<Coord> = vec![];
+
+    result_vec = Python::with_gil(|gil| {
+        let bind_py_parameters = py_parameters.bind(gil);
+        let parameters = py_sequence_to_rust(bind_py_parameters)?;
+
+        let first_inner_bind_py_parameters = parameters[0].bind(gil);
+        if first_inner_bind_py_parameters.is_instance_of::<PyFloat>()
+            | first_inner_bind_py_parameters.is_instance_of::<PyInt>()
+        {
+            if parameters.len() % 2 != 0 {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Length of coordinates that passed in flat structure must be a multiple of 2"
+                        .into(),
+                ));
+            }
+
+            for (pair_first_inner, pair_second_inner) in parameters.into_iter().tuples() {
+                let coord_values =
+                    convert_py_to_rust_coord_values(vec![pair_first_inner, pair_second_inner])?;
+                result_vec.push(coord! {x: coord_values[0], y: coord_values[1]});
+            }
+        } else if first_inner_bind_py_parameters.is_instance_of::<PyList>()
+            | first_inner_bind_py_parameters.is_instance_of::<PyTuple>()
+            | first_inner_bind_py_parameters.is_instance_of::<PySet>()
+        {
+            for pair_inner_parameters in parameters {
+                let bind_pair_inner_parameters = pair_inner_parameters.bind(gil);
+                let pair_py_inner_parameters = py_sequence_to_rust(bind_pair_inner_parameters)?;
+
+                if pair_py_inner_parameters.len() != 2 {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "Inner parameters must be pair(list/tuple/set) of int/float values".into(),
+                    ));
+                }
+
+                let coord_values = convert_py_to_rust_coord_values(pair_py_inner_parameters)?;
+                result_vec.push(coord! {x: coord_values[0], y: coord_values[1]});
+            }
+        } else {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                "Inner coordinates must be passed as pairs of int/float in list/tuple/set or as flat structure with int/float values".into(),
+            ));
+        };
+        Ok::<Vec<Coord>, RustPSQLDriverError>(result_vec)
+    })?;
+
+    let number_of_coords = result_vec.len();
+    let allowed_length = allowed_length_option.unwrap_or_default();
+
+    if (allowed_length != 0) & (number_of_coords != allowed_length) {
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Invalid number of coordinates for this geo type, allowed {allowed_length}, got: {number_of_coords}"
+        )));
+    }
+
+    Ok(result_vec)
+}
+
+/// Convert flat Python values with coordinates into vector of Geo values for building Geo types later.
+///
+/// Passed parameter can be either a list or a tuple or a set with elements.
+/// We parse every parameter from python object and prepare them for making geo type.
+/// Additionally it checks for correct length of coordinates parsed from Python values.
+///
+/// # Errors
+///
+/// May return error if cannot convert Python type into Rust one.
+/// May return error if parsed number of coordinates is not expected by allowed length.
+#[allow(clippy::needless_pass_by_value)]
+pub fn build_flat_geo_coords(
+    py_parameters: Py<PyAny>,
+    allowed_length_option: Option<usize>,
+) -> RustPSQLDriverPyResult<Vec<f64>> {
+    Python::with_gil(|gil| {
+        let allowed_length = allowed_length_option.unwrap_or_default();
+
+        let bind_py_parameters = py_parameters.bind(gil);
+        let parameters = py_sequence_to_rust(bind_py_parameters)?;
+        let parameters_length = parameters.len();
+
+        if (allowed_length != 0) & (parameters.len() != allowed_length) {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+                "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
+            )));
+        };
+
+        let result_vec = convert_py_to_rust_coord_values(parameters)?;
+
+        let number_of_coords = result_vec.len();
+        if (allowed_length != 0) & (number_of_coords != allowed_length) {
+            return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+                "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
+            )));
+        };
+
+        Ok::<Vec<f64>, RustPSQLDriverError>(result_vec)
+    })
 }
