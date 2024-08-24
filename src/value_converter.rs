@@ -203,26 +203,22 @@ impl PythonDTO {
 
                 Ok(json!(vec_serde_values))
             }
-            PythonDTO::PyArray(array) => {
-                let py_list = Python::with_gil(|gil| {
-                    let py_list = postgres_array_to_py(gil, Some(array.clone()));
-                    if let Some(py_list) = py_list {
-                        let mut vec_serde_values: Vec<Value> = vec![];
+            PythonDTO::PyArray(array) => Python::with_gil(|gil| {
+                let py_list = postgres_array_to_py(gil, Some(array.clone()));
+                if let Some(py_list) = py_list {
+                    let mut vec_serde_values: Vec<Value> = vec![];
 
-                        for py_object in py_list.bind(gil) {
-                            vec_serde_values.push(py_to_rust(&py_object)?.to_serde_value()?);
-                        }
-
-                        return Ok(json!(vec_serde_values));
+                    for py_object in py_list.bind(gil) {
+                        vec_serde_values.push(py_to_rust(&py_object)?.to_serde_value()?);
                     }
 
-                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "Cannot convert Python sequence into JSON".into(),
-                    ));
-                });
+                    return Ok(json!(vec_serde_values));
+                }
 
-                py_list
-            }
+                Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Cannot convert Python sequence into JSON".into(),
+                ))
+            }),
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert your type into Rust type".into(),
@@ -412,6 +408,10 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
     Ok(result_vec)
 }
 
+/// Convert Sequence from Python (except String) into flat vec.
+///
+/// # Errors
+/// May return Err Result if cannot convert element into Rust one.
 pub fn py_sequence_into_flat_vec(
     parameter: &Bound<PyAny>,
 ) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
@@ -435,21 +435,25 @@ pub fn py_sequence_into_flat_vec(
 
         let possible_next_seq = ok_seq_elem.downcast::<PySequence>();
 
-        match possible_next_seq {
-            Ok(next_seq) => {
-                let mut next_vec = py_sequence_into_flat_vec(next_seq)?;
-                final_vec.append(&mut next_vec);
-            }
-            Err(_) => {
-                final_vec.push(py_to_rust(&ok_seq_elem)?);
-                continue;
-            }
+        if let Ok(next_seq) = possible_next_seq {
+            let mut next_vec = py_sequence_into_flat_vec(next_seq)?;
+            final_vec.append(&mut next_vec);
+        } else {
+            final_vec.push(py_to_rust(&ok_seq_elem)?);
+            continue;
         }
     }
 
-    return Ok(final_vec);
+    Ok(final_vec)
 }
 
+/// Convert Sequence from Python into Postgres ARRAY.
+///
+/// # Errors
+///
+/// May return Err Result if cannot convert at least one element.
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_wrap)]
 pub fn py_sequence_into_postgres_array(
     parameter: &Bound<PyAny>,
 ) -> RustPSQLDriverPyResult<Array<PythonDTO>> {
@@ -471,7 +475,7 @@ pub fn py_sequence_into_postgres_array(
             lower_bound: 1,
         });
 
-        let first_seq_elem = py_seq.iter()?.nth(0);
+        let first_seq_elem = py_seq.iter()?.next();
         match first_seq_elem {
             Some(first_seq_elem) => {
                 if let Ok(first_seq_elem) = first_seq_elem {
@@ -500,14 +504,10 @@ pub fn py_sequence_into_postgres_array(
     let array_data = py_sequence_into_flat_vec(parameter)?;
 
     match postgres_array::Array::from_parts_no_panic(array_data, dimensions) {
-        Ok(result_array) => {
-            return Ok(result_array);
-        }
-        Err(err) => {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-                "Cannot convert python sequence to PostgreSQL ARRAY, error - {err}"
-            )))
-        }
+        Ok(result_array) => Ok(result_array),
+        Err(err) => Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Cannot convert python sequence to PostgreSQL ARRAY, error - {err}"
+        ))),
     }
 }
 
@@ -771,18 +771,17 @@ fn postgres_array_to_py<T: ToPyObject>(
             return Some(_postgres_array_to_py(
                 py,
                 array.dimensions(),
-                array.iter().map(|arg| arg).collect::<Vec<&T>>().as_slice(),
+                array.iter().collect::<Vec<&T>>().as_slice(),
                 0,
                 0,
             ));
         }
-        None => {
-            return None;
-        }
+        None => None,
     }
 }
 
 /// Inner postgres array conversion to python list.
+#[allow(clippy::cast_sign_loss)]
 fn _postgres_array_to_py<T>(
     py: Python<'_>,
     dimensions: &[Dimension],
@@ -793,15 +792,15 @@ fn _postgres_array_to_py<T>(
 where
     T: ToPyObject,
 {
-    let current_dimension = dimensions.iter().nth(dimension_index).unwrap();
+    let current_dimension = dimensions.get(dimension_index).unwrap();
 
-    let possible_next_dimension = dimensions.iter().nth(dimension_index + 1);
+    let possible_next_dimension = dimensions.get(dimension_index + 1);
     match possible_next_dimension {
         Some(next_dimension) => {
             let final_list = PyList::empty_bound(py);
 
             for _ in 0..current_dimension.len as usize {
-                if dimensions.iter().nth(dimension_index + 1).is_some() {
+                if dimensions.get(dimension_index + 1).is_some() {
                     let inner_pylist = _postgres_array_to_py(
                         py,
                         dimensions,
@@ -814,7 +813,7 @@ where
                 };
             }
 
-            return final_list.unbind();
+            final_list.unbind()
         }
         None => {
             return PyList::new_bound(py, data).unbind();
@@ -1009,14 +1008,14 @@ fn postgres_bytes_to_py(
         .to_object(py)),
         // Convert ARRAY of Integer into Vec<i32>, then into list[int]
         Type::INT4_ARRAY => {
-            return Ok(postgres_array_to_py(
+            Ok(postgres_array_to_py(
                 py,
                 _composite_field_postgres_to_py::<Option<Array<i32>>>(
                     type_,
                     buf,
                     is_simple,
                 )?
-            ).to_object(py));
+            ).to_object(py))
         },
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
         Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
