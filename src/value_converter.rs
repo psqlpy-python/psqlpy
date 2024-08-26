@@ -1126,7 +1126,7 @@ fn postgres_bytes_to_py(
         Type::UUID_ARRAY => {
             let uuid_array =
                 _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(type_, buf, is_simple)?;
-            return Ok(postgres_array_to_py(py, uuid_array).to_object(py));
+            Ok(postgres_array_to_py(py, uuid_array).to_object(py))
         }
         // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
         Type::INET_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<IpAddr>>>(
@@ -1136,7 +1136,7 @@ fn postgres_bytes_to_py(
         Type::JSONB_ARRAY | Type::JSON_ARRAY => {
             let db_json_array =
                 _composite_field_postgres_to_py::<Option<Array<InternalSerdeValue>>>(type_, buf, is_simple)?;
-            return Ok(postgres_array_to_py(py, db_json_array).to_object(py));
+            Ok(postgres_array_to_py(py, db_json_array).to_object(py))
         }
         Type::NUMERIC_ARRAY => {
             Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<InnerDecimal>>>(
@@ -1147,32 +1147,32 @@ fn postgres_bytes_to_py(
         Type::POINT_ARRAY => {
             let point_array_ = _composite_field_postgres_to_py::<Option<Array<RustPoint>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, point_array_).to_object(py));
+            Ok(postgres_array_to_py(py, point_array_).to_object(py))
         }
         Type::BOX_ARRAY => {
             let box_array_ = _composite_field_postgres_to_py::<Option<Array<RustRect>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, box_array_).to_object(py));
+            Ok(postgres_array_to_py(py, box_array_).to_object(py))
         }
         Type::PATH_ARRAY => {
             let path_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineString>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, path_array_).to_object(py));
+            Ok(postgres_array_to_py(py, path_array_).to_object(py))
         }
         Type::LINE_ARRAY => {
             let line_array_ = _composite_field_postgres_to_py::<Option<Array<Line>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, line_array_).to_object(py));
+            Ok(postgres_array_to_py(py, line_array_).to_object(py))
         }
         Type::LSEG_ARRAY => {
             let lseg_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineSegment>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, lseg_array_).to_object(py));
+            Ok(postgres_array_to_py(py, lseg_array_).to_object(py))
         }
         Type::CIRCLE_ARRAY => {
             let circle_array_ = _composite_field_postgres_to_py::<Option<Array<Circle>>>(type_, buf, is_simple)?;
 
-            return Ok(postgres_array_to_py(py, circle_array_).to_object(py));
+            Ok(postgres_array_to_py(py, circle_array_).to_object(py))
         }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
