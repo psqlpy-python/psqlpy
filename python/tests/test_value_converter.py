@@ -185,12 +185,20 @@ async def test_as_class(
             ["Some String", "Some String"],
         ),
         ("BOOL ARRAY", [True, False], [True, False]),
+        ("BOOL ARRAY", [[True], [False]], [[True], [False]]),
         ("INT2 ARRAY", [SmallInt(12), SmallInt(100)], [12, 100]),
+        ("INT2 ARRAY", [[SmallInt(12)], [SmallInt(100)]], [[12], [100]]),
         ("INT4 ARRAY", [Integer(121231231), Integer(121231231)], [121231231, 121231231]),
+        ("INT4 ARRAY", [[Integer(121231231)], [Integer(121231231)]], [[121231231], [121231231]]),
         (
             "INT8 ARRAY",
             [BigInt(99999999999999999), BigInt(99999999999999999)],
             [99999999999999999, 99999999999999999],
+        ),
+        (
+            "INT8 ARRAY",
+            [[BigInt(99999999999999999)], [BigInt(99999999999999999)]],
+            [[99999999999999999], [99999999999999999]],
         ),
         (
             "MONEY ARRAY",
@@ -198,9 +206,19 @@ async def test_as_class(
             [99999999999999999, 99999999999999999],
         ),
         (
+            "MONEY ARRAY",
+            [[Money(99999999999999999)], [Money(99999999999999999)]],
+            [[99999999999999999], [99999999999999999]],
+        ),
+        (
             "NUMERIC(5, 2) ARRAY",
             [Decimal("121.23"), Decimal("188.99")],
             [Decimal("121.23"), Decimal("188.99")],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            [[Decimal("121.23")], [Decimal("188.99")]],
+            [[Decimal("121.23")], [Decimal("188.99")]],
         ),
         (
             "FLOAT8 ARRAY",
@@ -208,20 +226,41 @@ async def test_as_class(
             [32.12329864501953, 32.12329864501953],
         ),
         (
+            "FLOAT8 ARRAY",
+            [[32.12329864501953], [32.12329864501953]],
+            [[32.12329864501953], [32.12329864501953]],
+        ),
+        (
             "DATE ARRAY",
             [now_datetime.date(), now_datetime.date()],
             [now_datetime.date(), now_datetime.date()],
+        ),
+        (
+            "DATE ARRAY",
+            [[now_datetime.date()], [now_datetime.date()]],
+            [[now_datetime.date()], [now_datetime.date()]],
         ),
         (
             "TIME ARRAY",
             [now_datetime.time(), now_datetime.time()],
             [now_datetime.time(), now_datetime.time()],
         ),
+        (
+            "TIME ARRAY",
+            [[now_datetime.time()], [now_datetime.time()]],
+            [[now_datetime.time()], [now_datetime.time()]],
+        ),
         ("TIMESTAMP ARRAY", [now_datetime, now_datetime], [now_datetime, now_datetime]),
+        ("TIMESTAMP ARRAY", [[now_datetime], [now_datetime]], [[now_datetime], [now_datetime]]),
         (
             "TIMESTAMPTZ ARRAY",
             [now_datetime_with_tz, now_datetime_with_tz],
             [now_datetime_with_tz, now_datetime_with_tz],
+        ),
+        (
+            "TIMESTAMPTZ ARRAY",
+            [[now_datetime_with_tz], [now_datetime_with_tz]],
+            [[now_datetime_with_tz], [now_datetime_with_tz]],
         ),
         (
             "UUID ARRAY",
@@ -229,11 +268,21 @@ async def test_as_class(
             [str(uuid_), str(uuid_)],
         ),
         (
+            "UUID ARRAY",
+            [[uuid_], [uuid_]],
+            [[str(uuid_)], [str(uuid_)]],
+        ),
+        (
             "INET ARRAY",
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
         ),
         (
+            "INET ARRAY",
+            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
+            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
+        ),
+        (
             "JSONB ARRAY",
             [
                 {
@@ -259,12 +308,54 @@ async def test_as_class(
         (
             "JSONB ARRAY",
             [
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ],
+            [
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ],
+        ),
+        (
+            "JSONB ARRAY",
+            [
                 PyJSONB([{"array": "json"}, {"one more": "test"}]),
                 PyJSONB([{"array": "json"}, {"one more": "test"}]),
             ],
             [
                 [{"array": "json"}, {"one more": "test"}],
                 [{"array": "json"}, {"one more": "test"}],
+            ],
+        ),
+        (
+            "JSONB ARRAY",
+            [
+                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+            ],
+            [
+                [[{"array": "json"}], [{"one more": "test"}]],
+                [[{"array": "json"}], [{"one more": "test"}]],
             ],
         ),
         (

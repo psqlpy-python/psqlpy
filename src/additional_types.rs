@@ -8,7 +8,7 @@ use postgres_protocol::types;
 use postgres_types::{to_sql_checked, IsNull, ToSql};
 use pyo3::{
     types::{PyList, PyTuple},
-    IntoPy, Py, PyAny, PyObject, Python,
+    IntoPy, Py, PyAny, PyObject, Python, ToPyObject,
 };
 use serde::{Deserialize, Serialize};
 use tokio_postgres::types::{FromSql, Type};
@@ -77,6 +77,42 @@ build_additional_rust_type!(RustPoint, Point);
 build_additional_rust_type!(RustRect, Rect);
 build_additional_rust_type!(RustLineString, LineString);
 build_additional_rust_type!(RustLineSegment, LineSegment);
+
+impl ToPyObject for RustPoint {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+impl ToPyObject for RustRect {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+impl ToPyObject for RustLineString {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+impl ToPyObject for RustLineSegment {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+impl ToPyObject for Line {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
+
+impl ToPyObject for Circle {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.into_py(py)
+    }
+}
 
 impl<'a> IntoPy<PyObject> for &'a RustPoint {
     #[inline]
