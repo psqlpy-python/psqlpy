@@ -11,7 +11,7 @@ from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 from typing_extensions import Annotated
 
 from psqlpy import ConnectionPool
-from psqlpy._internal.extra_types import PyCustomType
+from psqlpy.exceptions import PyToRustValueMappingError
 from psqlpy.extra_types import (
     BigInt,
     Float32,
@@ -20,6 +20,7 @@ from psqlpy.extra_types import (
     Money,
     PyBox,
     PyCircle,
+    PyCustomType,
     PyJSON,
     PyJSONB,
     PyLine,
@@ -185,12 +186,20 @@ async def test_as_class(
             ["Some String", "Some String"],
         ),
         ("BOOL ARRAY", [True, False], [True, False]),
+        ("BOOL ARRAY", [[True], [False]], [[True], [False]]),
         ("INT2 ARRAY", [SmallInt(12), SmallInt(100)], [12, 100]),
+        ("INT2 ARRAY", [[SmallInt(12)], [SmallInt(100)]], [[12], [100]]),
         ("INT4 ARRAY", [Integer(121231231), Integer(121231231)], [121231231, 121231231]),
+        ("INT4 ARRAY", [[Integer(121231231)], [Integer(121231231)]], [[121231231], [121231231]]),
         (
             "INT8 ARRAY",
             [BigInt(99999999999999999), BigInt(99999999999999999)],
             [99999999999999999, 99999999999999999],
+        ),
+        (
+            "INT8 ARRAY",
+            [[BigInt(99999999999999999)], [BigInt(99999999999999999)]],
+            [[99999999999999999], [99999999999999999]],
         ),
         (
             "MONEY ARRAY",
@@ -198,9 +207,19 @@ async def test_as_class(
             [99999999999999999, 99999999999999999],
         ),
         (
+            "MONEY ARRAY",
+            [[Money(99999999999999999)], [Money(99999999999999999)]],
+            [[99999999999999999], [99999999999999999]],
+        ),
+        (
             "NUMERIC(5, 2) ARRAY",
             [Decimal("121.23"), Decimal("188.99")],
             [Decimal("121.23"), Decimal("188.99")],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            [[Decimal("121.23")], [Decimal("188.99")]],
+            [[Decimal("121.23")], [Decimal("188.99")]],
         ),
         (
             "FLOAT8 ARRAY",
@@ -208,20 +227,41 @@ async def test_as_class(
             [32.12329864501953, 32.12329864501953],
         ),
         (
+            "FLOAT8 ARRAY",
+            [[32.12329864501953], [32.12329864501953]],
+            [[32.12329864501953], [32.12329864501953]],
+        ),
+        (
             "DATE ARRAY",
             [now_datetime.date(), now_datetime.date()],
             [now_datetime.date(), now_datetime.date()],
+        ),
+        (
+            "DATE ARRAY",
+            [[now_datetime.date()], [now_datetime.date()]],
+            [[now_datetime.date()], [now_datetime.date()]],
         ),
         (
             "TIME ARRAY",
             [now_datetime.time(), now_datetime.time()],
             [now_datetime.time(), now_datetime.time()],
         ),
+        (
+            "TIME ARRAY",
+            [[now_datetime.time()], [now_datetime.time()]],
+            [[now_datetime.time()], [now_datetime.time()]],
+        ),
         ("TIMESTAMP ARRAY", [now_datetime, now_datetime], [now_datetime, now_datetime]),
+        ("TIMESTAMP ARRAY", [[now_datetime], [now_datetime]], [[now_datetime], [now_datetime]]),
         (
             "TIMESTAMPTZ ARRAY",
             [now_datetime_with_tz, now_datetime_with_tz],
             [now_datetime_with_tz, now_datetime_with_tz],
+        ),
+        (
+            "TIMESTAMPTZ ARRAY",
+            [[now_datetime_with_tz], [now_datetime_with_tz]],
+            [[now_datetime_with_tz], [now_datetime_with_tz]],
         ),
         (
             "UUID ARRAY",
@@ -229,11 +269,21 @@ async def test_as_class(
             [str(uuid_), str(uuid_)],
         ),
         (
+            "UUID ARRAY",
+            [[uuid_], [uuid_]],
+            [[str(uuid_)], [str(uuid_)]],
+        ),
+        (
             "INET ARRAY",
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
             [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
         ),
         (
+            "INET ARRAY",
+            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
+            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
+        ),
+        (
             "JSONB ARRAY",
             [
                 {
@@ -259,12 +309,54 @@ async def test_as_class(
         (
             "JSONB ARRAY",
             [
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ],
+            [
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ],
+        ),
+        (
+            "JSONB ARRAY",
+            [
                 PyJSONB([{"array": "json"}, {"one more": "test"}]),
                 PyJSONB([{"array": "json"}, {"one more": "test"}]),
             ],
             [
                 [{"array": "json"}, {"one more": "test"}],
                 [{"array": "json"}, {"one more": "test"}],
+            ],
+        ),
+        (
+            "JSONB ARRAY",
+            [
+                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+            ],
+            [
+                [[{"array": "json"}], [{"one more": "test"}]],
+                [[{"array": "json"}], [{"one more": "test"}]],
             ],
         ),
         (
@@ -297,12 +389,58 @@ async def test_as_class(
         (
             "JSON ARRAY",
             [
+                [
+                    PyJSON(
+                        {
+                            "test": ["something", 123, "here"],
+                            "nested": ["JSON"],
+                        },
+                    ),
+                ],
+                [
+                    PyJSON(
+                        {
+                            "test": ["something", 123, "here"],
+                            "nested": ["JSON"],
+                        },
+                    ),
+                ],
+            ],
+            [
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ],
+        ),
+        (
+            "JSON ARRAY",
+            [
                 PyJSON([{"array": "json"}, {"one more": "test"}]),
                 PyJSON([{"array": "json"}, {"one more": "test"}]),
             ],
             [
                 [{"array": "json"}, {"one more": "test"}],
                 [{"array": "json"}, {"one more": "test"}],
+            ],
+        ),
+        (
+            "JSON ARRAY",
+            [
+                PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
+                PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
+            ],
+            [
+                [[{"array": "json"}], [{"one more": "test"}]],
+                [[{"array": "json"}], [{"one more": "test"}]],
             ],
         ),
         (
@@ -317,6 +455,17 @@ async def test_as_class(
             ],
         ),
         (
+            "POINT ARRAY",
+            [
+                [PyPoint([1.5, 2])],
+                [PyPoint([2, 3])],
+            ],
+            [
+                [(1.5, 2.0)],
+                [(2.0, 3.0)],
+            ],
+        ),
+        (
             "BOX ARRAY",
             [
                 PyBox([3.5, 3, 9, 9]),
@@ -325,6 +474,17 @@ async def test_as_class(
             [
                 ((9.0, 9.0), (3.5, 3.0)),
                 ((9.0, 9.0), (8.5, 8.0)),
+            ],
+        ),
+        (
+            "BOX ARRAY",
+            [
+                [PyBox([3.5, 3, 9, 9])],
+                [PyBox([8.5, 8, 9, 9])],
+            ],
+            [
+                [((9.0, 9.0), (3.5, 3.0))],
+                [((9.0, 9.0), (8.5, 8.0))],
             ],
         ),
         (
@@ -339,6 +499,17 @@ async def test_as_class(
             ],
         ),
         (
+            "PATH ARRAY",
+            [
+                [PyPath([(3.5, 3), (9, 9), (8, 8)])],
+                [PyPath([(3.5, 3), (6, 6), (3.5, 3)])],
+            ],
+            [
+                [[(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)]],
+                [((3.5, 3.0), (6.0, 6.0), (3.5, 3.0))],
+            ],
+        ),
+        (
             "LINE ARRAY",
             [
                 PyLine([-2, 1, 2]),
@@ -347,6 +518,17 @@ async def test_as_class(
             [
                 (-2.0, 1.0, 2.0),
                 (1.0, -2.0, 3.0),
+            ],
+        ),
+        (
+            "LINE ARRAY",
+            [
+                [PyLine([-2, 1, 2])],
+                [PyLine([1, -2, 3])],
+            ],
+            [
+                [(-2.0, 1.0, 2.0)],
+                [(1.0, -2.0, 3.0)],
             ],
         ),
         (
@@ -361,6 +543,17 @@ async def test_as_class(
             ],
         ),
         (
+            "LSEG ARRAY",
+            [
+                [PyLineSegment({(1, 2), (9, 9)})],
+                [PyLineSegment([(5.6, 3.1), (4, 5)])],
+            ],
+            [
+                [[(1.0, 2.0), (9.0, 9.0)]],
+                [[(5.6, 3.1), (4.0, 5.0)]],
+            ],
+        ),
+        (
             "CIRCLE ARRAY",
             [
                 PyCircle([1.7, 2.8, 3]),
@@ -369,6 +562,17 @@ async def test_as_class(
             [
                 ((1.7, 2.8), 3.0),
                 ((5.0, 1.8), 10.0),
+            ],
+        ),
+        (
+            "CIRCLE ARRAY",
+            [
+                [PyCircle([1.7, 2.8, 3])],
+                [PyCircle([5, 1.8, 10])],
+            ],
+            [
+                [((1.7, 2.8), 3.0)],
+                [((5.0, 1.8), 10.0)],
             ],
         ),
     ),
@@ -438,6 +642,7 @@ async def test_deserialization_composite_into_python(
         circle_ CIRCLE,
 
         varchar_arr VARCHAR ARRAY,
+        varchar_arr_mdim VARCHAR ARRAY,
         text_arr TEXT ARRAY,
         bool_arr BOOL ARRAY,
         int2_arr INT2 ARRAY,
@@ -478,9 +683,9 @@ async def test_deserialization_composite_into_python(
         SAD = "sad"
         HAPPY = "happy"
 
-    row_values = ", ".join([f"${index}" for index in range(1, 40)])
-    row_values += ", ROW($40, $41), "
-    row_values += ", ".join([f"${index}" for index in range(42, 49)])
+    row_values = ", ".join([f"${index}" for index in range(1, 41)])
+    row_values += ", ROW($41, $42), "
+    row_values += ", ".join([f"${index}" for index in range(43, 50)])
 
     await psql_pool.execute(
         querystring=f"INSERT INTO for_test VALUES (ROW({row_values}))",
@@ -518,6 +723,7 @@ async def test_deserialization_composite_into_python(
             PyLineSegment(((1.7, 2.8), (9, 9))),
             PyCircle([1.7, 2.8, 3]),
             ["Some String", "Some String"],
+            [["Some String"], ["Some String"]],
             [PyText("Some String"), PyText("Some String")],
             [True, False],
             [SmallInt(123), SmallInt(321)],
@@ -615,6 +821,7 @@ async def test_deserialization_composite_into_python(
         circle_: Tuple[Tuple[float, float], float]
 
         varchar_arr: List[str]
+        varchar_arr_mdim: List[List[str]]
         text_arr: List[str]
         bool_arr: List[bool]
         int2_arr: List[int]
@@ -776,3 +983,21 @@ async def test_row_factory_single_query_result(
     assert len(as_row_factory) == expected_number_of_elements_in_result
 
     assert isinstance(as_row_factory, list)
+
+
+async def test_incorrect_dimensions_array(
+    psql_pool: ConnectionPool,
+) -> None:
+    await psql_pool.execute("DROP TABLE IF EXISTS test_marr")
+    await psql_pool.execute("CREATE TABLE test_marr (var_array VARCHAR ARRAY)")
+
+    with pytest.raises(expected_exception=PyToRustValueMappingError):
+        await psql_pool.execute(
+            querystring="INSERT INTO test_marr VALUES ($1)",
+            parameters=[
+                [
+                    ["Len", "is", "Three"],
+                    ["Len", "is", "Four", "Wow"],
+                ],
+            ],
+        )

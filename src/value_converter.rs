@@ -14,7 +14,7 @@ use pyo3::{
     sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PySet, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
+        PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
     },
     Bound, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
@@ -35,6 +35,7 @@ use crate::{
         SmallInt,
     },
 };
+use postgres_array::{array::Array, Dimension};
 
 static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
@@ -52,6 +53,59 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
         .map(|ty| ty.bind(py))
 }
 
+/// Struct for Uuid.
+///
+/// We use custom struct because we need to implement external traits
+/// to it.
+struct InternalUuid(Uuid);
+
+impl ToPyObject for InternalUuid {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        self.0.to_string().as_str().to_object(py)
+    }
+}
+
+impl<'a> FromSql<'a> for InternalUuid {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(InternalUuid(<Uuid as FromSql>::from_sql(ty, raw)?))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
+/// Struct for Value.
+///
+/// We use custom struct because we need to implement external traits
+/// to it.
+struct InternalSerdeValue(Value);
+
+impl ToPyObject for InternalSerdeValue {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        match build_python_from_serde_value(py, self.0.clone()) {
+            Ok(ok_value) => ok_value,
+            Err(_) => py.None(),
+        }
+    }
+}
+
+impl<'a> FromSql<'a> for InternalSerdeValue {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(InternalSerdeValue(<Value as FromSql>::from_sql(ty, raw)?))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
 /// Struct for Decimal.
 ///
 /// It's necessary because we use custom forks and there is
@@ -65,6 +119,19 @@ impl ToPyObject for InnerDecimal {
             .call1((self.0.to_string(),))
             .expect("failed to call decimal.Decimal(value)");
         ret.to_object(py)
+    }
+}
+
+impl<'a> FromSql<'a> for InnerDecimal {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(InnerDecimal(<Decimal as FromSql>::from_sql(ty, raw)?))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
     }
 }
 
@@ -96,6 +163,7 @@ pub enum PythonDTO {
     PyDateTimeTz(DateTime<FixedOffset>),
     PyIpAddress(IpAddr),
     PyList(Vec<PythonDTO>),
+    PyArray(Array<PythonDTO>),
     PyTuple(Vec<PythonDTO>),
     PyJsonb(Value),
     PyJson(Value),
@@ -111,7 +179,41 @@ pub enum PythonDTO {
     PyCircle(Circle),
 }
 
+impl ToPyObject for PythonDTO {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        match self {
+            PythonDTO::PyNone => py.None(),
+            PythonDTO::PyBool(pybool) => pybool.to_object(py),
+            PythonDTO::PyString(py_string)
+            | PythonDTO::PyText(py_string)
+            | PythonDTO::PyVarChar(py_string) => py_string.to_object(py),
+            PythonDTO::PyIntI32(pyint) => pyint.to_object(py),
+            PythonDTO::PyIntI64(pyint) => pyint.to_object(py),
+            PythonDTO::PyIntU64(pyint) => pyint.to_object(py),
+            PythonDTO::PyFloat32(pyfloat) => pyfloat.to_object(py),
+            PythonDTO::PyFloat64(pyfloat) => pyfloat.to_object(py),
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl PythonDTO {
+    /// Check is it possible to create serde `Value` from `PythonDTO`.
+    #[must_use]
+    pub fn is_available_to_serde_value(&self) -> bool {
+        matches!(
+            self,
+            PythonDTO::PyNone
+                | PythonDTO::PyBool(_)
+                | PythonDTO::PyString(_)
+                | PythonDTO::PyText(_)
+                | PythonDTO::PyVarChar(_)
+                | PythonDTO::PyIntI32(_)
+                | PythonDTO::PyIntI64(_)
+                | PythonDTO::PyFloat32(_)
+                | PythonDTO::PyFloat64(_)
+        )
+    }
     /// Return type of the Array for `PostgreSQL`.
     ///
     /// Since every Array must have concrete type,
@@ -183,6 +285,29 @@ impl PythonDTO {
 
                 Ok(json!(vec_serde_values))
             }
+            PythonDTO::PyArray(array) => Python::with_gil(|gil| {
+                if let Some(array_elem) = array.iter().nth(0) {
+                    if !array_elem.is_available_to_serde_value() {
+                        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                            "Your value in dict isn't supported by JSON".into(),
+                        ));
+                    }
+                }
+                let py_list = postgres_array_to_py(gil, Some(array.clone()));
+                if let Some(py_list) = py_list {
+                    let mut vec_serde_values: Vec<Value> = vec![];
+
+                    for py_object in py_list.bind(gil) {
+                        vec_serde_values.push(py_to_rust(&py_object)?.to_serde_value()?);
+                    }
+
+                    return Ok(json!(vec_serde_values));
+                }
+
+                Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    "Cannot convert Python sequence into JSON".into(),
+                ))
+            }),
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert your type into Rust type".into(),
@@ -311,6 +436,20 @@ impl ToSql for PythonDTO {
                     items.to_sql(&items[0].array_type()?, out)?;
                 }
             }
+            PythonDTO::PyArray(array) => {
+                if let Some(first_elem) = array.iter().nth(0) {
+                    match first_elem.array_type() {
+                        Ok(ok_type) => {
+                            array.to_sql(&ok_type, out)?;
+                        }
+                        Err(_) => {
+                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                                "Cannot define array type.".into(),
+                            ))?
+                        }
+                    }
+                }
+            }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;
             }
@@ -356,6 +495,109 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
         Ok::<Vec<PythonDTO>, RustPSQLDriverError>(result_vec)
     })?;
     Ok(result_vec)
+}
+
+/// Convert Sequence from Python (except String) into flat vec.
+///
+/// # Errors
+/// May return Err Result if cannot convert element into Rust one.
+pub fn py_sequence_into_flat_vec(
+    parameter: &Bound<PyAny>,
+) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
+    let py_seq = parameter.downcast::<PySequence>().map_err(|_| {
+        RustPSQLDriverError::PyToRustValueConversionError(
+            "PostgreSQL ARRAY type can be made only from python Sequence".into(),
+        )
+    })?;
+
+    let mut final_vec: Vec<PythonDTO> = vec![];
+
+    for seq_elem in py_seq.iter()? {
+        let ok_seq_elem = seq_elem?;
+
+        // Check for the string because it's sequence too,
+        // and in the most cases it should be array type, not new dimension.
+        if ok_seq_elem.is_instance_of::<PyString>() {
+            final_vec.push(py_to_rust(&ok_seq_elem)?);
+            continue;
+        }
+
+        let possible_next_seq = ok_seq_elem.downcast::<PySequence>();
+
+        if let Ok(next_seq) = possible_next_seq {
+            let mut next_vec = py_sequence_into_flat_vec(next_seq)?;
+            final_vec.append(&mut next_vec);
+        } else {
+            final_vec.push(py_to_rust(&ok_seq_elem)?);
+            continue;
+        }
+    }
+
+    Ok(final_vec)
+}
+
+/// Convert Sequence from Python into Postgres ARRAY.
+///
+/// # Errors
+///
+/// May return Err Result if cannot convert at least one element.
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_wrap)]
+pub fn py_sequence_into_postgres_array(
+    parameter: &Bound<PyAny>,
+) -> RustPSQLDriverPyResult<Array<PythonDTO>> {
+    let mut py_seq = parameter
+        .downcast::<PySequence>()
+        .map_err(|_| {
+            RustPSQLDriverError::PyToRustValueConversionError(
+                "PostgreSQL ARRAY type can be made only from python Sequence".into(),
+            )
+        })?
+        .clone();
+
+    let mut dimensions: Vec<Dimension> = vec![];
+    let mut continue_iteration = true;
+
+    while continue_iteration {
+        dimensions.push(Dimension {
+            len: py_seq.len()? as i32,
+            lower_bound: 1,
+        });
+
+        let first_seq_elem = py_seq.iter()?.next();
+        match first_seq_elem {
+            Some(first_seq_elem) => {
+                if let Ok(first_seq_elem) = first_seq_elem {
+                    // Check for the string because it's sequence too,
+                    // and in the most cases it should be array type, not new dimension.
+                    if first_seq_elem.is_instance_of::<PyString>() {
+                        continue_iteration = false;
+                        continue;
+                    }
+                    let possible_inner_seq = first_seq_elem.downcast::<PySequence>();
+
+                    match possible_inner_seq {
+                        Ok(possible_inner_seq) => {
+                            py_seq = possible_inner_seq.clone();
+                        }
+                        Err(_) => continue_iteration = false,
+                    }
+                }
+            }
+            None => {
+                continue_iteration = false;
+            }
+        }
+    }
+
+    let array_data = py_sequence_into_flat_vec(parameter)?;
+
+    match postgres_array::Array::from_parts_no_panic(array_data, dimensions) {
+        Ok(result_array) => Ok(result_array),
+        Err(err) => Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Cannot convert python sequence to PostgreSQL ARRAY, error - {err}"
+        ))),
+    }
 }
 
 /// Convert single python parameter to `PythonDTO` enum.
@@ -467,11 +709,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
-        let mut items = Vec::new();
-        for inner in parameter.iter()? {
-            items.push(py_to_rust(&inner?)?);
-        }
-        return Ok(PythonDTO::PyList(items));
+        return Ok(PythonDTO::PyArray(py_sequence_into_postgres_array(
+            parameter,
+        )?));
     }
 
     if parameter.is_instance_of::<PyDict>() {
@@ -606,6 +846,68 @@ fn _composite_field_postgres_to_py<'a, T: FromSql<'a>>(
             "Cannot convert PostgreSQL type {type_} into Python type, err: {err}",
         ))
     })
+}
+
+/// Convert rust array to python list.
+///
+/// It can convert multidimensional arrays.
+fn postgres_array_to_py<T: ToPyObject>(
+    py: Python<'_>,
+    array: Option<Array<T>>,
+) -> Option<Py<PyList>> {
+    match array {
+        Some(array) => {
+            return Some(_postgres_array_to_py(
+                py,
+                array.dimensions(),
+                array.iter().collect::<Vec<&T>>().as_slice(),
+                0,
+                0,
+            ));
+        }
+        None => None,
+    }
+}
+
+/// Inner postgres array conversion to python list.
+#[allow(clippy::cast_sign_loss)]
+fn _postgres_array_to_py<T>(
+    py: Python<'_>,
+    dimensions: &[Dimension],
+    data: &[T],
+    dimension_index: usize,
+    mut lower_bound: usize,
+) -> Py<PyList>
+where
+    T: ToPyObject,
+{
+    let current_dimension = dimensions.get(dimension_index).unwrap();
+
+    let possible_next_dimension = dimensions.get(dimension_index + 1);
+    match possible_next_dimension {
+        Some(next_dimension) => {
+            let final_list = PyList::empty_bound(py);
+
+            for _ in 0..current_dimension.len as usize {
+                if dimensions.get(dimension_index + 1).is_some() {
+                    let inner_pylist = _postgres_array_to_py(
+                        py,
+                        dimensions,
+                        &data[lower_bound..next_dimension.len as usize + lower_bound],
+                        dimension_index + 1,
+                        0,
+                    );
+                    final_list.append(inner_pylist).unwrap();
+                    lower_bound += next_dimension.len as usize;
+                };
+            }
+
+            final_list.unbind()
+        }
+        None => {
+            return PyList::new_bound(py, data).unbind();
+        }
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -778,213 +1080,122 @@ fn postgres_bytes_to_py(
             }
         }
         // ---------- Array Text Types ----------
-        Type::BOOL_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<bool>>>(
+        Type::BOOL_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<bool>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
-        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(_composite_field_postgres_to_py::<
-            Option<Vec<String>>,
-        >(type_, buf, is_simple)?
-        .to_object(py)),
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(
+            postgres_array_to_py(
+                py,
+                _composite_field_postgres_to_py::<Option<Array<String>>>(type_, buf, is_simple)?,
+            ).to_object(py)),
         // ---------- Array Integer Types ----------
         // Convert ARRAY of SmallInt into Vec<i16>, then into list[int]
-        Type::INT2_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i16>>>(
-            type_, buf, is_simple,
-        )?
+        Type::INT2_ARRAY => Ok(
+            postgres_array_to_py(
+                py,
+                _composite_field_postgres_to_py::<Option<Array<i16>>>(
+                type_, buf, is_simple,
+            )?,
+        )
         .to_object(py)),
         // Convert ARRAY of Integer into Vec<i32>, then into list[int]
-        Type::INT4_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i32>>>(
-            type_, buf, is_simple,
-        )?
-        .to_object(py)),
+        Type::INT4_ARRAY => {
+            Ok(postgres_array_to_py(
+                py,
+                _composite_field_postgres_to_py::<Option<Array<i32>>>(
+                    type_,
+                    buf,
+                    is_simple,
+                )?
+            ).to_object(py))
+        },
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
-        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<i64>>>(
+        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<i64>>>(
             type_, buf, is_simple,
-        )?
-        .to_object(py)),
+        )?).to_object(py)),
         // Convert ARRAY of Float4 into Vec<f32>, then into list[float]
-        Type::FLOAT4_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<f32>>>(
+        Type::FLOAT4_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<f32>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         // Convert ARRAY of Float8 into Vec<f64>, then into list[float]
-        Type::FLOAT8_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<f64>>>(
+        Type::FLOAT8_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<f64>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         // Convert ARRAY of Date into Vec<NaiveDate>, then into list[datetime.date]
-        Type::DATE_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<NaiveDate>>>(
+        Type::DATE_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<NaiveDate>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         // Convert ARRAY of Time into Vec<NaiveTime>, then into list[datetime.date]
-        Type::TIME_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<NaiveTime>>>(
+        Type::TIME_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<NaiveTime>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         // Convert ARRAY of TIMESTAMP into Vec<NaiveDateTime>, then into list[datetime.date]
         Type::TIMESTAMP_ARRAY => Ok(
-            _composite_field_postgres_to_py::<Option<Vec<NaiveDateTime>>>(type_, buf, is_simple)?
+            postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<NaiveDateTime>>>(type_, buf, is_simple)?)
                 .to_object(py),
         ),
         // Convert ARRAY of TIMESTAMPTZ into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
-        Type::TIMESTAMPTZ_ARRAY => Ok(_composite_field_postgres_to_py::<
-            Option<Vec<DateTime<FixedOffset>>>,
-        >(type_, buf, is_simple)?
+        Type::TIMESTAMPTZ_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<
+            Option<Array<DateTime<FixedOffset>>>,
+        >(type_, buf, is_simple)?)
         .to_object(py)),
         // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
         Type::UUID_ARRAY => {
             let uuid_array =
-                _composite_field_postgres_to_py::<Option<Vec<Uuid>>>(type_, buf, is_simple)?;
-            match uuid_array {
-                Some(rust_uuid_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        rust_uuid_vec
-                            .iter()
-                            .map(|rust_uuid| rust_uuid.to_string().as_str().to_object(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                }
-                None => Ok(py.None().to_object(py)),
-            }
+                _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(type_, buf, is_simple)?;
+            Ok(postgres_array_to_py(py, uuid_array).to_object(py))
         }
         // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
-        Type::INET_ARRAY => Ok(_composite_field_postgres_to_py::<Option<Vec<IpAddr>>>(
+        Type::INET_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<IpAddr>>>(
             type_, buf, is_simple,
-        )?
+        )?)
         .to_object(py)),
         Type::JSONB_ARRAY | Type::JSON_ARRAY => {
             let db_json_array =
-                _composite_field_postgres_to_py::<Option<Vec<Value>>>(type_, buf, is_simple)?;
-
-            match db_json_array {
-                Some(value) => {
-                    let py_list = PyList::empty_bound(py);
-                    for json_elem in value {
-                        py_list.append(build_python_from_serde_value(py, json_elem)?)?;
-                    }
-                    Ok(py_list.to_object(py))
-                }
-                None => Ok(py.None().to_object(py)),
-            }
+                _composite_field_postgres_to_py::<Option<Array<InternalSerdeValue>>>(type_, buf, is_simple)?;
+            Ok(postgres_array_to_py(py, db_json_array).to_object(py))
         }
         Type::NUMERIC_ARRAY => {
-            if let Some(numeric_array) = _composite_field_postgres_to_py::<Option<Vec<Decimal>>>(
+            Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<InnerDecimal>>>(
                 type_, buf, is_simple,
-            )? {
-                let py_list = PyList::empty_bound(py);
-                for numeric_ in numeric_array {
-                    py_list.append(InnerDecimal(numeric_).to_object(py))?;
-                }
-                return Ok(py_list.to_object(py))
-            };
-            Ok(py.None().to_object(py))
+            )?).to_object(py))
         },
         // ---------- Array Geo Types ----------
         Type::POINT_ARRAY => {
-            let point_array_ = _composite_field_postgres_to_py::<Option<Vec<RustPoint>>>(type_, buf, is_simple)?;
+            let point_array_ = _composite_field_postgres_to_py::<Option<Array<RustPoint>>>(type_, buf, is_simple)?;
 
-            match point_array_ {
-                Some(point_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        point_array_vec
-                            .iter()
-                            .map(|point_| point_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, point_array_).to_object(py))
         }
         Type::BOX_ARRAY => {
-            let box_array_ = _composite_field_postgres_to_py::<Option<Vec<RustRect>>>(type_, buf, is_simple)?;
+            let box_array_ = _composite_field_postgres_to_py::<Option<Array<RustRect>>>(type_, buf, is_simple)?;
 
-            match box_array_ {
-                Some(box_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        box_array_vec
-                            .iter()
-                            .map(|box_| box_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, box_array_).to_object(py))
         }
         Type::PATH_ARRAY => {
-            let path_array_ = _composite_field_postgres_to_py::<Option<Vec<RustLineString>>>(type_, buf, is_simple)?;
+            let path_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineString>>>(type_, buf, is_simple)?;
 
-            match path_array_ {
-                Some(path_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        path_array_vec
-                            .iter()
-                            .map(|path_| path_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, path_array_).to_object(py))
         }
         Type::LINE_ARRAY => {
-            let line_array_ = _composite_field_postgres_to_py::<Option<Vec<Line>>>(type_, buf, is_simple)?;
+            let line_array_ = _composite_field_postgres_to_py::<Option<Array<Line>>>(type_, buf, is_simple)?;
 
-            match line_array_ {
-                Some(line_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        line_array_vec
-                            .iter()
-                            .map(|line_| line_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, line_array_).to_object(py))
         }
         Type::LSEG_ARRAY => {
-            let lseg_array_ = _composite_field_postgres_to_py::<Option<Vec<RustLineSegment>>>(type_, buf, is_simple)?;
+            let lseg_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineSegment>>>(type_, buf, is_simple)?;
 
-            match lseg_array_ {
-                Some(lseg_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        lseg_array_vec
-                            .iter()
-                            .map(|lseg_| lseg_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, lseg_array_).to_object(py))
         }
         Type::CIRCLE_ARRAY => {
-            let circle_array_ = _composite_field_postgres_to_py::<Option<Vec<Circle>>>(type_, buf, is_simple)?;
+            let circle_array_ = _composite_field_postgres_to_py::<Option<Array<Circle>>>(type_, buf, is_simple)?;
 
-            match circle_array_ {
-                Some(circle_array_vec) => {
-                    return Ok(PyList::new_bound(
-                        py,
-                        circle_array_vec
-                            .iter()
-                            .map(|circle_| circle_.into_py(py))
-                            .collect::<Vec<Py<PyAny>>>(),
-                    )
-                    .to_object(py))
-                },
-                None => Ok(py.None().to_object(py)),
-            }
+            Ok(postgres_array_to_py(py, circle_array_).to_object(py))
         }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
@@ -1147,7 +1358,7 @@ pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
                     result_vec.push(serde_value);
                 } else {
                     return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "PyJSON supports only list of lists or list of dicts.".to_string(),
+                        "PyJSON must have dicts.".to_string(),
                     ));
                 }
             }
@@ -1156,7 +1367,7 @@ pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
             return py_to_rust(bind_value)?.to_serde_value();
         } else {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must be list value.".to_string(),
+                "PyJSON must be dict value.".to_string(),
             ));
         }
     })
