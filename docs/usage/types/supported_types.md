@@ -35,6 +35,12 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | IPv6Address | - | INET |
 | decimal.Decimal | - | NUMERIC |
 | int/str | Money | MONEY |
+| Point | PyPoint | POINT |
+| Box | PyBox | BOX |
+| Path | PyPath | PATH |
+| Line | PyLine | LINE |
+| Line Segment | PyLineSegment | LSEG |
+| Circle | PyCircle | CIRCLE |
 
 ::: important
 DECIMAL PostgreSQL type isn't supported, use NUMERIC instead.

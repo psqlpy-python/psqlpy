@@ -918,6 +918,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres_array"
+version = "0.11.1"
+source = "git+https://github.com/chandr-andr/rust-postgres-array.git?branch=psqlpy#44383e9808edabb595df5d157eecca6f73100023"
+dependencies = [
+ "bytes",
+ "fallible-iterator",
+ "postgres-protocol",
+ "postgres-types",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "psqlpy"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "byteorder",
  "bytes",
@@ -986,6 +997,7 @@ dependencies = [
  "postgres-openssl",
  "postgres-protocol",
  "postgres-types",
+ "postgres_array",
  "pyo3",
  "pyo3-asyncio",
  "rust_decimal 1.35.0 (git+https://github.com/chandr-andr/rust-decimal.git?branch=psqlpy)",

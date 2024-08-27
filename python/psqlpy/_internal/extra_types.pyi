@@ -94,6 +94,7 @@ class PyJSONB:
         value: typing.Union[
             dict[str, typing.Any],
             list[dict[str, typing.Any]],
+            list[typing.Any],
         ],
     ) -> None:
         """Create new instance of PyJSON.B.
@@ -112,6 +113,7 @@ class PyJSON:
         value: typing.Union[
             dict[str, typing.Any],
             list[dict[str, typing.Any]],
+            list[typing.Any],
         ],
     ) -> None:
         """Create new instance of PyJSON.
