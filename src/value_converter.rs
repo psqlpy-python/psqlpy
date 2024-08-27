@@ -198,6 +198,22 @@ impl ToPyObject for PythonDTO {
 }
 
 impl PythonDTO {
+    /// Check is it possible to create serde `Value` from `PythonDTO`.
+    #[must_use]
+    pub fn is_available_to_serde_value(&self) -> bool {
+        matches!(
+            self,
+            PythonDTO::PyNone
+                | PythonDTO::PyBool(_)
+                | PythonDTO::PyString(_)
+                | PythonDTO::PyText(_)
+                | PythonDTO::PyVarChar(_)
+                | PythonDTO::PyIntI32(_)
+                | PythonDTO::PyIntI64(_)
+                | PythonDTO::PyFloat32(_)
+                | PythonDTO::PyFloat64(_)
+        )
+    }
     /// Return type of the Array for `PostgreSQL`.
     ///
     /// Since every Array must have concrete type,
@@ -270,6 +286,13 @@ impl PythonDTO {
                 Ok(json!(vec_serde_values))
             }
             PythonDTO::PyArray(array) => Python::with_gil(|gil| {
+                if let Some(array_elem) = array.iter().nth(0) {
+                    if !array_elem.is_available_to_serde_value() {
+                        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                            "Your value in dict isn't supported by JSON".into(),
+                        ));
+                    }
+                }
                 let py_list = postgres_array_to_py(gil, Some(array.clone()));
                 if let Some(py_list) = py_list {
                     let mut vec_serde_values: Vec<Value> = vec![];
