@@ -289,8 +289,8 @@ dependencies = [
 
 [[package]]
 name = "deadpool"
-version = "0.11.2"
-source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#a9a9c82340de7c0fd14bce88e6ca5bd695235dbb"
+version = "0.12.1"
+source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#1eab0a5ed96086495847c6069f6b2125f66b46ba"
 dependencies = [
  "deadpool-runtime",
  "num_cpus",
@@ -299,10 +299,12 @@ dependencies = [
 
 [[package]]
 name = "deadpool-postgres"
-version = "0.13.0"
-source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#a9a9c82340de7c0fd14bce88e6ca5bd695235dbb"
+version = "0.14.0"
+source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#1eab0a5ed96086495847c6069f6b2125f66b46ba"
 dependencies = [
+ "async-trait",
  "deadpool",
+ "getrandom",
  "tokio",
  "tokio-postgres",
  "tracing",
@@ -310,8 +312,8 @@ dependencies = [
 
 [[package]]
 name = "deadpool-runtime"
-version = "0.1.3"
-source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#a9a9c82340de7c0fd14bce88e6ca5bd695235dbb"
+version = "0.1.4"
+source = "git+https://github.com/chandr-andr/deadpool.git?branch=psqlpy#1eab0a5ed96086495847c6069f6b2125f66b46ba"
 dependencies = [
  "tokio",
 ]
@@ -483,8 +485,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -560,9 +564,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.3.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3fc2e30ba82dd1b3911c8de1ffc143c74a914a14e99514d7637e3099df5ea0"
+checksum = "68b900aa2f7301e21c36462b170ee99994de34dff39a4a6a528e80e7376d07e5"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
@@ -864,7 +868,7 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 [[package]]
 name = "postgres-derive"
 version = "0.4.5"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#0321b6b912e2bb88100d209952ceecf033c2dcd8"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -875,7 +879,7 @@ dependencies = [
 [[package]]
 name = "postgres-openssl"
 version = "0.5.0"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#0321b6b912e2bb88100d209952ceecf033c2dcd8"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
 dependencies = [
  "openssl",
  "tokio",
@@ -885,8 +889,8 @@ dependencies = [
 
 [[package]]
 name = "postgres-protocol"
-version = "0.6.6"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#0321b6b912e2bb88100d209952ceecf033c2dcd8"
+version = "0.6.7"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
 dependencies = [
  "base64",
  "byteorder",
@@ -902,8 +906,8 @@ dependencies = [
 
 [[package]]
 name = "postgres-types"
-version = "0.2.6"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#0321b6b912e2bb88100d209952ceecf033c2dcd8"
+version = "0.2.7"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
 dependencies = [
  "array-init",
  "bytes",
@@ -939,9 +943,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d37c51ca738a55da99dc0c4a34860fd675453b8b36209178c2249bb13651284"
+checksum = "8ecf48c7ca261d60b74ab1a7b20da18bede46776b2e55535cb958eb595c5fa7b"
 dependencies = [
  "toml_edit",
 ]
@@ -980,7 +984,7 @@ dependencies = [
 
 [[package]]
 name = "psqlpy"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "byteorder",
  "bytes",
@@ -1000,7 +1004,7 @@ dependencies = [
  "postgres_array",
  "pyo3",
  "pyo3-asyncio",
- "rust_decimal 1.35.0 (git+https://github.com/chandr-andr/rust-decimal.git?branch=psqlpy)",
+ "rust_decimal 1.36.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -1045,7 +1049,7 @@ dependencies = [
  "pyo3-build-config",
  "pyo3-ffi",
  "pyo3-macros",
- "rust_decimal 1.35.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust_decimal 1.35.0",
  "unindent",
 ]
 
@@ -1209,9 +1213,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.7.44"
+version = "0.7.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cba464629b3394fc4dbc6f940ff8f5b4ff5c7aef40f29166fd4ad12acbc99c0"
+checksum = "9008cd6385b9e161d8229e1f6549dd23c3d022f132a2ea37ac3a10ac4935779b"
 dependencies = [
  "bitvec",
  "bytecheck",
@@ -1227,9 +1231,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.7.44"
+version = "0.7.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7dddfff8de25e6f62b9d64e6e432bf1c6736c57d20323e15ee10435fbda7c65"
+checksum = "503d1d27590a2b0a3a4ca4c94755aa2875657196ecbf401a42eff41d7de532c0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1248,8 +1252,8 @@ dependencies = [
 
 [[package]]
 name = "rust_decimal"
-version = "1.35.0"
-source = "git+https://github.com/chandr-andr/rust-decimal.git?branch=psqlpy#7079e8133e7fd5a0e47db182dd6430fd9c928d74"
+version = "1.36.0"
+source = "git+https://github.com/chandr-andr/rust-decimal.git?branch=psqlpy#b262d1ead78f1114305674600a7e162305d6ae47"
 dependencies = [
  "arrayvec",
  "borsh",
@@ -1516,8 +1520,8 @@ dependencies = [
 
 [[package]]
 name = "tokio-postgres"
-version = "0.7.10"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#0321b6b912e2bb88100d209952ceecf033c2dcd8"
+version = "0.7.11"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -1560,9 +1564,9 @@ checksum = "0dd7358ecb8fc2f8d014bf86f6f638ce72ba252a2c3a2572f2a795f1d23efb41"
 
 [[package]]
 name = "toml_edit"
-version = "0.21.1"
+version = "0.22.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8534fd7f78b5405e860340ad6575217ce99f38d4d5c8f2442cb5ecb50090e1"
+checksum = "583c44c02ad26b0c3f3066fe629275e50627026c51ac2e595cca4c230ce1ce1d"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -1831,9 +1835,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winnow"
-version = "0.5.40"
+version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f593a95398737aeed53e489c785df13f3618e41dbcd6718c6addbf1395aa6876"
+checksum = "68a9bda4691f099d435ad181000724da8e5899daa10713c2d432552b9ccd3a6f"
 dependencies = [
  "memchr",
 ]
