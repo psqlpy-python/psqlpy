@@ -810,7 +810,7 @@ fn _composite_field_postgres_to_py<'a, T: FromSql<'a>>(
     })
 }
 
-/// Convert rust array to python list.
+/// Convert Array of `PythonDTO`s to serde `Value`.
 ///
 /// It can convert multidimensional arrays.
 fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> RustPSQLDriverPyResult<Value> {
@@ -827,7 +827,7 @@ fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> RustPSQLDriverPy
     }
 }
 
-/// Inner postgres array conversion to python list.
+/// Inner conversion array of `PythonDTO`s to serde `Value`.
 #[allow(clippy::cast_sign_loss)]
 fn _pythondto_array_to_serde(
     dimensions: &[Dimension],
