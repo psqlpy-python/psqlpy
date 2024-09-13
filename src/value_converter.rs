@@ -198,22 +198,6 @@ impl ToPyObject for PythonDTO {
 }
 
 impl PythonDTO {
-    /// Check is it possible to create serde `Value` from `PythonDTO`.
-    #[must_use]
-    pub fn is_available_to_serde_value(&self) -> bool {
-        matches!(
-            self,
-            PythonDTO::PyNone
-                | PythonDTO::PyBool(_)
-                | PythonDTO::PyString(_)
-                | PythonDTO::PyText(_)
-                | PythonDTO::PyVarChar(_)
-                | PythonDTO::PyIntI32(_)
-                | PythonDTO::PyIntI64(_)
-                | PythonDTO::PyFloat32(_)
-                | PythonDTO::PyFloat64(_)
-        )
-    }
     /// Return type of the Array for `PostgreSQL`.
     ///
     /// Since every Array must have concrete type,
@@ -285,29 +269,7 @@ impl PythonDTO {
 
                 Ok(json!(vec_serde_values))
             }
-            PythonDTO::PyArray(array) => Python::with_gil(|gil| {
-                if let Some(array_elem) = array.iter().nth(0) {
-                    if !array_elem.is_available_to_serde_value() {
-                        return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                            "Your value in dict isn't supported by JSON".into(),
-                        ));
-                    }
-                }
-                let py_list = postgres_array_to_py(gil, Some(array.clone()));
-                if let Some(py_list) = py_list {
-                    let mut vec_serde_values: Vec<Value> = vec![];
-
-                    for py_object in py_list.bind(gil) {
-                        vec_serde_values.push(py_to_rust(&py_object)?.to_serde_value()?);
-                    }
-
-                    return Ok(json!(vec_serde_values));
-                }
-
-                Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "Cannot convert Python sequence into JSON".into(),
-                ))
-            }),
+            PythonDTO::PyArray(array) => Ok(json!(pythondto_array_to_serde(Some(array.clone()))?)),
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert your type into Rust type".into(),
@@ -846,6 +808,62 @@ fn _composite_field_postgres_to_py<'a, T: FromSql<'a>>(
             "Cannot convert PostgreSQL type {type_} into Python type, err: {err}",
         ))
     })
+}
+
+/// Convert Array of `PythonDTO`s to serde `Value`.
+///
+/// It can convert multidimensional arrays.
+fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> RustPSQLDriverPyResult<Value> {
+    match array {
+        Some(array) => {
+            return _pythondto_array_to_serde(
+                array.dimensions(),
+                array.iter().collect::<Vec<&PythonDTO>>().as_slice(),
+                0,
+                0,
+            );
+        }
+        None => Ok(Value::Null),
+    }
+}
+
+/// Inner conversion array of `PythonDTO`s to serde `Value`.
+#[allow(clippy::cast_sign_loss)]
+fn _pythondto_array_to_serde(
+    dimensions: &[Dimension],
+    data: &[&PythonDTO],
+    dimension_index: usize,
+    mut lower_bound: usize,
+) -> RustPSQLDriverPyResult<Value> {
+    let current_dimension = dimensions.get(dimension_index).unwrap();
+
+    let possible_next_dimension = dimensions.get(dimension_index + 1);
+    match possible_next_dimension {
+        Some(next_dimension) => {
+            let mut final_list: Value = Value::Array(vec![]);
+
+            for _ in 0..current_dimension.len as usize {
+                if dimensions.get(dimension_index + 1).is_some() {
+                    let inner_pylist = _pythondto_array_to_serde(
+                        dimensions,
+                        &data[lower_bound..next_dimension.len as usize + lower_bound],
+                        dimension_index + 1,
+                        0,
+                    )?;
+                    match final_list {
+                        Value::Array(ref mut array) => array.push(inner_pylist),
+                        _ => unreachable!(),
+                    }
+                    lower_bound += next_dimension.len as usize;
+                };
+            }
+
+            Ok(final_list)
+        }
+        None => {
+            return data.iter().map(|x| x.to_serde_value()).collect();
+        }
+    }
 }
 
 /// Convert rust array to python list.
