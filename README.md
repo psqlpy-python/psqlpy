@@ -66,3 +66,7 @@ async def main() -> None:
 ## Benchmarks
 
 You can find benchmarks with visualization on our [docs](https://psqlpy-python.github.io/benchmarks.html)
+
+## Community
+Let's make `PSQLPy` better together!
+Join our community in [Telegram](https://t.me/+f3Y8mYKgXxhmYThi)
