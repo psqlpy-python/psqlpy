@@ -455,6 +455,21 @@ class Transaction:
             await transaction.commit()
         ```
         """
+    async def execute_batch(
+        self: Self,
+        querystring: str,
+    ) -> None:
+        """
+        Executes a sequence of SQL statements using the simple query protocol.
+
+        Statements should be separated by semicolons.
+        If an error occurs, execution of the sequence will stop at that point.
+        This is intended for use when, for example,
+        initializing a database schema.
+
+        ### Parameters:
+        - `querystring`: querystrings separated by semicolons.
+        """
     async def execute_many(
         self: Self,
         querystring: str,
@@ -884,6 +899,21 @@ class Connection:
             )
             dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
+        """
+    async def execute_batch(
+        self: Self,
+        querystring: str,
+    ) -> None:
+        """
+        Executes a sequence of SQL statements using the simple query protocol.
+
+        Statements should be separated by semicolons.
+        If an error occurs, execution of the sequence will stop at that point.
+        This is intended for use when, for example,
+        initializing a database schema.
+
+        ### Parameters:
+        - `querystring`: querystrings separated by semicolons.
         """
     async def execute_many(
         self: Self,

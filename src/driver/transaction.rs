@@ -301,6 +301,31 @@ impl Transaction {
         Err(RustPSQLDriverError::TransactionClosedError)
     }
 
+    /// Executes a sequence of SQL statements using the simple query protocol.
+    ///
+    /// Statements should be separated by semicolons.
+    /// If an error occurs, execution of the sequence will stop at that point.
+    /// This is intended for use when, for example,
+    /// initializing a database schema.
+    ///
+    /// # Errors
+    ///
+    /// May return Err Result if:
+    /// 1) Transaction is closed.
+    /// 2) Cannot execute querystring.
+    pub async fn execute_batch(self_: Py<Self>, querystring: String) -> RustPSQLDriverPyResult<()> {
+        let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
+            let self_ = self_.borrow(gil);
+            (self_.check_is_transaction_ready(), self_.db_client.clone())
+        });
+        is_transaction_ready?;
+        if let Some(db_client) = db_client {
+            return Ok(db_client.batch_execute(&querystring).await?);
+        }
+
+        Err(RustPSQLDriverError::TransactionClosedError)
+    }
+
     /// Fetch result from the database.
     ///
     /// It converts incoming parameters to rust readable
