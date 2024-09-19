@@ -236,3 +236,14 @@ CREATE TABLE IF NOT EXISTS cars (
         f"SELECT COUNT(*) AS rows_count FROM {table_name}",
     )
     assert real_table_rows.result()[0]["rows_count"] == expected_inserted_row
+
+
+async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
+    """Test `execute_batch` method."""
+    await psql_pool.execute(querystring="DROP TABLE IF EXISTS execute_batch")
+    await psql_pool.execute(querystring="DROP TABLE IF EXISTS execute_batch2")
+    query = "CREATE TABLE execute_batch (name VARCHAR);CREATE TABLE execute_batch2 (name VARCHAR);"
+    async with psql_pool.acquire() as conn:
+        await conn.execute_batch(querystring=query)
+        await conn.execute(querystring="SELECT * FROM execute_batch")
+        await conn.execute(querystring="SELECT * FROM execute_batch2")

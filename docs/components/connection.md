@@ -61,6 +61,28 @@ async def main() -> None:
     dict_results: list[dict[str, Any]] = results.result()
 ```
 
+### Execute Batch
+
+#### Parameters:
+
+- `querystring`: querystrings separated by semicolons.
+
+Executes a sequence of SQL statements using the simple query protocol.
+
+Statements should be separated by semicolons.
+If an error occurs, execution of the sequence will stop at that point.
+This is intended for use when, for example,
+initializing a database schema.
+
+```python
+async def main() -> None:
+    ...
+    connection = await db_pool.connection()
+    await connection.execute_batch(
+        "CREATE TABLE psqlpy (name VARCHAR); CREATE TABLE psqlpy2 (name VARCHAR);",
+    )
+```
+
 ### Fetch
 
 #### Parameters:
