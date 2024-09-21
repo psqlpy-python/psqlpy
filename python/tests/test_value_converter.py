@@ -1001,3 +1001,22 @@ async def test_incorrect_dimensions_array(
                 ],
             ],
         )
+
+
+async def test_empty_array(
+    psql_pool: ConnectionPool,
+) -> None:
+    await psql_pool.execute("DROP TABLE IF EXISTS test_earr")
+    await psql_pool.execute(
+        "CREATE TABLE test_earr (id serial NOT NULL PRIMARY KEY, e_array text[] NOT NULL DEFAULT array[]::text[])",
+    )
+
+    await psql_pool.execute("INSERT INTO test_earr(id) VALUES(2);")
+
+    res = await psql_pool.execute(
+        "SELECT * FROM test_earr WHERE id = 2",
+    )
+
+    json_result = res.result()
+    assert json_result
+    assert not json_result[0]["e_array"]
