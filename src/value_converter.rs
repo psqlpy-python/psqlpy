@@ -835,35 +835,39 @@ fn _pythondto_array_to_serde(
     dimension_index: usize,
     mut lower_bound: usize,
 ) -> RustPSQLDriverPyResult<Value> {
-    let current_dimension = dimensions.get(dimension_index).unwrap();
+    let current_dimension = dimensions.get(dimension_index);
 
-    let possible_next_dimension = dimensions.get(dimension_index + 1);
-    match possible_next_dimension {
-        Some(next_dimension) => {
-            let mut final_list: Value = Value::Array(vec![]);
+    if let Some(current_dimension) = current_dimension {
+        let possible_next_dimension = dimensions.get(dimension_index + 1);
+        match possible_next_dimension {
+            Some(next_dimension) => {
+                let mut final_list: Value = Value::Array(vec![]);
 
-            for _ in 0..current_dimension.len as usize {
-                if dimensions.get(dimension_index + 1).is_some() {
-                    let inner_pylist = _pythondto_array_to_serde(
-                        dimensions,
-                        &data[lower_bound..next_dimension.len as usize + lower_bound],
-                        dimension_index + 1,
-                        0,
-                    )?;
-                    match final_list {
-                        Value::Array(ref mut array) => array.push(inner_pylist),
-                        _ => unreachable!(),
-                    }
-                    lower_bound += next_dimension.len as usize;
-                };
+                for _ in 0..current_dimension.len as usize {
+                    if dimensions.get(dimension_index + 1).is_some() {
+                        let inner_pylist = _pythondto_array_to_serde(
+                            dimensions,
+                            &data[lower_bound..next_dimension.len as usize + lower_bound],
+                            dimension_index + 1,
+                            0,
+                        )?;
+                        match final_list {
+                            Value::Array(ref mut array) => array.push(inner_pylist),
+                            _ => unreachable!(),
+                        }
+                        lower_bound += next_dimension.len as usize;
+                    };
+                }
+
+                return Ok(final_list);
             }
-
-            Ok(final_list)
-        }
-        None => {
-            return data.iter().map(|x| x.to_serde_value()).collect();
+            None => {
+                return data.iter().map(|x| x.to_serde_value()).collect();
+            }
         }
     }
+
+    Ok(Value::Array(vec![]))
 }
 
 /// Convert rust array to python list.
@@ -899,33 +903,37 @@ fn _postgres_array_to_py<T>(
 where
     T: ToPyObject,
 {
-    let current_dimension = dimensions.get(dimension_index).unwrap();
+    let current_dimension = dimensions.get(dimension_index);
 
-    let possible_next_dimension = dimensions.get(dimension_index + 1);
-    match possible_next_dimension {
-        Some(next_dimension) => {
-            let final_list = PyList::empty_bound(py);
+    if let Some(current_dimension) = current_dimension {
+        let possible_next_dimension = dimensions.get(dimension_index + 1);
+        match possible_next_dimension {
+            Some(next_dimension) => {
+                let final_list = PyList::empty_bound(py);
 
-            for _ in 0..current_dimension.len as usize {
-                if dimensions.get(dimension_index + 1).is_some() {
-                    let inner_pylist = _postgres_array_to_py(
-                        py,
-                        dimensions,
-                        &data[lower_bound..next_dimension.len as usize + lower_bound],
-                        dimension_index + 1,
-                        0,
-                    );
-                    final_list.append(inner_pylist).unwrap();
-                    lower_bound += next_dimension.len as usize;
-                };
+                for _ in 0..current_dimension.len as usize {
+                    if dimensions.get(dimension_index + 1).is_some() {
+                        let inner_pylist = _postgres_array_to_py(
+                            py,
+                            dimensions,
+                            &data[lower_bound..next_dimension.len as usize + lower_bound],
+                            dimension_index + 1,
+                            0,
+                        );
+                        final_list.append(inner_pylist).unwrap();
+                        lower_bound += next_dimension.len as usize;
+                    };
+                }
+
+                return final_list.unbind();
             }
-
-            final_list.unbind()
-        }
-        None => {
-            return PyList::new_bound(py, data).unbind();
+            None => {
+                return PyList::new_bound(py, data).unbind();
+            }
         }
     }
+
+    return PyList::empty_bound(py).unbind();
 }
 
 #[allow(clippy::too_many_lines)]
