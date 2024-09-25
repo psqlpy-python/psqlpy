@@ -11,6 +11,7 @@ from psqlpy._internal import (
     ReadVariant,
     SingleQueryResult,
     SslMode,
+    SynchronousCommit,
     TargetSessionAttrs,
     Transaction,
     connect,
@@ -32,4 +33,5 @@ __all__ = [
     "SslMode",
     "KeepaliveConfig",
     "ConnectionPoolBuilder",
+    "SynchronousCommit",
 ]

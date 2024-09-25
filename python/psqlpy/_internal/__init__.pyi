@@ -152,6 +152,38 @@ class SingleQueryResult:
         Type that return passed function.
         """
 
+class SynchronousCommit(Enum):
+    """
+    Class for synchronous_commit option for transactions.
+
+    ### Variants:
+    - `On`: The meaning may change based on whether you have
+        a synchronous standby or not.
+        If there is a synchronous standby,
+        setting the value to on will result in waiting till “remote flush”.
+    - `Off`: As the name indicates, the commit acknowledgment can come before
+        flushing the records to disk.
+        This is generally called as an asynchronous commit.
+        If the PostgreSQL instance crashes,
+        the last few asynchronous commits might be lost.
+    - `Local`: WAL records are written and flushed to local disks.
+        In this case, the commit will be acknowledged after the
+        local WAL Write and WAL flush completes.
+    - `RemoteWrite`: WAL records are successfully handed over to
+        remote instances which acknowledged back
+        about the write (not flush).
+    - `RemoteApply`: This will result in commits waiting until replies from the
+        current synchronous standby(s) indicate they have received
+        the commit record of the transaction and applied it so
+        that it has become visible to queries on the standby(s).
+    """
+
+    On = 1
+    Off = 2
+    Local = 3
+    RemoteWrite = 4
+    RemoteApply = 5
+
 class IsolationLevel(Enum):
     """Class for Isolation Level for transactions."""
 
@@ -1050,6 +1082,7 @@ class Connection:
         isolation_level: IsolationLevel | None = None,
         read_variant: ReadVariant | None = None,
         deferrable: bool | None = None,
+        synchronous_commit: SynchronousCommit | None = None,
     ) -> Transaction:
         """Create new transaction.
 
@@ -1057,6 +1090,7 @@ class Connection:
         - `isolation_level`: configure isolation level of the transaction.
         - `read_variant`: configure read variant of the transaction.
         - `deferrable`: configure deferrable of the transaction.
+        - `synchronous_commit`: configure synchronous_commit option for transaction.
         """
     def cursor(
         self: Self,
