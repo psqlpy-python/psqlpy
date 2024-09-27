@@ -16,7 +16,7 @@ use crate::{
 use super::{
     cursor::Cursor,
     transaction::Transaction,
-    transaction_options::{IsolationLevel, ReadVariant},
+    transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
 
 /// Format OPTS parameter for Postgres COPY command.
@@ -594,6 +594,7 @@ impl Connection {
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
+        synchronous_commit: Option<SynchronousCommit>,
     ) -> RustPSQLDriverPyResult<Transaction> {
         if let Some(db_client) = &self.db_client {
             return Ok(Transaction::new(
@@ -601,6 +602,7 @@ impl Connection {
                 false,
                 false,
                 isolation_level,
+                synchronous_commit,
                 read_variant,
                 deferrable,
                 HashSet::new(),
