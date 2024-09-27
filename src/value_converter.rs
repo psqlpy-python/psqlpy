@@ -14,9 +14,10 @@ use pyo3::{
     sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
+        PyIterator, PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType,
+        PyTypeMethods,
     },
-    Bound, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
+    Bound, FromPyObject, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, Type},
@@ -30,8 +31,8 @@ use crate::{
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB,
-        PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
+        BigInt, BoolArray, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON,
+        PyJSONB, PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
         SmallInt,
     },
 };
@@ -57,7 +58,10 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
 ///
 /// We use custom struct because we need to implement external traits
 /// to it.
-struct InternalUuid(Uuid);
+#[derive(Clone)]
+pub struct InternalUuid(Uuid);
+
+impl<'a> FromPyObject<'a> for InternalUuid {}
 
 impl ToPyObject for InternalUuid {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -82,7 +86,10 @@ impl<'a> FromSql<'a> for InternalUuid {
 ///
 /// We use custom struct because we need to implement external traits
 /// to it.
-struct InternalSerdeValue(Value);
+#[derive(Clone)]
+pub struct InternalSerdeValue(Value);
+
+impl<'a> FromPyObject<'a> for InternalSerdeValue {}
 
 impl ToPyObject for InternalSerdeValue {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -785,6 +792,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             return Ok(PythonDTO::PyString(possible_string));
         }
     }
+
+    let a = parameter.downcast::<PyIterator>();
+    println!("{:?}", a.iter());
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
         "Can not covert you type {parameter} into inner one",

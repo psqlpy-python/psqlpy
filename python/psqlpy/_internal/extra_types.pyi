@@ -251,3 +251,13 @@ class PyCircle:
         ### Parameters:
         - `value`: any valid structure with int/float numbers.
         """
+
+
+class BoolArray:
+    """Represent circle field in PostgreSQL and Circle in Rust."""
+
+    def __init__(
+        self: Self,
+        value: typing.Any,
+    ) -> None:
+        """Create new instance."""

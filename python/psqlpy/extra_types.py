@@ -18,6 +18,7 @@ from ._internal.extra_types import (
     PyText,
     PyVarChar,
     SmallInt,
+    BoolArray,
 )
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "PyLine",
     "PyLineSegment",
     "PyCircle",
+    "BoolArray",
 ]
