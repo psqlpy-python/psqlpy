@@ -30,14 +30,7 @@ use crate::{
         RustRect,
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::{
-        BigInt, BoolArray, BoxArray, CircleArray, DateArray, DateTimeArray, DateTimeTZArray,
-        Flaot32Array, Flaot64Array, Float32, Float64, Int16Array, Int32Array, Int64Array, Integer,
-        IpAddressArray, JSONArray, JSONBArray, LineArray, LsegArray, MacAddr6Array, MacAddr8Array,
-        Money, MoneyArray, NumericArray, PathArray, PointArray, PyBox, PyCircle, PyCustomType,
-        PyJSON, PyJSONB, PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText,
-        PyVarChar, SmallInt, TextArray, TimeArray, UUIDArray, VarCharArray,
-    },
+    extra_types,
 };
 use postgres_array::{array::Array, Dimension};
 
@@ -689,9 +682,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyNone);
     }
 
-    if parameter.is_instance_of::<PyCustomType>() {
+    if parameter.is_instance_of::<extra_types::PyCustomType>() {
         return Ok(PythonDTO::PyCustomType(
-            parameter.extract::<PyCustomType>()?.inner(),
+            parameter.extract::<extra_types::PyCustomType>()?.inner(),
         ));
     }
 
@@ -703,13 +696,15 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
     }
 
-    if parameter.is_instance_of::<PyText>() {
-        return Ok(PythonDTO::PyText(parameter.extract::<PyText>()?.inner()));
+    if parameter.is_instance_of::<extra_types::PyText>() {
+        return Ok(PythonDTO::PyText(
+            parameter.extract::<extra_types::PyText>()?.inner(),
+        ));
     }
 
-    if parameter.is_instance_of::<PyVarChar>() {
+    if parameter.is_instance_of::<extra_types::PyVarChar>() {
         return Ok(PythonDTO::PyVarChar(
-            parameter.extract::<PyVarChar>()?.inner(),
+            parameter.extract::<extra_types::PyVarChar>()?.inner(),
         ));
     }
 
@@ -721,39 +716,47 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyFloat64(parameter.extract::<f64>()?));
     }
 
-    if parameter.is_instance_of::<Float32>() {
+    if parameter.is_instance_of::<extra_types::Float32>() {
         return Ok(PythonDTO::PyFloat32(
-            parameter.extract::<Float32>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Float32>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Float64>() {
+    if parameter.is_instance_of::<extra_types::Float64>() {
         return Ok(PythonDTO::PyFloat64(
-            parameter.extract::<Float64>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Float64>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<SmallInt>() {
+    if parameter.is_instance_of::<extra_types::SmallInt>() {
         return Ok(PythonDTO::PyIntI16(
-            parameter.extract::<SmallInt>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::SmallInt>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Integer>() {
+    if parameter.is_instance_of::<extra_types::Integer>() {
         return Ok(PythonDTO::PyIntI32(
-            parameter.extract::<Integer>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Integer>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<BigInt>() {
+    if parameter.is_instance_of::<extra_types::BigInt>() {
         return Ok(PythonDTO::PyIntI64(
-            parameter.extract::<BigInt>()?.retrieve_value(),
+            parameter.extract::<extra_types::BigInt>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Money>() {
+    if parameter.is_instance_of::<extra_types::Money>() {
         return Ok(PythonDTO::PyMoney(
-            parameter.extract::<Money>()?.retrieve_value(),
+            parameter.extract::<extra_types::Money>()?.retrieve_value(),
         ));
     }
 
@@ -816,27 +819,27 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyJsonb(Value::Object(serde_map)));
     }
 
-    if parameter.is_instance_of::<PyJSONB>() {
+    if parameter.is_instance_of::<extra_types::PyJSONB>() {
         return Ok(PythonDTO::PyJsonb(
-            parameter.extract::<PyJSONB>()?.inner().clone(),
+            parameter.extract::<extra_types::PyJSONB>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<PyJSON>() {
+    if parameter.is_instance_of::<extra_types::PyJSON>() {
         return Ok(PythonDTO::PyJson(
-            parameter.extract::<PyJSON>()?.inner().clone(),
+            parameter.extract::<extra_types::PyJSON>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<PyMacAddr6>() {
+    if parameter.is_instance_of::<extra_types::PyMacAddr6>() {
         return Ok(PythonDTO::PyMacAddr6(
-            parameter.extract::<PyMacAddr6>()?.inner(),
+            parameter.extract::<extra_types::PyMacAddr6>()?.inner(),
         ));
     }
 
-    if parameter.is_instance_of::<PyMacAddr8>() {
+    if parameter.is_instance_of::<extra_types::PyMacAddr8>() {
         return Ok(PythonDTO::PyMacAddr8(
-            parameter.extract::<PyMacAddr8>()?.inner(),
+            parameter.extract::<extra_types::PyMacAddr8>()?.inner(),
         ));
     }
 
@@ -852,45 +855,51 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         )?));
     }
 
-    if parameter.is_instance_of::<PyPoint>() {
+    if parameter.is_instance_of::<extra_types::PyPoint>() {
         return Ok(PythonDTO::PyPoint(
-            parameter.extract::<PyPoint>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyPoint>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyBox>() {
+    if parameter.is_instance_of::<extra_types::PyBox>() {
         return Ok(PythonDTO::PyBox(
-            parameter.extract::<PyBox>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyBox>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyPath>() {
+    if parameter.is_instance_of::<extra_types::PyPath>() {
         return Ok(PythonDTO::PyPath(
-            parameter.extract::<PyPath>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyPath>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyLine>() {
+    if parameter.is_instance_of::<extra_types::PyLine>() {
         return Ok(PythonDTO::PyLine(
-            parameter.extract::<PyLine>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyLine>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyLineSegment>() {
+    if parameter.is_instance_of::<extra_types::PyLineSegment>() {
         return Ok(PythonDTO::PyLineSegment(
-            parameter.extract::<PyLineSegment>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyLineSegment>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyCircle>() {
+    if parameter.is_instance_of::<extra_types::PyCircle>() {
         return Ok(PythonDTO::PyCircle(
-            parameter.extract::<PyCircle>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyCircle>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<BoolArray>() {
+    if parameter.is_instance_of::<extra_types::BoolArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<BoolArray>()?.inner();
+            let binding = parameter.extract::<extra_types::BoolArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoolArray(
@@ -899,9 +908,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<UUIDArray>() {
+    if parameter.is_instance_of::<extra_types::UUIDArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<UUIDArray>()?.inner();
+            let binding = parameter.extract::<extra_types::UUIDArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyUuidArray(
@@ -910,9 +919,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<VarCharArray>() {
+    if parameter.is_instance_of::<extra_types::VarCharArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<VarCharArray>()?.inner();
+            let binding = parameter.extract::<extra_types::VarCharArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyVarCharArray(
@@ -921,9 +930,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<TextArray>() {
+    if parameter.is_instance_of::<extra_types::TextArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<TextArray>()?.inner();
+            let binding = parameter.extract::<extra_types::TextArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTextArray(
@@ -932,9 +941,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<Int16Array>() {
+    if parameter.is_instance_of::<extra_types::Int16Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<Int16Array>()?.inner();
+            let binding = parameter.extract::<extra_types::Int16Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt16Array(
@@ -943,9 +952,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<Int32Array>() {
+    if parameter.is_instance_of::<extra_types::Int32Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<Int32Array>()?.inner();
+            let binding = parameter.extract::<extra_types::Int32Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt32Array(
@@ -954,9 +963,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<Int64Array>() {
+    if parameter.is_instance_of::<extra_types::Int64Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<Int64Array>()?.inner();
+            let binding = parameter.extract::<extra_types::Int64Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt64Array(
@@ -965,9 +974,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<Flaot32Array>() {
+    if parameter.is_instance_of::<extra_types::Flaot32Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<Flaot32Array>()?.inner();
+            let binding = parameter.extract::<extra_types::Flaot32Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot32Array(
@@ -976,9 +985,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<Flaot64Array>() {
+    if parameter.is_instance_of::<extra_types::Flaot64Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<Flaot64Array>()?.inner();
+            let binding = parameter.extract::<extra_types::Flaot64Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot64Array(
@@ -987,9 +996,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<MoneyArray>() {
+    if parameter.is_instance_of::<extra_types::MoneyArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<MoneyArray>()?.inner();
+            let binding = parameter.extract::<extra_types::MoneyArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMoneyArray(
@@ -998,9 +1007,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<IpAddressArray>() {
+    if parameter.is_instance_of::<extra_types::IpAddressArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<IpAddressArray>()?.inner();
+            let binding = parameter.extract::<extra_types::IpAddressArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyIpAddressArray(
@@ -1009,9 +1018,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<JSONBArray>() {
+    if parameter.is_instance_of::<extra_types::JSONBArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<JSONBArray>()?.inner();
+            let binding = parameter.extract::<extra_types::JSONBArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONBArray(
@@ -1020,9 +1029,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<JSONArray>() {
+    if parameter.is_instance_of::<extra_types::JSONArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<JSONArray>()?.inner();
+            let binding = parameter.extract::<extra_types::JSONArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONArray(
@@ -1031,9 +1040,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<DateArray>() {
+    if parameter.is_instance_of::<extra_types::DateArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<DateArray>()?.inner();
+            let binding = parameter.extract::<extra_types::DateArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateArray(
@@ -1042,9 +1051,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<TimeArray>() {
+    if parameter.is_instance_of::<extra_types::TimeArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<TimeArray>()?.inner();
+            let binding = parameter.extract::<extra_types::TimeArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTimeArray(
@@ -1053,9 +1062,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<DateTimeArray>() {
+    if parameter.is_instance_of::<extra_types::DateTimeArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<DateTimeArray>()?.inner();
+            let binding = parameter.extract::<extra_types::DateTimeArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeArray(
@@ -1064,9 +1073,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<DateTimeTZArray>() {
+    if parameter.is_instance_of::<extra_types::DateTimeTZArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<DateTimeTZArray>()?.inner();
+            let binding = parameter.extract::<extra_types::DateTimeTZArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeTZArray(
@@ -1075,9 +1084,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<MacAddr6Array>() {
+    if parameter.is_instance_of::<extra_types::MacAddr6Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<MacAddr6Array>()?.inner();
+            let binding = parameter.extract::<extra_types::MacAddr6Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr6Array(
@@ -1086,9 +1095,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<MacAddr8Array>() {
+    if parameter.is_instance_of::<extra_types::MacAddr8Array>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<MacAddr8Array>()?.inner();
+            let binding = parameter.extract::<extra_types::MacAddr8Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr8Array(
@@ -1097,9 +1106,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<NumericArray>() {
+    if parameter.is_instance_of::<extra_types::NumericArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<NumericArray>()?.inner();
+            let binding = parameter.extract::<extra_types::NumericArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyNumericArray(
@@ -1108,9 +1117,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<PointArray>() {
+    if parameter.is_instance_of::<extra_types::PointArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<PointArray>()?.inner();
+            let binding = parameter.extract::<extra_types::PointArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPointArray(
@@ -1119,9 +1128,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<BoxArray>() {
+    if parameter.is_instance_of::<extra_types::BoxArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<BoxArray>()?.inner();
+            let binding = parameter.extract::<extra_types::BoxArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoxArray(
@@ -1130,9 +1139,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<PathArray>() {
+    if parameter.is_instance_of::<extra_types::PathArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<PathArray>()?.inner();
+            let binding = parameter.extract::<extra_types::PathArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPathArray(
@@ -1141,9 +1150,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<LineArray>() {
+    if parameter.is_instance_of::<extra_types::LineArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<LineArray>()?.inner();
+            let binding = parameter.extract::<extra_types::LineArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLineArray(
@@ -1152,9 +1161,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<LsegArray>() {
+    if parameter.is_instance_of::<extra_types::LsegArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<LsegArray>()?.inner();
+            let binding = parameter.extract::<extra_types::LsegArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLsegArray(
@@ -1163,9 +1172,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         });
     }
 
-    if parameter.is_instance_of::<CircleArray>() {
+    if parameter.is_instance_of::<extra_types::CircleArray>() {
         return Python::with_gil(|gil| {
-            let binding = parameter.extract::<CircleArray>()?.inner();
+            let binding = parameter.extract::<extra_types::CircleArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
             Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyCircleArray(
