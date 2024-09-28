@@ -1,6 +1,5 @@
-use std::{net::IpAddr, str::FromStr};
+use std::str::FromStr;
 
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::{Line as LineSegment, LineString, Point, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pyo3::{
@@ -13,13 +12,8 @@ use serde_json::Value;
 use crate::{
     additional_types::{Circle, Line},
     exceptions::rust_errors::RustPSQLDriverPyResult,
-    value_converter::{
-        build_flat_geo_coords, build_geo_coords, build_serde_value, InternalSerdeValue,
-        InternalUuid, PythonDTO,
-    },
+    value_converter::{build_flat_geo_coords, build_geo_coords, build_serde_value},
 };
-use pyo3::exceptions::PyStopIteration;
-use pyo3::prelude::*;
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -297,65 +291,57 @@ impl PyCircle {
 }
 
 macro_rules! build_array_type {
-    ($st_name:ident, $rust_type:ty, $single_rust_type:ty) => {
-        #[pyclass(sequence)]
+    ($st_name:ident) => {
+        #[pyclass]
         #[derive(Clone)]
         pub struct $st_name {
-            inner: $rust_type,
-            index: usize,
+            inner: Py<PyAny>,
         }
 
         #[pymethods]
         impl $st_name {
             #[new]
             #[must_use]
-            pub fn new_class(inner: $rust_type) -> Self {
-                Self { inner, index: 0 }
-            }
-
-            fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-                slf
-            }
-
-            fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<$single_rust_type> {
-                let index = slf.index;
-                slf.index += 1;
-                if let Some(element) = slf.inner.get(index) {
-                    return Some(*element);
-                }
-                None
+            pub fn new_class(inner: Py<PyAny>) -> Self {
+                Self { inner }
             }
         }
 
         impl $st_name {
             #[must_use]
-            pub fn inner(&self) -> $rust_type {
+            pub fn inner(&self) -> Py<PyAny> {
                 self.inner.clone()
             }
         }
     };
 }
 
-build_array_type!(BoolArray, Vec<bool>, bool);
-// build_array_type!(BoolArray, Vec<bool>);
-// build_array_type!(UUIDArray, Vec<InternalUuid>);
-// build_array_type!(VarCharArray, Vec<String>);
-// build_array_type!(TextArray, Vec<String>);
-// build_array_type!(Int16Array, Vec<i16>);
-// build_array_type!(Int32Array, Vec<i32>);
-// build_array_type!(Int64Array, Vec<i64>);
-// build_array_type!(Flaot32Array, Vec<f32>);
-// build_array_type!(Flaot64Array, Vec<f64>);
-// build_array_type!(MoneyArray, Vec<i64>);
-// build_array_type!(IpAddressArray, Vec<IpAddr>);
-// build_array_type!(JSONBArray, Vec<InternalSerdeValue>);
-// build_array_type!(JSONArray, Vec<InternalSerdeValue>);
-// build_array_type!(DateArray, Vec<NaiveDate>);
-// build_array_type!(TimeArray, Vec<NaiveTime>);
-// build_array_type!(DateTimeArray, Vec<NaiveDateTime>);
-// build_array_type!(DateTimeTZArray, Vec<DateTime<FixedOffset>>);
-// build_array_type!(MacAddr6Array, Vec<PyMacAddr6>);
-// build_array_type!(MacAddr8Array, Vec<PyMacAddr8>);
+build_array_type!(BoolArray);
+build_array_type!(UUIDArray);
+build_array_type!(VarCharArray);
+build_array_type!(TextArray);
+build_array_type!(Int16Array);
+build_array_type!(Int32Array);
+build_array_type!(Int64Array);
+build_array_type!(Flaot32Array);
+build_array_type!(Flaot64Array);
+build_array_type!(MoneyArray);
+build_array_type!(IpAddressArray);
+build_array_type!(JSONBArray);
+build_array_type!(JSONArray);
+build_array_type!(DateArray);
+build_array_type!(TimeArray);
+build_array_type!(DateTimeArray);
+build_array_type!(DateTimeTZArray);
+build_array_type!(MacAddr6Array);
+build_array_type!(MacAddr8Array);
+build_array_type!(NumericArray);
+build_array_type!(PointArray);
+build_array_type!(BoxArray);
+build_array_type!(PathArray);
+build_array_type!(LineArray);
+build_array_type!(LsegArray);
+build_array_type!(CircleArray);
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
@@ -379,7 +365,31 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyLine>()?;
     pymod.add_class::<PyLineSegment>()?;
     pymod.add_class::<PyCircle>()?;
-
     pymod.add_class::<BoolArray>()?;
+    pymod.add_class::<UUIDArray>()?;
+    pymod.add_class::<VarCharArray>()?;
+    pymod.add_class::<TextArray>()?;
+    pymod.add_class::<Int16Array>()?;
+    pymod.add_class::<Int32Array>()?;
+    pymod.add_class::<Int64Array>()?;
+    pymod.add_class::<Flaot32Array>()?;
+    pymod.add_class::<Flaot64Array>()?;
+    pymod.add_class::<MoneyArray>()?;
+    pymod.add_class::<IpAddressArray>()?;
+    pymod.add_class::<JSONBArray>()?;
+    pymod.add_class::<JSONArray>()?;
+    pymod.add_class::<DateArray>()?;
+    pymod.add_class::<TimeArray>()?;
+    pymod.add_class::<DateTimeArray>()?;
+    pymod.add_class::<DateTimeTZArray>()?;
+    pymod.add_class::<MacAddr6Array>()?;
+    pymod.add_class::<MacAddr8Array>()?;
+    pymod.add_class::<NumericArray>()?;
+    pymod.add_class::<PointArray>()?;
+    pymod.add_class::<BoxArray>()?;
+    pymod.add_class::<PathArray>()?;
+    pymod.add_class::<LineArray>()?;
+    pymod.add_class::<LsegArray>()?;
+    pymod.add_class::<CircleArray>()?;
     Ok(())
 }

@@ -31,9 +31,12 @@ use crate::{
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{
-        BigInt, BoolArray, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON,
-        PyJSONB, PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
-        SmallInt,
+        BigInt, BoolArray, BoxArray, CircleArray, DateArray, DateTimeArray, DateTimeTZArray,
+        Flaot32Array, Flaot64Array, Float32, Float64, Int16Array, Int32Array, Int64Array, Integer,
+        IpAddressArray, JSONArray, JSONBArray, LineArray, LsegArray, MacAddr6Array, MacAddr8Array,
+        Money, MoneyArray, NumericArray, PathArray, PointArray, PyBox, PyCircle, PyCustomType,
+        PyJSON, PyJSONB, PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText,
+        PyVarChar, SmallInt, TextArray, TimeArray, UUIDArray, VarCharArray,
     },
 };
 use postgres_array::{array::Array, Dimension};
@@ -58,7 +61,7 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
 ///
 /// We use custom struct because we need to implement external traits
 /// to it.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct InternalUuid(Uuid);
 
 impl<'a> FromPyObject<'a> for InternalUuid {}
@@ -184,6 +187,32 @@ pub enum PythonDTO {
     PyLine(Line),
     PyLineSegment(LineSegment),
     PyCircle(Circle),
+    PyBoolArray(Array<PythonDTO>),
+    PyUuidArray(Array<PythonDTO>),
+    PyVarCharArray(Array<PythonDTO>),
+    PyTextArray(Array<PythonDTO>),
+    PyInt16Array(Array<PythonDTO>),
+    PyInt32Array(Array<PythonDTO>),
+    PyInt64Array(Array<PythonDTO>),
+    PyFlaot32Array(Array<PythonDTO>),
+    PyFlaot64Array(Array<PythonDTO>),
+    PyMoneyArray(Array<PythonDTO>),
+    PyIpAddressArray(Array<PythonDTO>),
+    PyJSONBArray(Array<PythonDTO>),
+    PyJSONArray(Array<PythonDTO>),
+    PyDateArray(Array<PythonDTO>),
+    PyTimeArray(Array<PythonDTO>),
+    PyDateTimeArray(Array<PythonDTO>),
+    PyDateTimeTZArray(Array<PythonDTO>),
+    PyMacAddr6Array(Array<PythonDTO>),
+    PyMacAddr8Array(Array<PythonDTO>),
+    PyNumericArray(Array<PythonDTO>),
+    PyPointArray(Array<PythonDTO>),
+    PyBoxArray(Array<PythonDTO>),
+    PyPathArray(Array<PythonDTO>),
+    PyLineArray(Array<PythonDTO>),
+    PyLsegArray(Array<PythonDTO>),
+    PyCircleArray(Array<PythonDTO>),
 }
 
 impl ToPyObject for PythonDTO {
@@ -425,7 +454,86 @@ impl ToSql for PythonDTO {
             PythonDTO::PyDecimal(py_decimal) => {
                 <Decimal as ToSql>::to_sql(py_decimal, ty, out)?;
             }
+            PythonDTO::PyBoolArray(array) => {
+                array.to_sql(&Type::BOOL_ARRAY, out)?;
+            }
+            PythonDTO::PyUuidArray(array) => {
+                array.to_sql(&Type::UUID_ARRAY, out)?;
+            }
+            PythonDTO::PyVarCharArray(array) => {
+                array.to_sql(&Type::VARCHAR_ARRAY, out)?;
+            }
+            PythonDTO::PyTextArray(array) => {
+                array.to_sql(&Type::TEXT_ARRAY, out)?;
+            }
+            PythonDTO::PyInt16Array(array) => {
+                array.to_sql(&Type::INT2_ARRAY, out)?;
+            }
+            PythonDTO::PyInt32Array(array) => {
+                array.to_sql(&Type::INT4_ARRAY, out)?;
+            }
+            PythonDTO::PyInt64Array(array) => {
+                array.to_sql(&Type::INT8_ARRAY, out)?;
+            }
+            PythonDTO::PyFlaot32Array(array) => {
+                array.to_sql(&Type::FLOAT4, out)?;
+            }
+            PythonDTO::PyFlaot64Array(array) => {
+                array.to_sql(&Type::FLOAT8_ARRAY, out)?;
+            }
+            PythonDTO::PyMoneyArray(array) => {
+                array.to_sql(&Type::MONEY_ARRAY, out)?;
+            }
+            PythonDTO::PyIpAddressArray(array) => {
+                array.to_sql(&Type::INET_ARRAY, out)?;
+            }
+            PythonDTO::PyJSONBArray(array) => {
+                array.to_sql(&Type::JSONB_ARRAY, out)?;
+            }
+            PythonDTO::PyJSONArray(array) => {
+                array.to_sql(&Type::JSON_ARRAY, out)?;
+            }
+            PythonDTO::PyDateArray(array) => {
+                array.to_sql(&Type::DATE_ARRAY, out)?;
+            }
+            PythonDTO::PyTimeArray(array) => {
+                array.to_sql(&Type::TIME_ARRAY, out)?;
+            }
+            PythonDTO::PyDateTimeArray(array) => {
+                array.to_sql(&Type::TIMESTAMP_ARRAY, out)?;
+            }
+            PythonDTO::PyDateTimeTZArray(array) => {
+                array.to_sql(&Type::TIMESTAMPTZ_ARRAY, out)?;
+            }
+            PythonDTO::PyMacAddr6Array(array) => {
+                array.to_sql(&Type::MACADDR_ARRAY, out)?;
+            }
+            PythonDTO::PyMacAddr8Array(array) => {
+                array.to_sql(&Type::MACADDR8_ARRAY, out)?;
+            }
+            PythonDTO::PyNumericArray(array) => {
+                array.to_sql(&Type::NUMERIC_ARRAY, out)?;
+            }
+            PythonDTO::PyPointArray(array) => {
+                array.to_sql(&Type::POINT_ARRAY, out)?;
+            }
+            PythonDTO::PyBoxArray(array) => {
+                array.to_sql(&Type::BOX_ARRAY, out)?;
+            }
+            PythonDTO::PyPathArray(array) => {
+                array.to_sql(&Type::PATH_ARRAY, out)?;
+            }
+            PythonDTO::PyLineArray(array) => {
+                array.to_sql(&Type::LINE_ARRAY, out)?;
+            }
+            PythonDTO::PyLsegArray(array) => {
+                array.to_sql(&Type::LSEG_ARRAY, out)?;
+            }
+            PythonDTO::PyCircleArray(array) => {
+                array.to_sql(&Type::CIRCLE_ARRAY, out)?;
+            }
         }
+
         if return_is_null_true {
             Ok(tokio_postgres::types::IsNull::Yes)
         } else {
@@ -778,6 +886,292 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyCircle(
             parameter.extract::<PyCircle>()?.retrieve_value(),
         ));
+    }
+
+    if parameter.is_instance_of::<BoolArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<BoolArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoolArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<UUIDArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<UUIDArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyUuidArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<VarCharArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<VarCharArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyVarCharArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<TextArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<TextArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTextArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<Int16Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<Int16Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt16Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<Int32Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<Int32Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt32Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<Int64Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<Int64Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt64Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<Flaot32Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<Flaot32Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot32Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<Flaot64Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<Flaot64Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot64Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<MoneyArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<MoneyArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMoneyArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<IpAddressArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<IpAddressArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyIpAddressArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<JSONBArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<JSONBArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONBArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<JSONArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<JSONArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<DateArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<DateArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<TimeArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<TimeArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTimeArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<DateTimeArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<DateTimeArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<DateTimeTZArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<DateTimeTZArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeTZArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<MacAddr6Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<MacAddr6Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr6Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<MacAddr8Array>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<MacAddr8Array>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr8Array(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<NumericArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<NumericArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyNumericArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<PointArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<PointArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPointArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<BoxArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<BoxArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoxArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<PathArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<PathArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPathArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<LineArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<LineArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLineArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<LsegArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<LsegArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLsegArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
+    }
+
+    if parameter.is_instance_of::<CircleArray>() {
+        return Python::with_gil(|gil| {
+            let binding = parameter.extract::<CircleArray>()?.inner();
+            let bound_inner =
+                Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
+            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyCircleArray(
+                py_sequence_into_postgres_array(bound_inner)?,
+            ));
+        });
     }
 
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
@@ -1181,7 +1575,7 @@ fn postgres_bytes_to_py(
             Option<Array<DateTime<FixedOffset>>>,
         >(type_, buf, is_simple)?)
         .to_object(py)),
-        // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        // Convert ARRAY of UUID into Vec<Array<InternalUuid>>, then into list[UUID]
         Type::UUID_ARRAY => {
             let uuid_array =
                 _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(type_, buf, is_simple)?;

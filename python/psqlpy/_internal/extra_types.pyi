@@ -1,4 +1,8 @@
 import typing
+from datetime import date, datetime, time
+from decimal import Decimal
+from ipaddress import IPv4Address, IPv6Address
+from uuid import UUID
 
 from typing_extensions import Self
 
@@ -252,12 +256,498 @@ class PyCircle:
         - `value`: any valid structure with int/float numbers.
         """
 
-
 class BoolArray:
-    """Represent circle field in PostgreSQL and Circle in Rust."""
+    """Represent BOOLEAN ARRAY in PostgreSQL."""
 
     def __init__(
         self: Self,
-        value: typing.Any,
+        inner: typing.Sequence[
+            typing.Union[
+                bool,
+                typing.Sequence[bool],
+                typing.Any,
+            ],
+        ],
     ) -> None:
-        """Create new instance."""
+        """Create new instance of BoolArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of UUID values.
+        """
+
+class UUIDArray:
+    """Represent UUID ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                UUID,
+                typing.Sequence[UUID],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of UuidArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of UUID values.
+        """
+
+class VarCharArray:
+    """Represent VarChar ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                str,
+                typing.Sequence[str],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of VarCharArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of str values.
+        """
+
+class TextArray:
+    """Represent Text ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                str,
+                typing.Sequence[str],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of TextArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of str values.
+        """
+
+class Int16Array:
+    """Represent INT2 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                int,
+                typing.Sequence[int],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of Int16Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of int values.
+        """
+
+class Int32Array:
+    """Represent INT4 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                int,
+                typing.Sequence[int],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of Int32Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of int values.
+        """
+
+class Int64Array:
+    """Represent INT8 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                int,
+                typing.Sequence[int],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of Int64Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of int values.
+        """
+
+class Flaot32Array:
+    """Represent FLOAT4 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                float,
+                typing.Sequence[float],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of Flaot32Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of float values.
+        """
+
+class Flaot64Array:
+    """Represent FLOAT8 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                float,
+                typing.Sequence[float],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of Flaot64Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of float values.
+        """
+
+class MoneyArray:
+    """Represent MONEY ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                int,
+                typing.Sequence[int],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of MoneyArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of int values.
+        """
+
+class IpAddressArray:
+    """Represent INET ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                IPv4Address,
+                IPv6Address,
+                typing.Sequence[IPv4Address],
+                typing.Sequence[IPv6Address],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of IpAddressArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of IPv4Address/IPv6Address values.
+        """
+
+class JSONBArray:
+    """Represent JSONB ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                typing.Dict[str, typing.Any],
+                typing.Sequence[typing.Dict[str, typing.Any]],
+                typing.Sequence[typing.Any],
+            ]
+        ],
+    ) -> None:
+        """Create new instance of JSONBArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of values.
+        """
+
+class JSONArray:
+    """Represent JSONArray ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                typing.Dict[str, typing.Any],
+                typing.Sequence[typing.Dict[str, typing.Any]],
+                typing.Sequence[typing.Any],
+            ]
+        ],
+    ) -> None:
+        """Create new instance of JSONArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of values.
+        """
+
+class DateArray:
+    """Represent DATE ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                date,
+                typing.Sequence[date],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of DateArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of date values.
+        """
+
+class TimeArray:
+    """Represent TIME ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                time,
+                typing.Sequence[time],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of DateArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of time values.
+        """
+
+class DateTimeArray:
+    """Represent TIMESTAMP ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                datetime,
+                typing.Sequence[datetime],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of DateArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of datetime values.
+        """
+
+class DateTimeTZArray:
+    """Represent TIMESTAMPTZ ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                datetime,
+                typing.Sequence[datetime],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of DateArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of datetime values.
+        """
+
+class MacAddr6Array:
+    """Represent MACADDR ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyMacAddr6,
+                typing.Sequence[PyMacAddr6],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of MacAddr6Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyMacAddr6 values.
+        """
+
+class MacAddr8Array:
+    """Represent MACADDR8 ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyMacAddr8,
+                typing.Sequence[PyMacAddr8],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of MacAddr8Array.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyMacAddr8 values.
+        """
+
+class NumericArray:
+    """Represent NUMERIC ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                Decimal,
+                typing.Sequence[Decimal],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of NumericArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of Decimal values.
+        """
+
+class PointArray:
+    """Represent POINT ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyPoint,
+                typing.Sequence[PyPoint],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of PointArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyPoint values.
+        """
+
+class BoxArray:
+    """Represent BOX ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyBox,
+                typing.Sequence[PyBox],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of BoxArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyBox values.
+        """
+
+class PathArray:
+    """Represent PATH ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyPath,
+                typing.Sequence[PyPath],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of PathArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyPath values.
+        """
+
+class LineArray:
+    """Represent LINE ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyLine,
+                typing.Sequence[PyLine],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of LineArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyLine values.
+        """
+
+class LsegArray:
+    """Represent LSEG ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyLineSegment,
+                typing.Sequence[PyLineSegment],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of LsegArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyLineSegment values.
+        """
+
+class CircleArray:
+    """Represent CIRCLE ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                PyCircle,
+                typing.Sequence[PyCircle],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of CircleArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of PyLineSegment values.
+        """
