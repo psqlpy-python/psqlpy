@@ -893,9 +893,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<BoolArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoolArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoolArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -904,9 +904,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<UUIDArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyUuidArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyUuidArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -915,9 +915,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<VarCharArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyVarCharArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyVarCharArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -926,9 +926,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<TextArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTextArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTextArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -937,9 +937,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<Int16Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt16Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt16Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -948,9 +948,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<Int32Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt32Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt32Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -959,9 +959,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<Int64Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt64Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyInt64Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -970,9 +970,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<Flaot32Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot32Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot32Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -981,9 +981,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<Flaot64Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot64Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyFlaot64Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -992,9 +992,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<MoneyArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMoneyArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMoneyArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1003,9 +1003,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<IpAddressArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyIpAddressArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyIpAddressArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1014,9 +1014,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<JSONBArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONBArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONBArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1025,9 +1025,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<JSONArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyJSONArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1036,9 +1036,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<DateArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1047,9 +1047,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<TimeArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTimeArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyTimeArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1058,9 +1058,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<DateTimeArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1069,9 +1069,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<DateTimeTZArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeTZArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyDateTimeTZArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1080,9 +1080,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<MacAddr6Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr6Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr6Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1091,9 +1091,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<MacAddr8Array>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr8Array(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyMacAddr8Array(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1102,9 +1102,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<NumericArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyNumericArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyNumericArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1113,9 +1113,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<PointArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPointArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPointArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1124,9 +1124,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<BoxArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoxArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyBoxArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1135,9 +1135,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<PathArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPathArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyPathArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1146,9 +1146,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<LineArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLineArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLineArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1157,9 +1157,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<LsegArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLsegArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyLsegArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
@@ -1168,9 +1168,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             let binding = parameter.extract::<CircleArray>()?.inner();
             let bound_inner =
                 Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(binding.bind(gil))?;
-            return Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyCircleArray(
+            Ok::<PythonDTO, RustPSQLDriverError>(PythonDTO::PyCircleArray(
                 py_sequence_into_postgres_array(bound_inner)?,
-            ));
+            ))
         });
     }
 
