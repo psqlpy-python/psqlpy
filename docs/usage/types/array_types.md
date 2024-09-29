@@ -42,9 +42,9 @@ from psqlpy.extra_types import TextArray
 async def main() -> None:
     pool = ConnectionPool()
     result = await pool.execute(
-        querystring="SELECT * FROM users WHERE id = ANY($1)",
+        querystring="SELECT * FROM users WHERE name = ANY($1)",
         parameters=[
-            TextArray([1, 2, 3]),
+            TextArray(["Alex", "Dev", "Who"]),
         ]
     )
 ```
