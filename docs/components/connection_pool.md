@@ -192,7 +192,7 @@ Parameters must be passed as list after querystring.
 ::: caution
 You must use `ConnectionPool.execute` method in high-load production code wisely!
 It pulls connection from the pool each time you execute query.
-Preferable way to execute statements with [Connection](./../../introduction/components/connection.md) or [Transaction](./../../introduction/components/transaction.md)
+Preferable way to execute statements with [Connection](./../components/connection.md) or [Transaction](./../components/transaction.md)
 :::
 
 ```python

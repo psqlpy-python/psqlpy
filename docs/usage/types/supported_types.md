@@ -50,6 +50,7 @@ DECIMAL PostgreSQL type isn't supported, use NUMERIC instead.
 ## Array Type
 
 You can make arrays with any type of `Simple Type`s.
+For better performance and type safety we recommend to use predefined [Array Types](./array_types.md).
 
 #### Example:
 ```sql

@@ -184,9 +184,10 @@ async def main() -> None:
 - `isolation_level`: level of isolation. Default how it is in PostgreSQL.
 - `read_variant`: configure read variant of the transaction. Default how it is in PostgreSQL.
 - `deferrable`: configure deferrable of the transaction. Default how it is in PostgreSQL.
+- `synchronous_commit`: configure [synchronous_commit](https://postgresqlco.nf/doc/en/param/synchronous_commit/) option for transaction. Default how it is in PostgreSQL.
 
 ```python
-from psqlpy import IsolationLevel, ReadVariant
+from psqlpy import IsolationLevel, ReadVariant, SynchronousCommit
 
 async def main() -> None:
     ...
@@ -195,6 +196,7 @@ async def main() -> None:
         isolation_level=IsolationLevel.Serializable,
         read_variant=ReadVariant.ReadWrite,
         deferrable=True,
+        synchronous_commit=SynchronousCommit.On,
     )
 ```
 

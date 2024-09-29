@@ -489,7 +489,7 @@ class JSONBArray:
         """
 
 class JSONArray:
-    """Represent JSONArray ARRAY in PostgreSQL."""
+    """Represent JSON ARRAY in PostgreSQL."""
 
     def __init__(
         self: Self,
