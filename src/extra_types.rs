@@ -11,8 +11,11 @@ use serde_json::Value;
 
 use crate::{
     additional_types::{Circle, Line},
-    exceptions::rust_errors::RustPSQLDriverPyResult,
-    value_converter::{build_flat_geo_coords, build_geo_coords, build_serde_value},
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    value_converter::{
+        build_flat_geo_coords, build_geo_coords, build_serde_value,
+        py_sequence_into_postgres_array, PythonDTO,
+    },
 };
 
 macro_rules! build_python_type {
@@ -290,6 +293,75 @@ impl PyCircle {
     }
 }
 
+macro_rules! build_array_type {
+    ($st_name:ident, $kind:path) => {
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct $st_name {
+            inner: Py<PyAny>,
+        }
+
+        #[pymethods]
+        impl $st_name {
+            #[new]
+            #[must_use]
+            pub fn new_class(inner: Py<PyAny>) -> Self {
+                Self { inner }
+            }
+        }
+
+        impl $st_name {
+            #[must_use]
+            pub fn inner(&self) -> Py<PyAny> {
+                self.inner.clone()
+            }
+
+            /// Convert incoming sequence from python to internal `PythonDTO`.
+            ///
+            /// # Errors
+            /// May return Err Result if cannot convert sequence to array.
+            pub fn _convert_to_python_dto(&self) -> RustPSQLDriverPyResult<PythonDTO> {
+                return Python::with_gil(|gil| {
+                    let binding = &self.inner;
+                    let bound_inner = Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(
+                        binding.bind(gil),
+                    )?;
+                    Ok::<PythonDTO, RustPSQLDriverError>($kind(py_sequence_into_postgres_array(
+                        bound_inner,
+                    )?))
+                });
+            }
+        }
+    };
+}
+
+build_array_type!(BoolArray, PythonDTO::PyBoolArray);
+build_array_type!(UUIDArray, PythonDTO::PyUuidArray);
+build_array_type!(VarCharArray, PythonDTO::PyVarCharArray);
+build_array_type!(TextArray, PythonDTO::PyTextArray);
+build_array_type!(Int16Array, PythonDTO::PyInt16Array);
+build_array_type!(Int32Array, PythonDTO::PyInt32Array);
+build_array_type!(Int64Array, PythonDTO::PyInt64Array);
+build_array_type!(Float32Array, PythonDTO::PyFloat32Array);
+build_array_type!(Float64Array, PythonDTO::PyFloat64Array);
+build_array_type!(MoneyArray, PythonDTO::PyMoneyArray);
+build_array_type!(IpAddressArray, PythonDTO::PyIpAddressArray);
+build_array_type!(JSONBArray, PythonDTO::PyJSONBArray);
+build_array_type!(JSONArray, PythonDTO::PyJSONArray);
+build_array_type!(DateArray, PythonDTO::PyDateArray);
+build_array_type!(TimeArray, PythonDTO::PyTimeArray);
+build_array_type!(DateTimeArray, PythonDTO::PyDateTimeArray);
+build_array_type!(DateTimeTZArray, PythonDTO::PyDateTimeTZArray);
+build_array_type!(MacAddr6Array, PythonDTO::PyMacAddr6Array);
+build_array_type!(MacAddr8Array, PythonDTO::PyMacAddr8Array);
+build_array_type!(NumericArray, PythonDTO::PyNumericArray);
+build_array_type!(PointArray, PythonDTO::PyPointArray);
+build_array_type!(BoxArray, PythonDTO::PyBoxArray);
+build_array_type!(PathArray, PythonDTO::PyPathArray);
+build_array_type!(LineArray, PythonDTO::PyLineArray);
+build_array_type!(LsegArray, PythonDTO::PyLsegArray);
+build_array_type!(CircleArray, PythonDTO::PyCircleArray);
+
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
 pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -312,5 +384,31 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<PyLine>()?;
     pymod.add_class::<PyLineSegment>()?;
     pymod.add_class::<PyCircle>()?;
+    pymod.add_class::<BoolArray>()?;
+    pymod.add_class::<UUIDArray>()?;
+    pymod.add_class::<VarCharArray>()?;
+    pymod.add_class::<TextArray>()?;
+    pymod.add_class::<Int16Array>()?;
+    pymod.add_class::<Int32Array>()?;
+    pymod.add_class::<Int64Array>()?;
+    pymod.add_class::<Float32Array>()?;
+    pymod.add_class::<Float64Array>()?;
+    pymod.add_class::<MoneyArray>()?;
+    pymod.add_class::<IpAddressArray>()?;
+    pymod.add_class::<JSONBArray>()?;
+    pymod.add_class::<JSONArray>()?;
+    pymod.add_class::<DateArray>()?;
+    pymod.add_class::<TimeArray>()?;
+    pymod.add_class::<DateTimeArray>()?;
+    pymod.add_class::<DateTimeTZArray>()?;
+    pymod.add_class::<MacAddr6Array>()?;
+    pymod.add_class::<MacAddr8Array>()?;
+    pymod.add_class::<NumericArray>()?;
+    pymod.add_class::<PointArray>()?;
+    pymod.add_class::<BoxArray>()?;
+    pymod.add_class::<PathArray>()?;
+    pymod.add_class::<LineArray>()?;
+    pymod.add_class::<LsegArray>()?;
+    pymod.add_class::<CircleArray>()?;
     Ok(())
 }

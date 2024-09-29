@@ -14,9 +14,10 @@ use pyo3::{
     sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType, PyTypeMethods,
+        PyIterator, PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType,
+        PyTypeMethods,
     },
-    Bound, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
+    Bound, FromPyObject, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
 use tokio_postgres::{
     types::{to_sql_checked, Type},
@@ -29,11 +30,7 @@ use crate::{
         RustRect,
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    extra_types::{
-        BigInt, Float32, Float64, Integer, Money, PyBox, PyCircle, PyCustomType, PyJSON, PyJSONB,
-        PyLine, PyLineSegment, PyMacAddr6, PyMacAddr8, PyPath, PyPoint, PyText, PyVarChar,
-        SmallInt,
-    },
+    extra_types,
 };
 use postgres_array::{array::Array, Dimension};
 
@@ -57,7 +54,10 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
 ///
 /// We use custom struct because we need to implement external traits
 /// to it.
-struct InternalUuid(Uuid);
+#[derive(Clone, Copy)]
+pub struct InternalUuid(Uuid);
+
+impl<'a> FromPyObject<'a> for InternalUuid {}
 
 impl ToPyObject for InternalUuid {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -82,7 +82,10 @@ impl<'a> FromSql<'a> for InternalUuid {
 ///
 /// We use custom struct because we need to implement external traits
 /// to it.
-struct InternalSerdeValue(Value);
+#[derive(Clone)]
+pub struct InternalSerdeValue(Value);
+
+impl<'a> FromPyObject<'a> for InternalSerdeValue {}
 
 impl ToPyObject for InternalSerdeValue {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -177,6 +180,32 @@ pub enum PythonDTO {
     PyLine(Line),
     PyLineSegment(LineSegment),
     PyCircle(Circle),
+    PyBoolArray(Array<PythonDTO>),
+    PyUuidArray(Array<PythonDTO>),
+    PyVarCharArray(Array<PythonDTO>),
+    PyTextArray(Array<PythonDTO>),
+    PyInt16Array(Array<PythonDTO>),
+    PyInt32Array(Array<PythonDTO>),
+    PyInt64Array(Array<PythonDTO>),
+    PyFloat32Array(Array<PythonDTO>),
+    PyFloat64Array(Array<PythonDTO>),
+    PyMoneyArray(Array<PythonDTO>),
+    PyIpAddressArray(Array<PythonDTO>),
+    PyJSONBArray(Array<PythonDTO>),
+    PyJSONArray(Array<PythonDTO>),
+    PyDateArray(Array<PythonDTO>),
+    PyTimeArray(Array<PythonDTO>),
+    PyDateTimeArray(Array<PythonDTO>),
+    PyDateTimeTZArray(Array<PythonDTO>),
+    PyMacAddr6Array(Array<PythonDTO>),
+    PyMacAddr8Array(Array<PythonDTO>),
+    PyNumericArray(Array<PythonDTO>),
+    PyPointArray(Array<PythonDTO>),
+    PyBoxArray(Array<PythonDTO>),
+    PyPathArray(Array<PythonDTO>),
+    PyLineArray(Array<PythonDTO>),
+    PyLsegArray(Array<PythonDTO>),
+    PyCircleArray(Array<PythonDTO>),
 }
 
 impl ToPyObject for PythonDTO {
@@ -418,7 +447,86 @@ impl ToSql for PythonDTO {
             PythonDTO::PyDecimal(py_decimal) => {
                 <Decimal as ToSql>::to_sql(py_decimal, ty, out)?;
             }
+            PythonDTO::PyBoolArray(array) => {
+                array.to_sql(&Type::BOOL_ARRAY, out)?;
+            }
+            PythonDTO::PyUuidArray(array) => {
+                array.to_sql(&Type::UUID_ARRAY, out)?;
+            }
+            PythonDTO::PyVarCharArray(array) => {
+                array.to_sql(&Type::VARCHAR_ARRAY, out)?;
+            }
+            PythonDTO::PyTextArray(array) => {
+                array.to_sql(&Type::TEXT_ARRAY, out)?;
+            }
+            PythonDTO::PyInt16Array(array) => {
+                array.to_sql(&Type::INT2_ARRAY, out)?;
+            }
+            PythonDTO::PyInt32Array(array) => {
+                array.to_sql(&Type::INT4_ARRAY, out)?;
+            }
+            PythonDTO::PyInt64Array(array) => {
+                array.to_sql(&Type::INT8_ARRAY, out)?;
+            }
+            PythonDTO::PyFloat32Array(array) => {
+                array.to_sql(&Type::FLOAT4, out)?;
+            }
+            PythonDTO::PyFloat64Array(array) => {
+                array.to_sql(&Type::FLOAT8_ARRAY, out)?;
+            }
+            PythonDTO::PyMoneyArray(array) => {
+                array.to_sql(&Type::MONEY_ARRAY, out)?;
+            }
+            PythonDTO::PyIpAddressArray(array) => {
+                array.to_sql(&Type::INET_ARRAY, out)?;
+            }
+            PythonDTO::PyJSONBArray(array) => {
+                array.to_sql(&Type::JSONB_ARRAY, out)?;
+            }
+            PythonDTO::PyJSONArray(array) => {
+                array.to_sql(&Type::JSON_ARRAY, out)?;
+            }
+            PythonDTO::PyDateArray(array) => {
+                array.to_sql(&Type::DATE_ARRAY, out)?;
+            }
+            PythonDTO::PyTimeArray(array) => {
+                array.to_sql(&Type::TIME_ARRAY, out)?;
+            }
+            PythonDTO::PyDateTimeArray(array) => {
+                array.to_sql(&Type::TIMESTAMP_ARRAY, out)?;
+            }
+            PythonDTO::PyDateTimeTZArray(array) => {
+                array.to_sql(&Type::TIMESTAMPTZ_ARRAY, out)?;
+            }
+            PythonDTO::PyMacAddr6Array(array) => {
+                array.to_sql(&Type::MACADDR_ARRAY, out)?;
+            }
+            PythonDTO::PyMacAddr8Array(array) => {
+                array.to_sql(&Type::MACADDR8_ARRAY, out)?;
+            }
+            PythonDTO::PyNumericArray(array) => {
+                array.to_sql(&Type::NUMERIC_ARRAY, out)?;
+            }
+            PythonDTO::PyPointArray(array) => {
+                array.to_sql(&Type::POINT_ARRAY, out)?;
+            }
+            PythonDTO::PyBoxArray(array) => {
+                array.to_sql(&Type::BOX_ARRAY, out)?;
+            }
+            PythonDTO::PyPathArray(array) => {
+                array.to_sql(&Type::PATH_ARRAY, out)?;
+            }
+            PythonDTO::PyLineArray(array) => {
+                array.to_sql(&Type::LINE_ARRAY, out)?;
+            }
+            PythonDTO::PyLsegArray(array) => {
+                array.to_sql(&Type::LSEG_ARRAY, out)?;
+            }
+            PythonDTO::PyCircleArray(array) => {
+                array.to_sql(&Type::CIRCLE_ARRAY, out)?;
+            }
         }
+
         if return_is_null_true {
             Ok(tokio_postgres::types::IsNull::Yes)
         } else {
@@ -553,7 +661,6 @@ pub fn py_sequence_into_postgres_array(
     }
 
     let array_data = py_sequence_into_flat_vec(parameter)?;
-
     match postgres_array::Array::from_parts_no_panic(array_data, dimensions) {
         Ok(result_array) => Ok(result_array),
         Err(err) => Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
@@ -574,9 +681,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyNone);
     }
 
-    if parameter.is_instance_of::<PyCustomType>() {
+    if parameter.is_instance_of::<extra_types::PyCustomType>() {
         return Ok(PythonDTO::PyCustomType(
-            parameter.extract::<PyCustomType>()?.inner(),
+            parameter.extract::<extra_types::PyCustomType>()?.inner(),
         ));
     }
 
@@ -588,13 +695,15 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
     }
 
-    if parameter.is_instance_of::<PyText>() {
-        return Ok(PythonDTO::PyText(parameter.extract::<PyText>()?.inner()));
+    if parameter.is_instance_of::<extra_types::PyText>() {
+        return Ok(PythonDTO::PyText(
+            parameter.extract::<extra_types::PyText>()?.inner(),
+        ));
     }
 
-    if parameter.is_instance_of::<PyVarChar>() {
+    if parameter.is_instance_of::<extra_types::PyVarChar>() {
         return Ok(PythonDTO::PyVarChar(
-            parameter.extract::<PyVarChar>()?.inner(),
+            parameter.extract::<extra_types::PyVarChar>()?.inner(),
         ));
     }
 
@@ -606,39 +715,47 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyFloat64(parameter.extract::<f64>()?));
     }
 
-    if parameter.is_instance_of::<Float32>() {
+    if parameter.is_instance_of::<extra_types::Float32>() {
         return Ok(PythonDTO::PyFloat32(
-            parameter.extract::<Float32>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Float32>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Float64>() {
+    if parameter.is_instance_of::<extra_types::Float64>() {
         return Ok(PythonDTO::PyFloat64(
-            parameter.extract::<Float64>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Float64>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<SmallInt>() {
+    if parameter.is_instance_of::<extra_types::SmallInt>() {
         return Ok(PythonDTO::PyIntI16(
-            parameter.extract::<SmallInt>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::SmallInt>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Integer>() {
+    if parameter.is_instance_of::<extra_types::Integer>() {
         return Ok(PythonDTO::PyIntI32(
-            parameter.extract::<Integer>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::Integer>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<BigInt>() {
+    if parameter.is_instance_of::<extra_types::BigInt>() {
         return Ok(PythonDTO::PyIntI64(
-            parameter.extract::<BigInt>()?.retrieve_value(),
+            parameter.extract::<extra_types::BigInt>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<Money>() {
+    if parameter.is_instance_of::<extra_types::Money>() {
         return Ok(PythonDTO::PyMoney(
-            parameter.extract::<Money>()?.retrieve_value(),
+            parameter.extract::<extra_types::Money>()?.retrieve_value(),
         ));
     }
 
@@ -701,27 +818,27 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyJsonb(Value::Object(serde_map)));
     }
 
-    if parameter.is_instance_of::<PyJSONB>() {
+    if parameter.is_instance_of::<extra_types::PyJSONB>() {
         return Ok(PythonDTO::PyJsonb(
-            parameter.extract::<PyJSONB>()?.inner().clone(),
+            parameter.extract::<extra_types::PyJSONB>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<PyJSON>() {
+    if parameter.is_instance_of::<extra_types::PyJSON>() {
         return Ok(PythonDTO::PyJson(
-            parameter.extract::<PyJSON>()?.inner().clone(),
+            parameter.extract::<extra_types::PyJSON>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<PyMacAddr6>() {
+    if parameter.is_instance_of::<extra_types::PyMacAddr6>() {
         return Ok(PythonDTO::PyMacAddr6(
-            parameter.extract::<PyMacAddr6>()?.inner(),
+            parameter.extract::<extra_types::PyMacAddr6>()?.inner(),
         ));
     }
 
-    if parameter.is_instance_of::<PyMacAddr8>() {
+    if parameter.is_instance_of::<extra_types::PyMacAddr8>() {
         return Ok(PythonDTO::PyMacAddr8(
-            parameter.extract::<PyMacAddr8>()?.inner(),
+            parameter.extract::<extra_types::PyMacAddr8>()?.inner(),
         ));
     }
 
@@ -737,40 +854,202 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         )?));
     }
 
-    if parameter.is_instance_of::<PyPoint>() {
+    if parameter.is_instance_of::<extra_types::PyPoint>() {
         return Ok(PythonDTO::PyPoint(
-            parameter.extract::<PyPoint>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyPoint>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyBox>() {
+    if parameter.is_instance_of::<extra_types::PyBox>() {
         return Ok(PythonDTO::PyBox(
-            parameter.extract::<PyBox>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyBox>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyPath>() {
+    if parameter.is_instance_of::<extra_types::PyPath>() {
         return Ok(PythonDTO::PyPath(
-            parameter.extract::<PyPath>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyPath>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyLine>() {
+    if parameter.is_instance_of::<extra_types::PyLine>() {
         return Ok(PythonDTO::PyLine(
-            parameter.extract::<PyLine>()?.retrieve_value(),
+            parameter.extract::<extra_types::PyLine>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyLineSegment>() {
+    if parameter.is_instance_of::<extra_types::PyLineSegment>() {
         return Ok(PythonDTO::PyLineSegment(
-            parameter.extract::<PyLineSegment>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyLineSegment>()?
+                .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<PyCircle>() {
+    if parameter.is_instance_of::<extra_types::PyCircle>() {
         return Ok(PythonDTO::PyCircle(
-            parameter.extract::<PyCircle>()?.retrieve_value(),
+            parameter
+                .extract::<extra_types::PyCircle>()?
+                .retrieve_value(),
         ));
+    }
+
+    if parameter.is_instance_of::<extra_types::BoolArray>() {
+        return parameter
+            .extract::<extra_types::BoolArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::UUIDArray>() {
+        return parameter
+            .extract::<extra_types::UUIDArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::VarCharArray>() {
+        return parameter
+            .extract::<extra_types::VarCharArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::TextArray>() {
+        return parameter
+            .extract::<extra_types::TextArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::Int16Array>() {
+        return parameter
+            .extract::<extra_types::Int16Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::Int32Array>() {
+        return parameter
+            .extract::<extra_types::Int32Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::Int64Array>() {
+        return parameter
+            .extract::<extra_types::Int64Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::Float32Array>() {
+        return parameter
+            .extract::<extra_types::Float32Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::Float64Array>() {
+        return parameter
+            .extract::<extra_types::Float64Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::MoneyArray>() {
+        return parameter
+            .extract::<extra_types::MoneyArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::IpAddressArray>() {
+        return parameter
+            .extract::<extra_types::IpAddressArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::JSONBArray>() {
+        return parameter
+            .extract::<extra_types::JSONBArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::JSONArray>() {
+        return parameter
+            .extract::<extra_types::JSONArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::DateArray>() {
+        return parameter
+            .extract::<extra_types::DateArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::TimeArray>() {
+        return parameter
+            .extract::<extra_types::TimeArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::DateTimeArray>() {
+        return parameter
+            .extract::<extra_types::DateTimeArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::DateTimeTZArray>() {
+        return parameter
+            .extract::<extra_types::DateTimeTZArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::MacAddr6Array>() {
+        return parameter
+            .extract::<extra_types::MacAddr6Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::MacAddr8Array>() {
+        return parameter
+            .extract::<extra_types::MacAddr8Array>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::NumericArray>() {
+        return parameter
+            .extract::<extra_types::NumericArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::PointArray>() {
+        return parameter
+            .extract::<extra_types::PointArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::BoxArray>() {
+        return parameter
+            .extract::<extra_types::BoxArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::PathArray>() {
+        return parameter
+            .extract::<extra_types::PathArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::LineArray>() {
+        return parameter
+            .extract::<extra_types::LineArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::LsegArray>() {
+        return parameter
+            .extract::<extra_types::LsegArray>()?
+            ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::CircleArray>() {
+        return parameter
+            .extract::<extra_types::CircleArray>()?
+            ._convert_to_python_dto();
     }
 
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
@@ -785,6 +1064,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             return Ok(PythonDTO::PyString(possible_string));
         }
     }
+
+    let a = parameter.downcast::<PyIterator>();
+    println!("{:?}", a.iter());
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
         "Can not covert you type {parameter} into inner one",
@@ -1171,7 +1453,7 @@ fn postgres_bytes_to_py(
             Option<Array<DateTime<FixedOffset>>>,
         >(type_, buf, is_simple)?)
         .to_object(py)),
-        // Convert ARRAY of UUID into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        // Convert ARRAY of UUID into Vec<Array<InternalUuid>>, then into list[UUID]
         Type::UUID_ARRAY => {
             let uuid_array =
                 _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(type_, buf, is_simple)?;

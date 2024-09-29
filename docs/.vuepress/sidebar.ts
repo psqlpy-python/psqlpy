@@ -38,6 +38,7 @@ export default sidebar({
           collapsible: true,
           children: [
             "supported_types",
+            "array_types",
             "extra_types",
             "advanced_type_usage",
           ]
@@ -74,6 +75,11 @@ export default sidebar({
       text: "Benchmarks",
       prefix: "/benchmarks",
       link: "/benchmarks.md"
+    },
+    {
+      text: "FAQ",
+      prefix: "/faq",
+      link: "/faq.md"
     },
   ],
 });
