@@ -389,7 +389,7 @@ class Int64Array:
         - `inner`: inner value, sequence of int values.
         """
 
-class Flaot32Array:
+class Float32Array:
     """Represent FLOAT4 ARRAY in PostgreSQL."""
 
     def __init__(
@@ -402,13 +402,13 @@ class Flaot32Array:
             ],
         ],
     ) -> None:
-        """Create new instance of Flaot32Array.
+        """Create new instance of Float32Array.
 
         ### Parameters:
         - `inner`: inner value, sequence of float values.
         """
 
-class Flaot64Array:
+class Float64Array:
     """Represent FLOAT8 ARRAY in PostgreSQL."""
 
     def __init__(
@@ -421,7 +421,7 @@ class Flaot64Array:
             ],
         ],
     ) -> None:
-        """Create new instance of Flaot64Array.
+        """Create new instance of Float64Array.
 
         ### Parameters:
         - `inner`: inner value, sequence of float values.
@@ -475,7 +475,9 @@ class JSONBArray:
         inner: typing.Sequence[
             typing.Union[
                 typing.Dict[str, typing.Any],
+                PyJSONB,
                 typing.Sequence[typing.Dict[str, typing.Any]],
+                typing.Sequence[PyJSONB],
                 typing.Sequence[typing.Any],
             ]
         ],
@@ -494,7 +496,9 @@ class JSONArray:
         inner: typing.Sequence[
             typing.Union[
                 typing.Dict[str, typing.Any],
+                PyJSON,
                 typing.Sequence[typing.Dict[str, typing.Any]],
+                typing.Sequence[PyJSON],
                 typing.Sequence[typing.Any],
             ]
         ],
