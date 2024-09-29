@@ -76,5 +76,10 @@ export default sidebar({
       prefix: "/benchmarks",
       link: "/benchmarks.md"
     },
+    {
+      text: "FAQ",
+      prefix: "/faq",
+      link: "/faq.md"
+    },
   ],
 });
