@@ -93,3 +93,36 @@ async def main() -> None:
         ],
     )
 ```
+
+### Cannot insert empty ARRAY
+
+To insert empty array use explicit [Array Type](./usage/types/array_types.md).
+
+#### Problem and Solution:
+Let's assume that we have table `arr_table` with field `some_array` of `VARCHAR ARRAY` type.
+The main problem that we cannot determine the type of the empty sequence passed from Python side.
+```python
+from psqlpy import ConnectionPool
+from psqlpy.extra_types import VarCharArray
+
+# --- Incorrect ---
+async def main() -> None:
+    pool = ConnectionPool()
+    await pool.execute(
+        querystring="INSERT INTO arr_table (some_array) VALUES ($1)",
+        parameters=[
+            [],
+        ],
+    )
+
+
+# --- Correct ---
+async def main() -> None:
+    pool = ConnectionPool()
+    await pool.execute(
+        querystring="INSERT INTO arr_table (some_array) VALUES ($1)",
+        parameters=[
+            VarCharArray([]),
+        ],
+    )
+```
