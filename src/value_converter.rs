@@ -846,9 +846,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         if let Some(interval) = Interval::from_duration(duration) {
             return Ok(PythonDTO::PyInterval(interval));
         }
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "Cannot convert timedelta from Python to inner Rust type.",
-        )));
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "Cannot convert timedelta from Python to inner Rust type.".to_string(),
+        ));
     }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
@@ -1459,7 +1459,7 @@ fn postgres_bytes_to_py(
             if let Some(interval) = interval {
                 return Ok(InnerInterval(interval).to_object(py));
             }
-            return Ok(py.None())
+            Ok(py.None())
         }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<bool>>>(
