@@ -2,6 +2,7 @@ use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
+use pg_interval::Interval;
 use postgres_types::{Field, FromSql, Kind, ToSql};
 use rust_decimal::Decimal;
 use serde_json::{json, Map, Value};
@@ -13,8 +14,8 @@ use postgres_protocol::types;
 use pyo3::{
     sync::GILOnceCell,
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyDictMethods, PyFloat, PyInt,
-        PyIterator, PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType,
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyDictMethods, PyFloat,
+        PyInt, PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType,
         PyTypeMethods,
     },
     Bound, FromPyObject, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
@@ -35,6 +36,7 @@ use crate::{
 use postgres_array::{array::Array, Dimension};
 
 static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static TIMEDELTA_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
 pub type QueryParameter = (dyn ToSql + Sync);
 
@@ -44,6 +46,18 @@ fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
             let type_object = py
                 .import_bound("decimal")?
                 .getattr("Decimal")?
+                .downcast_into()?;
+            Ok(type_object.unbind())
+        })
+        .map(|ty| ty.bind(py))
+}
+
+fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
+    TIMEDELTA_CLS
+        .get_or_try_init(py, || {
+            let type_object = py
+                .import_bound("datetime")?
+                .getattr("timedelta")?
                 .downcast_into()?;
             Ok(type_object.unbind())
         })
@@ -138,6 +152,35 @@ impl<'a> FromSql<'a> for InnerDecimal {
     }
 }
 
+struct InnerInterval(Interval);
+
+impl ToPyObject for InnerInterval {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        let td_cls = get_timedelta_cls(py).expect("failed to load datetime.timedelta");
+        let pydict = PyDict::new_bound(py);
+        let months = self.0.months * 30;
+        let _ = pydict.set_item("days", self.0.days + months);
+        let _ = pydict.set_item("microseconds", self.0.microseconds);
+        let ret = td_cls
+            .call((), Some(&pydict))
+            .expect("failed to call datetime.timedelta(days=<>, microseconds=<>)");
+        ret.to_object(py)
+    }
+}
+
+impl<'a> FromSql<'a> for InnerInterval {
+    fn from_sql(
+        ty: &Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(InnerInterval(<Interval as FromSql>::from_sql(ty, raw)?))
+    }
+
+    fn accepts(_ty: &Type) -> bool {
+        true
+    }
+}
+
 /// Additional type for types come from Python.
 ///
 /// It's necessary because we need to pass this
@@ -145,6 +188,7 @@ impl<'a> FromSql<'a> for InnerDecimal {
 /// `postgres` crate.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PythonDTO {
+    // Primitive
     PyNone,
     PyBytes(Vec<u8>),
     PyBool(bool),
@@ -164,6 +208,7 @@ pub enum PythonDTO {
     PyTime(NaiveTime),
     PyDateTime(NaiveDateTime),
     PyDateTimeTz(DateTime<FixedOffset>),
+    PyInterval(Interval),
     PyIpAddress(IpAddr),
     PyList(Vec<PythonDTO>),
     PyArray(Array<PythonDTO>),
@@ -180,6 +225,7 @@ pub enum PythonDTO {
     PyLine(Line),
     PyLineSegment(LineSegment),
     PyCircle(Circle),
+    // Arrays
     PyBoolArray(Array<PythonDTO>),
     PyUuidArray(Array<PythonDTO>),
     PyVarCharArray(Array<PythonDTO>),
@@ -206,6 +252,7 @@ pub enum PythonDTO {
     PyLineArray(Array<PythonDTO>),
     PyLsegArray(Array<PythonDTO>),
     PyCircleArray(Array<PythonDTO>),
+    PyIntervalArray(Array<PythonDTO>),
 }
 
 impl ToPyObject for PythonDTO {
@@ -267,6 +314,7 @@ impl PythonDTO {
             PythonDTO::PyLine(_) => Ok(tokio_postgres::types::Type::LINE_ARRAY),
             PythonDTO::PyLineSegment(_) => Ok(tokio_postgres::types::Type::LSEG_ARRAY),
             PythonDTO::PyCircle(_) => Ok(tokio_postgres::types::Type::CIRCLE_ARRAY),
+            PythonDTO::PyInterval(_) => Ok(tokio_postgres::types::Type::INTERVAL_ARRAY),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Can't process array type, your type doesn't have support yet".into(),
             )),
@@ -384,6 +432,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyDateTimeTz(pydatetime_tz) => {
                 <&DateTime<FixedOffset> as ToSql>::to_sql(&pydatetime_tz, ty, out)?;
+            }
+            PythonDTO::PyInterval(pyinterval) => {
+                <&Interval as ToSql>::to_sql(&pyinterval, ty, out)?;
             }
             PythonDTO::PyIpAddress(pyidaddress) => {
                 <&IpAddr as ToSql>::to_sql(&pyidaddress, ty, out)?;
@@ -524,6 +575,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyCircleArray(array) => {
                 array.to_sql(&Type::CIRCLE_ARRAY, out)?;
+            }
+            PythonDTO::PyIntervalArray(array) => {
+                array.to_sql(&Type::INTERVAL_ARRAY, out)?;
             }
         }
 
@@ -785,6 +839,16 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 
     if parameter.is_instance_of::<PyTime>() {
         return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
+    }
+
+    if parameter.is_instance_of::<PyDelta>() {
+        let duration = parameter.extract::<chrono::Duration>()?;
+        if let Some(interval) = Interval::from_duration(duration) {
+            return Ok(PythonDTO::PyInterval(interval));
+        }
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "Cannot convert timedelta from Python to inner Rust type.".to_string(),
+        ));
     }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
@@ -1052,6 +1116,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             ._convert_to_python_dto();
     }
 
+    if parameter.is_instance_of::<extra_types::IntervalArray>() {
+        return parameter
+            .extract::<extra_types::IntervalArray>()?
+            ._convert_to_python_dto();
+    }
+
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
         return Ok(PythonDTO::PyIpAddress(id_address));
     }
@@ -1064,9 +1134,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             return Ok(PythonDTO::PyString(possible_string));
         }
     }
-
-    let a = parameter.downcast::<PyIterator>();
-    println!("{:?}", a.iter());
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
         "Can not covert you type {parameter} into inner one",
@@ -1387,6 +1454,13 @@ fn postgres_bytes_to_py(
                 None => Ok(py.None().to_object(py)),
             }
         }
+        Type::INTERVAL => {
+            let interval = _composite_field_postgres_to_py::<Option<Interval>>(type_, buf, is_simple)?;
+            if let Some(interval) = interval {
+                return Ok(InnerInterval(interval).to_object(py));
+            }
+            Ok(py.None())
+        }
         // ---------- Array Text Types ----------
         Type::BOOL_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<bool>>>(
             type_, buf, is_simple,
@@ -1504,6 +1578,11 @@ fn postgres_bytes_to_py(
             let circle_array_ = _composite_field_postgres_to_py::<Option<Array<Circle>>>(type_, buf, is_simple)?;
 
             Ok(postgres_array_to_py(py, circle_array_).to_object(py))
+        }
+        Type::INTERVAL_ARRAY => {
+            let interval_array_ = _composite_field_postgres_to_py::<Option<Array<InnerInterval>>>(type_, buf, is_simple)?;
+
+            Ok(postgres_array_to_py(py, interval_array_).to_object(py))
         }
         _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
             format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")

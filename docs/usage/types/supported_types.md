@@ -25,6 +25,7 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | datetime.time | - | TIME |
 | datetime.datetime | - | TIMESTAMP |
 | datetime.datetime | - | TIMESTAMPTZ |
+| datetime.timedelta | - | INTERVAL |
 | UUID | - | UUID |
 | dict | - | JSONB |
 | dict | PyJSONB | JSONB |

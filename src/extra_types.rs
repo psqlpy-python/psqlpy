@@ -361,6 +361,7 @@ build_array_type!(PathArray, PythonDTO::PyPathArray);
 build_array_type!(LineArray, PythonDTO::PyLineArray);
 build_array_type!(LsegArray, PythonDTO::PyLsegArray);
 build_array_type!(CircleArray, PythonDTO::PyCircleArray);
+build_array_type!(IntervalArray, PythonDTO::PyIntervalArray);
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]
@@ -410,5 +411,6 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<LineArray>()?;
     pymod.add_class::<LsegArray>()?;
     pymod.add_class::<CircleArray>()?;
+    pymod.add_class::<IntervalArray>()?;
     Ok(())
 }

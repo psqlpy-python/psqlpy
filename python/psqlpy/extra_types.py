@@ -14,6 +14,7 @@ from ._internal.extra_types import (
     Int32Array,
     Int64Array,
     Integer,
+    IntervalArray,
     IpAddressArray,
     JSONArray,
     JSONBArray,
@@ -96,4 +97,5 @@ __all__ = [
     "LineArray",
     "LsegArray",
     "CircleArray",
+    "IntervalArray",
 ]

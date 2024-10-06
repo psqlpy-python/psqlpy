@@ -804,6 +804,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
+name = "pg_interval"
+version = "0.4.2"
+source = "git+https://github.com/chandr-andr/rust-postgres-interval.git?branch=psqlpy#901cb1226daa5cc045b44f658c2952bdfdd263ad"
+dependencies = [
+ "bytes",
+ "chrono",
+ "postgres-types",
+]
+
+[[package]]
 name = "phf"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -998,6 +1008,7 @@ dependencies = [
  "openssl",
  "openssl-src",
  "openssl-sys",
+ "pg_interval",
  "postgres-openssl",
  "postgres-protocol",
  "postgres-types",
