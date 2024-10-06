@@ -1,5 +1,5 @@
 import typing
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from uuid import UUID
@@ -753,5 +753,24 @@ class CircleArray:
         """Create new instance of CircleArray.
 
         ### Parameters:
-        - `inner`: inner value, sequence of PyLineSegment values.
+        - `inner`: inner value, sequence of PyCircle values.
+        """
+
+class IntervalArray:
+    """Represent INTERVAL ARRAY in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[
+            typing.Union[
+                timedelta,
+                typing.Sequence[timedelta],
+                typing.Any,
+            ],
+        ],
+    ) -> None:
+        """Create new instance of IntervalArray.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of timedelta values.
         """

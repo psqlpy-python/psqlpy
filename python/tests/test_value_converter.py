@@ -27,6 +27,7 @@ from psqlpy.extra_types import (
     Int32Array,
     Int64Array,
     Integer,
+    IntervalArray,
     IpAddressArray,
     JSONArray,
     JSONBArray,
@@ -197,6 +198,11 @@ async def test_as_class(
             "CIRCLE",
             PyCircle([1, 2.8, 3]),
             ((1.0, 2.8), 3.0),
+        ),
+        (
+            "INTERVAL",
+            datetime.timedelta(days=100, microseconds=100),
+            datetime.timedelta(days=100, microseconds=100),
         ),
         (
             "VARCHAR ARRAY",
@@ -597,6 +603,11 @@ async def test_as_class(
                 [((1.7, 2.8), 3.0)],
                 [((5.0, 1.8), 10.0)],
             ],
+        ),
+        (
+            "INTERVAL ARRAY",
+            [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
+            [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
         ),
     ),
 )
@@ -1500,6 +1511,13 @@ async def test_empty_array(
                 [((1.7, 2.8), 3.0)],
                 [((5.0, 1.8), 10.0)],
             ],
+        ),
+        (
+            "INTERVAL ARRAY",
+            IntervalArray(
+                [[datetime.timedelta(days=100, microseconds=100)], [datetime.timedelta(days=100, microseconds=100)]],
+            ),
+            [[datetime.timedelta(days=100, microseconds=100)], [datetime.timedelta(days=100, microseconds=100)]],
         ),
     ),
 )

@@ -31,6 +31,7 @@ For type safety and better performance we have predefined array types.
 | LineArray | LINE ARRAY |
 | LsegArray | LSEG ARRAY |
 | CircleArray | CIRCLE ARRAY |
+| IntervalArray | INTERVAL ARRAY |
 
 ### Example:
 
