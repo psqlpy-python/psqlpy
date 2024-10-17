@@ -103,7 +103,7 @@ async def test_as_class(
 @pytest.mark.parametrize(
     ["postgres_type", "py_value", "expected_deserialized"],
     (
-        ("BYTEA", b"Bytes", [66, 121, 116, 101, 115]),
+        ("BYTEA", b"Bytes", b"Bytes"),
         ("VARCHAR", "Some String", "Some String"),
         ("TEXT", "Some String", "Some String"),
         (
@@ -829,7 +829,7 @@ async def test_deserialization_composite_into_python(
         some_enum: TestEnum
 
     class ValidateModelForCustomType(BaseModel):
-        bytea_: List[int]
+        bytea_: bytes
         varchar_: str
         text_: str
         bool_: bool

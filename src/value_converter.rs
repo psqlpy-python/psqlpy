@@ -1314,10 +1314,15 @@ fn postgres_bytes_to_py(
     match *type_ {
         // ---------- Bytes Types ----------
         // Convert BYTEA type into Vector<u8>, then into PyBytes
-        Type::BYTEA => Ok(_composite_field_postgres_to_py::<Option<Vec<u8>>>(
-            type_, buf, is_simple,
-        )?
-        .to_object(py)),
+        Type::BYTEA => {
+            let vec_of_bytes = _composite_field_postgres_to_py::<Option<Vec<u8>>>(
+                type_, buf, is_simple,
+            )?;
+            if let Some(vec_of_bytes) = vec_of_bytes {
+                return Ok(PyBytes::new_bound(py, &vec_of_bytes).to_object(py));
+            }
+            Ok(py.None())
+        },
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
         Type::TEXT | Type::VARCHAR | Type::XML => Ok(_composite_field_postgres_to_py::<Option<String>>(
