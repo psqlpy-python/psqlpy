@@ -1,6 +1,6 @@
 [package]
 name = "psqlpy"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,10 +14,14 @@ pyo3 = { version = "*", features = [
     "chrono",
     "experimental-async",
     "rust_decimal",
+    "py-clone",
+    "gil-refs",
+    "macros",
 ] }
-pyo3-asyncio = { git = "https://github.com/chandr-andr/pyo3-asyncio.git", version = "0.20.0", features = [
+pyo3-async-runtimes = { git = "https://github.com/chandr-andr/pyo3-async-runtimes.git", branch = "main", features = [
     "tokio-runtime",
 ] }
+
 tokio = { version = "1.35.1", features = ["full"] }
 thiserror = "1.0.56"
 bytes = "1.5.0"

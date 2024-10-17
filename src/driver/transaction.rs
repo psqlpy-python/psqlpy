@@ -104,7 +104,7 @@ impl TransactionObjectTrait for Object {
     }
 }
 
-#[pyclass]
+#[pyclass(subclass)]
 pub struct Transaction {
     pub db_client: Option<Arc<Object>>,
     is_started: bool,
@@ -315,6 +315,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn execute(
         self_: Py<Self>,
         querystring: String,
@@ -370,6 +371,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch(
         self_: Py<Self>,
         querystring: String,
@@ -404,6 +406,7 @@ impl Transaction {
     /// 3) Can not create/retrieve prepared statement
     /// 4) Can not execute statement
     /// 5) Query returns more than one row
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch_row(
         self_: Py<Self>,
         querystring: String,
@@ -462,6 +465,7 @@ impl Transaction {
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
     /// 3) Query returns more than one row
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch_val(
         self_: Py<Self>,
         querystring: String,
@@ -521,6 +525,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn execute_many(
         self_: Py<Self>,
         querystring: String,
@@ -787,6 +792,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute any of querystring.
+    #[pyo3(signature = (queries=None, prepared=None))]
     pub async fn pipeline<'py>(
         self_: Py<Self>,
         queries: Option<Py<PyList>>,
@@ -839,6 +845,13 @@ impl Transaction {
     ///
     /// # Errors
     /// May return Err Result if db_client is None
+    #[pyo3(signature = (
+        querystring,
+        parameters=None,
+        fetch_number=None,
+        scroll=None,
+        prepared=None,
+    ))]
     pub fn cursor(
         &self,
         querystring: String,
@@ -868,6 +881,7 @@ impl Transaction {
     /// May return Err Result if cannot get bytes,
     /// cannot perform request to the database,
     /// cannot write bytes to the database.
+    #[pyo3(signature = (source, table_name, columns=None, schema_name=None))]
     pub async fn binary_copy_to_table(
         self_: pyo3::Py<Self>,
         source: Py<PyAny>,

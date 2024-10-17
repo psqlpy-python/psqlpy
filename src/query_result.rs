@@ -55,6 +55,7 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python or set new key-value pair
     /// in python dict.
+    #[pyo3(signature = (custom_decoders=None))]
     #[allow(clippy::needless_pass_by_value)]
     pub fn result(
         &self,
@@ -97,6 +98,7 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type with custom function.
     #[allow(clippy::needless_pass_by_value)]
+    #[pyo3(signature = (row_factory, custom_decoders=None))]
     pub fn row_factory<'a>(
         &'a self,
         py: Python<'a>,
@@ -144,6 +146,7 @@ impl PSQLDriverSinglePyQueryResult {
     /// postgres type to python, can not set new key-value pair
     /// in python dict or there are no result.
     #[allow(clippy::needless_pass_by_value)]
+    #[pyo3(signature = (custom_decoders=None))]
     pub fn result(
         &self,
         py: Python<'_>,
@@ -176,6 +179,7 @@ impl PSQLDriverSinglePyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type with custom function
     #[allow(clippy::needless_pass_by_value)]
+    #[pyo3(signature = (row_factory, custom_decoders=None))]
     pub fn row_factory<'a>(
         &'a self,
         py: Python<'a>,

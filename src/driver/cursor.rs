@@ -85,7 +85,7 @@ impl CursorObjectTrait for Object {
     }
 }
 
-#[pyclass]
+#[pyclass(subclass)]
 pub struct Cursor {
     db_transaction: Option<Arc<Object>>,
     querystring: String,
@@ -213,7 +213,6 @@ impl Cursor {
         let db_transaction = self.db_transaction.clone();
         let fetch_number = self.fetch_number;
         let cursor_name = self.cursor_name.clone();
-
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
                 if let Some(db_transaction) = db_transaction {
@@ -295,6 +294,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
+    #[pyo3(signature = (fetch_number=None))]
     pub async fn fetch<'a>(
         slf: Py<Self>,
         fetch_number: Option<usize>,

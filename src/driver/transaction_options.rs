@@ -1,7 +1,7 @@
 use pyo3::pyclass;
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum IsolationLevel {
     ReadUncommitted,
     ReadCommitted,
@@ -22,15 +22,15 @@ impl IsolationLevel {
     }
 }
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ReadVariant {
     ReadOnly,
     ReadWrite,
 }
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum SynchronousCommit {
     /// As the name indicates, the commit acknowledgment can come before
     /// flushing the records to disk.

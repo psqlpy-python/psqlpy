@@ -23,6 +23,34 @@ use super::{
 /// # Errors
 /// May return error if cannot build new connection pool.
 #[pyfunction]
+#[pyo3(signature = (
+    dsn=None,
+    username=None,
+    password=None,
+    host=None,
+    hosts=None,
+    port=None,
+    ports=None,
+    db_name=None,
+    target_session_attrs=None,
+    options=None,
+    application_name=None,
+    connect_timeout_sec=None,
+    connect_timeout_nanosec=None,
+    tcp_user_timeout_sec=None,
+    tcp_user_timeout_nanosec=None,
+    keepalives=None,
+    keepalives_idle_sec=None,
+    keepalives_idle_nanosec=None,
+    keepalives_interval_sec=None,
+    keepalives_interval_nanosec=None,
+    keepalives_retries=None,
+    load_balance_hosts=None,
+    ssl_mode=None,
+    ca_file=None,
+    max_db_pool_size=None,
+    conn_recycling_method=None,
+))]
 #[allow(clippy::too_many_arguments)]
 pub fn connect(
     dsn: Option<String>,
@@ -184,7 +212,7 @@ impl ConnectionPoolStatus {
     }
 }
 
-#[pyclass]
+#[pyclass(subclass)]
 pub struct ConnectionPool(pub Pool);
 
 #[pymethods]
@@ -194,6 +222,34 @@ impl ConnectionPool {
     /// # Errors
     /// May return error if cannot build new connection pool.
     #[new]
+    #[pyo3(signature = (
+        dsn=None,
+        username=None,
+        password=None,
+        host=None,
+        hosts=None,
+        port=None,
+        ports=None,
+        db_name=None,
+        target_session_attrs=None,
+        options=None,
+        application_name=None,
+        connect_timeout_sec=None,
+        connect_timeout_nanosec=None,
+        tcp_user_timeout_sec=None,
+        tcp_user_timeout_nanosec=None,
+        keepalives=None,
+        keepalives_idle_sec=None,
+        keepalives_idle_nanosec=None,
+        keepalives_interval_sec=None,
+        keepalives_interval_nanosec=None,
+        keepalives_retries=None,
+        load_balance_hosts=None,
+        max_db_pool_size=None,
+        conn_recycling_method=None,
+        ssl_mode=None,
+        ca_file=None,
+    ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         dsn: Option<String>,
@@ -298,6 +354,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot retrieve new connection
     /// or prepare statement or execute statement.
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn execute<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
@@ -366,6 +423,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot retrieve new connection
     /// or prepare statement or execute statement.
+    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch<'a>(
         self_: pyo3::Py<Self>,
         querystring: String,
