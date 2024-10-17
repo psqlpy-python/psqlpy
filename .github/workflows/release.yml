@@ -16,10 +16,10 @@ jobs:
         target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Test
+      - name: Setup SSL libs
         run: sudo apt-get update -y && sudo apt-get install -y libipc-run-perl && sudo apt-get install pkg-config libssl-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -62,7 +62,7 @@ jobs:
         target: [x64, x86]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           architecture: ${{ matrix.target }}
@@ -94,7 +94,7 @@ jobs:
       OPENSSL_DIR: /opt/homebrew/Cellar/openssl@3/3.3.1
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Brew update
@@ -156,7 +156,7 @@ jobs:
           - i686-unknown-linux-musl
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           architecture: x64
