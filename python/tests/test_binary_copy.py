@@ -2,10 +2,13 @@ import os
 import typing
 from io import BytesIO
 
+import pytest
 from pgpq import ArrowToPostgresBinaryEncoder
 from pyarrow import parquet
 
 from psqlpy import ConnectionPool
+
+pytestmark = pytest.mark.anyio
 
 
 async def test_binary_copy_to_table_in_connection(

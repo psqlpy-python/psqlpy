@@ -23,7 +23,8 @@ where
     F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
     T: IntoPy<PyObject>,
 {
-    let res = pyo3_asyncio::tokio::future_into_py(py, async { future.await.map_err(Into::into) })
-        .map(Into::into)?;
+    let res =
+        pyo3_async_runtimes::tokio::future_into_py(py, async { future.await.map_err(Into::into) })
+            .map(Into::into)?;
     Ok(res)
 }

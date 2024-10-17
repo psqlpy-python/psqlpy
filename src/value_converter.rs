@@ -71,7 +71,16 @@ fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
 #[derive(Clone, Copy)]
 pub struct InternalUuid(Uuid);
 
-impl<'a> FromPyObject<'a> for InternalUuid {}
+impl<'a> FromPyObject<'a> for InternalUuid {
+    fn extract_bound(obj: &Bound<'a, PyAny>) -> PyResult<Self> {
+        let uuid_value = Uuid::parse_str(obj.str()?.extract::<&str>()?).map_err(|_| {
+            RustPSQLDriverError::PyToRustValueConversionError(
+                "Cannot convert UUID Array to inner rust type, check you parameters.".into(),
+            )
+        })?;
+        Ok(InternalUuid(uuid_value))
+    }
+}
 
 impl ToPyObject for InternalUuid {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -99,7 +108,13 @@ impl<'a> FromSql<'a> for InternalUuid {
 #[derive(Clone)]
 pub struct InternalSerdeValue(Value);
 
-impl<'a> FromPyObject<'a> for InternalSerdeValue {}
+impl<'a> FromPyObject<'a> for InternalSerdeValue {
+    fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
+        let serde_value = build_serde_value(ob.clone().unbind())?;
+
+        Ok(InternalSerdeValue(serde_value))
+    }
+}
 
 impl ToPyObject for InternalSerdeValue {
     fn to_object(&self, py: Python<'_>) -> PyObject {
@@ -731,6 +746,8 @@ pub fn py_sequence_into_postgres_array(
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+    println!("{:?}", parameter.get_type().name()?);
+
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
@@ -912,7 +929,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         )?));
     }
 
-    if parameter.get_type().name()? == "decimal.Decimal" {
+    if parameter.get_type().name()? == "decimal.Decimal"
+        || parameter.get_type().name()? == "Decimal"
+    {
         return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             parameter.str()?.extract::<&str>()?,
         )?));

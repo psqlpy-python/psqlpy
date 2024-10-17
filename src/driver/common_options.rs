@@ -3,8 +3,8 @@ use std::time::Duration;
 use deadpool_postgres::RecyclingMethod;
 use pyo3::{pyclass, pymethods};
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ConnRecyclingMethod {
     Fast,
     Verified,
@@ -22,8 +22,8 @@ impl ConnRecyclingMethod {
     }
 }
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum LoadBalanceHosts {
     /// Make connection attempts to hosts in the order provided.
     Disable,
@@ -41,8 +41,8 @@ impl LoadBalanceHosts {
     }
 }
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TargetSessionAttrs {
     /// No special properties are required.
     Any,
@@ -63,7 +63,7 @@ impl TargetSessionAttrs {
     }
 }
 
-#[pyclass]
+#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum SslMode {
     /// Do not use TLS.
@@ -110,6 +110,7 @@ pub struct KeepaliveConfig {
 #[pymethods]
 impl KeepaliveConfig {
     #[new]
+    #[pyo3(signature = (idle, interval=None, retries=None))]
     fn build_config(idle: u64, interval: Option<u64>, retries: Option<u32>) -> Self {
         let interval_internal = interval.map(Duration::from_secs);
         KeepaliveConfig {
@@ -120,8 +121,8 @@ impl KeepaliveConfig {
     }
 }
 
-#[pyclass]
-#[derive(Clone, Copy)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum CopyCommandFormat {
     TEXT,
     CSV,

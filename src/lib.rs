@@ -12,7 +12,11 @@ pub mod value_converter;
 use common::add_module;
 use exceptions::python_errors::python_exceptions_module;
 use extra_types::extra_types_module;
-use pyo3::{pymodule, types::PyModule, wrap_pyfunction, Bound, PyResult, Python};
+use pyo3::{
+    pymodule,
+    types::{PyModule, PyModuleMethods},
+    wrap_pyfunction, Bound, PyResult, Python,
+};
 use row_factories::row_factories_module;
 
 #[pymodule]
