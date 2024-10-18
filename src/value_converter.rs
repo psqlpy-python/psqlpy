@@ -746,8 +746,6 @@ pub fn py_sequence_into_postgres_array(
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
 pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
-    println!("{:?}", parameter.get_type().name()?);
-
     if parameter.is_none() {
         return Ok(PythonDTO::PyNone);
     }
