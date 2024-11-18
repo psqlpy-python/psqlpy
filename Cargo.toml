@@ -56,3 +56,6 @@ itertools = "0.12.1"
 openssl-src = "300.2.2"
 openssl-sys = "0.9.102"
 pg_interval = { git = "https://github.com/chandr-andr/rust-postgres-interval.git", branch = "psqlpy" }
+pgvector = { git = "https://github.com/chandr-andr/pgvector-rust.git", branch = "psqlpy", features = [
+    "postgres",
+] }

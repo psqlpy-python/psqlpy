@@ -33,6 +33,7 @@ use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types,
 };
+use pgvector::Vector as PgVector;
 use postgres_array::{array::Array, Dimension};
 
 static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -268,6 +269,8 @@ pub enum PythonDTO {
     PyLsegArray(Array<PythonDTO>),
     PyCircleArray(Array<PythonDTO>),
     PyIntervalArray(Array<PythonDTO>),
+    // PgVector
+    PyPgVector(Vec<f32>),
 }
 
 impl ToPyObject for PythonDTO {
@@ -593,6 +596,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyIntervalArray(array) => {
                 array.to_sql(&Type::INTERVAL_ARRAY, out)?;
+            }
+            PythonDTO::PyPgVector(vector) => {
+                <PgVector as ToSql>::to_sql(&PgVector::from(vector.clone()), ty, out)?;
             }
         }
 
@@ -1137,6 +1143,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return parameter
             .extract::<extra_types::IntervalArray>()?
             ._convert_to_python_dto();
+    }
+
+    if parameter.is_instance_of::<extra_types::PgVector>() {
+        return Ok(PythonDTO::PyPgVector(
+            parameter.extract::<extra_types::PgVector>()?.inner_value(),
+        ));
     }
 
     if let Ok(id_address) = parameter.extract::<IpAddr>() {

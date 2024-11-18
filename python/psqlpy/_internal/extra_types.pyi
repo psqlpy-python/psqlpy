@@ -774,3 +774,16 @@ class IntervalArray:
         ### Parameters:
         - `inner`: inner value, sequence of timedelta values.
         """
+
+class PgVector:
+    """Represent VECTOR in PostgreSQL."""
+
+    def __init__(
+        self: Self,
+        inner: typing.Sequence[float | int],
+    ) -> None:
+        """Create new instance of PgVector.
+
+        ### Parameters:
+        - `inner`: inner value, sequence of float or int values.
+        """

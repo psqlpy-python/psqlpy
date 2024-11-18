@@ -26,6 +26,7 @@ from ._internal.extra_types import (
     MoneyArray,
     NumericArray,
     PathArray,
+    PgVector,
     PointArray,
     PyBox,
     PyCircle,
@@ -98,4 +99,5 @@ __all__ = [
     "LsegArray",
     "CircleArray",
     "IntervalArray",
+    "PgVector",
 ]
