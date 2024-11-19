@@ -18,6 +18,25 @@ use crate::{
     },
 };
 
+#[pyclass]
+#[derive(Clone)]
+pub struct PgVector(Vec<f32>);
+
+#[pymethods]
+impl PgVector {
+    #[new]
+    fn new(vector: Vec<f32>) -> Self {
+        Self(vector)
+    }
+}
+
+impl PgVector {
+    #[must_use]
+    pub fn inner_value(self) -> Vec<f32> {
+        self.0
+    }
+}
+
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
         #[pyclass]
@@ -412,5 +431,6 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<LsegArray>()?;
     pymod.add_class::<CircleArray>()?;
     pymod.add_class::<IntervalArray>()?;
+    pymod.add_class::<PgVector>()?;
     Ok(())
 }

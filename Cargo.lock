@@ -808,6 +808,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pgvector"
+version = "0.4.0"
+source = "git+https://github.com/chandr-andr/pgvector-rust.git?branch=psqlpy#b97529995981b66f3ebb5f0b0eb2f3c7447461c3"
+dependencies = [
+ "bytes",
+ "postgres-types",
+]
+
+[[package]]
 name = "phf"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1003,6 +1012,7 @@ dependencies = [
  "openssl-src",
  "openssl-sys",
  "pg_interval",
+ "pgvector",
  "postgres-openssl",
  "postgres-protocol",
  "postgres-types",

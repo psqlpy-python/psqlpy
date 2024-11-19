@@ -33,6 +33,7 @@ use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types,
 };
+use pgvector::Vector as PgVector;
 use postgres_array::{array::Array, Dimension};
 
 static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -268,6 +269,8 @@ pub enum PythonDTO {
     PyLsegArray(Array<PythonDTO>),
     PyCircleArray(Array<PythonDTO>),
     PyIntervalArray(Array<PythonDTO>),
+    // PgVector
+    PyPgVector(Vec<f32>),
 }
 
 impl ToPyObject for PythonDTO {
@@ -593,6 +596,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyIntervalArray(array) => {
                 array.to_sql(&Type::INTERVAL_ARRAY, out)?;
+            }
+            PythonDTO::PyPgVector(vector) => {
+                <PgVector as ToSql>::to_sql(&PgVector::from(vector.clone()), ty, out)?;
             }
         }
 
@@ -1139,6 +1145,12 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
             ._convert_to_python_dto();
     }
 
+    if parameter.is_instance_of::<extra_types::PgVector>() {
+        return Ok(PythonDTO::PyPgVector(
+            parameter.extract::<extra_types::PgVector>()?.inner_value(),
+        ));
+    }
+
     if let Ok(id_address) = parameter.extract::<IpAddr>() {
         return Ok(PythonDTO::PyIpAddress(id_address));
     }
@@ -1313,19 +1325,18 @@ fn postgres_bytes_to_py(
         // ---------- Bytes Types ----------
         // Convert BYTEA type into Vector<u8>, then into PyBytes
         Type::BYTEA => {
-            let vec_of_bytes = _composite_field_postgres_to_py::<Option<Vec<u8>>>(
-                type_, buf, is_simple,
-            )?;
+            let vec_of_bytes =
+                _composite_field_postgres_to_py::<Option<Vec<u8>>>(type_, buf, is_simple)?;
             if let Some(vec_of_bytes) = vec_of_bytes {
                 return Ok(PyBytes::new_bound(py, &vec_of_bytes).to_object(py));
             }
             Ok(py.None())
-        },
+        }
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
-        Type::TEXT | Type::VARCHAR | Type::XML => Ok(_composite_field_postgres_to_py::<Option<String>>(
-            type_, buf, is_simple,
-        )?
+        Type::TEXT | Type::VARCHAR | Type::XML => Ok(_composite_field_postgres_to_py::<
+            Option<String>,
+        >(type_, buf, is_simple)?
         .to_object(py)),
         // ---------- Boolean Types ----------
         // Convert BOOL type into bool
@@ -1342,9 +1353,10 @@ fn postgres_bytes_to_py(
             _composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?.to_object(py),
         ),
         // Convert BigInt into i64, then into int
-        Type::INT8 | Type::MONEY => Ok(
-            _composite_field_postgres_to_py::<Option<i64>>(type_, buf, is_simple)?.to_object(py),
-        ),
+        Type::INT8 | Type::MONEY => Ok(_composite_field_postgres_to_py::<Option<i64>>(
+            type_, buf, is_simple,
+        )?
+        .to_object(py)),
         // Convert REAL into f32, then into float
         Type::FLOAT4 => Ok(
             _composite_field_postgres_to_py::<Option<f32>>(type_, buf, is_simple)?.to_object(py),
@@ -1420,16 +1432,17 @@ fn postgres_bytes_to_py(
             }
         }
         Type::NUMERIC => {
-            if let Some(numeric_) = _composite_field_postgres_to_py::<Option<Decimal>>(
-                type_, buf, is_simple,
-            )? {
+            if let Some(numeric_) =
+                _composite_field_postgres_to_py::<Option<Decimal>>(type_, buf, is_simple)?
+            {
                 return Ok(InnerDecimal(numeric_).to_object(py));
             }
             Ok(py.None().to_object(py))
         }
         // ---------- Geo Types ----------
         Type::POINT => {
-            let point_ = _composite_field_postgres_to_py::<Option<RustPoint>>(type_, buf, is_simple)?;
+            let point_ =
+                _composite_field_postgres_to_py::<Option<RustPoint>>(type_, buf, is_simple)?;
 
             match point_ {
                 Some(point_) => Ok(point_.into_py(py)),
@@ -1445,7 +1458,8 @@ fn postgres_bytes_to_py(
             }
         }
         Type::PATH => {
-            let path_ = _composite_field_postgres_to_py::<Option<RustLineString>>(type_, buf, is_simple)?;
+            let path_ =
+                _composite_field_postgres_to_py::<Option<RustLineString>>(type_, buf, is_simple)?;
 
             match path_ {
                 Some(path_) => Ok(path_.into_py(py)),
@@ -1461,7 +1475,8 @@ fn postgres_bytes_to_py(
             }
         }
         Type::LSEG => {
-            let lseg_ = _composite_field_postgres_to_py::<Option<RustLineSegment>>(type_, buf, is_simple)?;
+            let lseg_ =
+                _composite_field_postgres_to_py::<Option<RustLineSegment>>(type_, buf, is_simple)?;
 
             match lseg_ {
                 Some(lseg_) => Ok(lseg_.into_py(py)),
@@ -1477,139 +1492,179 @@ fn postgres_bytes_to_py(
             }
         }
         Type::INTERVAL => {
-            let interval = _composite_field_postgres_to_py::<Option<Interval>>(type_, buf, is_simple)?;
+            let interval =
+                _composite_field_postgres_to_py::<Option<Interval>>(type_, buf, is_simple)?;
             if let Some(interval) = interval {
                 return Ok(InnerInterval(interval).to_object(py));
             }
             Ok(py.None())
         }
         // ---------- Array Text Types ----------
-        Type::BOOL_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<bool>>>(
-            type_, buf, is_simple,
-        )?)
+        Type::BOOL_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<bool>>>(type_, buf, is_simple)?,
+        )
         .to_object(py)),
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]
-        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(
-            postgres_array_to_py(
-                py,
-                _composite_field_postgres_to_py::<Option<Array<String>>>(type_, buf, is_simple)?,
-            ).to_object(py)),
+        Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<String>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
         // ---------- Array Integer Types ----------
         // Convert ARRAY of SmallInt into Vec<i16>, then into list[int]
-        Type::INT2_ARRAY => Ok(
-            postgres_array_to_py(
-                py,
-                _composite_field_postgres_to_py::<Option<Array<i16>>>(
+        Type::INT2_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<i16>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
+        Type::INT4_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<i32>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
+        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<i64>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of Float4 into Vec<f32>, then into list[float]
+        Type::FLOAT4_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<f32>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of Float8 into Vec<f64>, then into list[float]
+        Type::FLOAT8_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<f64>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of Date into Vec<NaiveDate>, then into list[datetime.date]
+        Type::DATE_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<NaiveDate>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of Time into Vec<NaiveTime>, then into list[datetime.date]
+        Type::TIME_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<NaiveTime>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of TIMESTAMP into Vec<NaiveDateTime>, then into list[datetime.date]
+        Type::TIMESTAMP_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<NaiveDateTime>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        // Convert ARRAY of TIMESTAMPTZ into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
+        Type::TIMESTAMPTZ_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<DateTime<FixedOffset>>>>(
                 type_, buf, is_simple,
             )?,
         )
         .to_object(py)),
-        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
-        Type::INT4_ARRAY => {
-            Ok(postgres_array_to_py(
-                py,
-                _composite_field_postgres_to_py::<Option<Array<i32>>>(
-                    type_,
-                    buf,
-                    is_simple,
-                )?
-            ).to_object(py))
-        },
-        // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
-        Type::INT8_ARRAY | Type::MONEY_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<i64>>>(
-            type_, buf, is_simple,
-        )?).to_object(py)),
-        // Convert ARRAY of Float4 into Vec<f32>, then into list[float]
-        Type::FLOAT4_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<f32>>>(
-            type_, buf, is_simple,
-        )?)
-        .to_object(py)),
-        // Convert ARRAY of Float8 into Vec<f64>, then into list[float]
-        Type::FLOAT8_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<f64>>>(
-            type_, buf, is_simple,
-        )?)
-        .to_object(py)),
-        // Convert ARRAY of Date into Vec<NaiveDate>, then into list[datetime.date]
-        Type::DATE_ARRAY => Ok(postgres_array_to_py(py,_composite_field_postgres_to_py::<Option<Array<NaiveDate>>>(
-            type_, buf, is_simple,
-        )?)
-        .to_object(py)),
-        // Convert ARRAY of Time into Vec<NaiveTime>, then into list[datetime.date]
-        Type::TIME_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<NaiveTime>>>(
-            type_, buf, is_simple,
-        )?)
-        .to_object(py)),
-        // Convert ARRAY of TIMESTAMP into Vec<NaiveDateTime>, then into list[datetime.date]
-        Type::TIMESTAMP_ARRAY => Ok(
-            postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<NaiveDateTime>>>(type_, buf, is_simple)?)
-                .to_object(py),
-        ),
-        // Convert ARRAY of TIMESTAMPTZ into Vec<DateTime<FixedOffset>>, then into list[datetime.date]
-        Type::TIMESTAMPTZ_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<
-            Option<Array<DateTime<FixedOffset>>>,
-        >(type_, buf, is_simple)?)
-        .to_object(py)),
         // Convert ARRAY of UUID into Vec<Array<InternalUuid>>, then into list[UUID]
         Type::UUID_ARRAY => {
-            let uuid_array =
-                _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(type_, buf, is_simple)?;
+            let uuid_array = _composite_field_postgres_to_py::<Option<Array<InternalUuid>>>(
+                type_, buf, is_simple,
+            )?;
             Ok(postgres_array_to_py(py, uuid_array).to_object(py))
         }
         // Convert ARRAY of INET into Vec<INET>, then into list[IPv4Address | IPv6Address]
-        Type::INET_ARRAY => Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<IpAddr>>>(
-            type_, buf, is_simple,
-        )?)
+        Type::INET_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<IpAddr>>>(type_, buf, is_simple)?,
+        )
         .to_object(py)),
         Type::JSONB_ARRAY | Type::JSON_ARRAY => {
-            let db_json_array =
-                _composite_field_postgres_to_py::<Option<Array<InternalSerdeValue>>>(type_, buf, is_simple)?;
+            let db_json_array = _composite_field_postgres_to_py::<Option<Array<InternalSerdeValue>>>(
+                type_, buf, is_simple,
+            )?;
             Ok(postgres_array_to_py(py, db_json_array).to_object(py))
         }
-        Type::NUMERIC_ARRAY => {
-            Ok(postgres_array_to_py(py, _composite_field_postgres_to_py::<Option<Array<InnerDecimal>>>(
-                type_, buf, is_simple,
-            )?).to_object(py))
-        },
+        Type::NUMERIC_ARRAY => Ok(postgres_array_to_py(
+            py,
+            _composite_field_postgres_to_py::<Option<Array<InnerDecimal>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
         // ---------- Array Geo Types ----------
         Type::POINT_ARRAY => {
-            let point_array_ = _composite_field_postgres_to_py::<Option<Array<RustPoint>>>(type_, buf, is_simple)?;
+            let point_array_ =
+                _composite_field_postgres_to_py::<Option<Array<RustPoint>>>(type_, buf, is_simple)?;
 
             Ok(postgres_array_to_py(py, point_array_).to_object(py))
         }
         Type::BOX_ARRAY => {
-            let box_array_ = _composite_field_postgres_to_py::<Option<Array<RustRect>>>(type_, buf, is_simple)?;
+            let box_array_ =
+                _composite_field_postgres_to_py::<Option<Array<RustRect>>>(type_, buf, is_simple)?;
 
             Ok(postgres_array_to_py(py, box_array_).to_object(py))
         }
         Type::PATH_ARRAY => {
-            let path_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineString>>>(type_, buf, is_simple)?;
+            let path_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineString>>>(
+                type_, buf, is_simple,
+            )?;
 
             Ok(postgres_array_to_py(py, path_array_).to_object(py))
         }
         Type::LINE_ARRAY => {
-            let line_array_ = _composite_field_postgres_to_py::<Option<Array<Line>>>(type_, buf, is_simple)?;
+            let line_array_ =
+                _composite_field_postgres_to_py::<Option<Array<Line>>>(type_, buf, is_simple)?;
 
             Ok(postgres_array_to_py(py, line_array_).to_object(py))
         }
         Type::LSEG_ARRAY => {
-            let lseg_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineSegment>>>(type_, buf, is_simple)?;
+            let lseg_array_ = _composite_field_postgres_to_py::<Option<Array<RustLineSegment>>>(
+                type_, buf, is_simple,
+            )?;
 
             Ok(postgres_array_to_py(py, lseg_array_).to_object(py))
         }
         Type::CIRCLE_ARRAY => {
-            let circle_array_ = _composite_field_postgres_to_py::<Option<Array<Circle>>>(type_, buf, is_simple)?;
+            let circle_array_ =
+                _composite_field_postgres_to_py::<Option<Array<Circle>>>(type_, buf, is_simple)?;
 
             Ok(postgres_array_to_py(py, circle_array_).to_object(py))
         }
         Type::INTERVAL_ARRAY => {
-            let interval_array_ = _composite_field_postgres_to_py::<Option<Array<InnerInterval>>>(type_, buf, is_simple)?;
+            let interval_array_ = _composite_field_postgres_to_py::<Option<Array<InnerInterval>>>(
+                type_, buf, is_simple,
+            )?;
 
             Ok(postgres_array_to_py(py, interval_array_).to_object(py))
         }
-        _ => Err(RustPSQLDriverError::RustToPyValueConversionError(
-            format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
-        )),
+        _ => other_postgres_bytes_to_py(py, type_, buf, is_simple),
     }
+}
+
+/// Convert OTHER type to python.
+///
+/// # Errors
+/// May return result if type is unknown.
+pub fn other_postgres_bytes_to_py(
+    py: Python<'_>,
+    type_: &Type,
+    buf: &mut &[u8],
+    is_simple: bool,
+) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    if type_.name() == "vector" {
+        let vector = _composite_field_postgres_to_py::<Option<PgVector>>(type_, buf, is_simple)?;
+        match vector {
+            Some(real_vector) => {
+                return Ok(real_vector.to_vec().to_object(py));
+            }
+            None => return Ok(py.None()),
+        }
+    }
+
+    Err(RustPSQLDriverError::RustToPyValueConversionError(
+        format!("Cannot convert {type_} into Python type, please look at the custom_decoders functionality.")
+    ))
 }
 
 /// Convert composite type from `PostgreSQL` to Python type.
