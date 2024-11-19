@@ -117,7 +117,16 @@ async def psql_pool_with_cert_file(
 
 
 @pytest.fixture(autouse=True)
-async def create_deafult_data_for_tests(
+async def setup_postgresql_for_tests(
+    psql_pool: ConnectionPool,
+) -> None:
+    await psql_pool.execute(
+        "CREATE EXTENSION IF NOT EXISTS vector;",
+    )
+
+
+@pytest.fixture(autouse=True)
+async def create_default_data_for_tests(
     psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
