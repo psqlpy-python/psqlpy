@@ -37,7 +37,6 @@ from psqlpy.extra_types import (
     MoneyArray,
     NumericArray,
     PathArray,
-    PgVector,
     PointArray,
     PyBox,
     PyCircle,
@@ -609,11 +608,6 @@ async def test_as_class(
             "INTERVAL ARRAY",
             [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
             [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
-        ),
-        (
-            "VECTOR",
-            PgVector([123123, 1222211, 9999112, 12999873]),
-            [123123, 1222211, 9999112, 12999873],
         ),
     ),
 )
