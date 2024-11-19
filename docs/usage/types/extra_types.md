@@ -24,6 +24,11 @@ All extra types available from Python with mapping to PostgreSQL type and Rust t
 | PyLine | LineSegment | Line |
 | PyLineSegment | LineSegment | Lseg |
 | PyCircle | Circle | Circle |
+| PgVector | Vector | Vector |
+
+::: important
+To use `Vector` type in PostgreSQL you need to install it - [pgvector](https://github.com/pgvector/pgvector).
+:::
 
 
 ## BigInt & Integer & SmallInt & Float32 & Float64

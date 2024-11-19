@@ -42,9 +42,11 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | Line | PyLine | LINE |
 | Line Segment | PyLineSegment | LSEG |
 | Circle | PyCircle | CIRCLE |
+| PgVector | PgVector | Vector |
 
 ::: important
-DECIMAL PostgreSQL type isn't supported, use NUMERIC instead.
+- DECIMAL PostgreSQL type isn't supported, use NUMERIC instead.
+- `Vector` type in PostgreSQL can be used only after installation - [pgvector](https://github.com/pgvector/pgvector).
 :::
 
 
