@@ -3,8 +3,6 @@ from __future__ import annotations
 import typing
 
 import pytest
-from tests.helpers import count_rows_in_test_table
-
 from psqlpy import (
     ConnectionPool,
     Cursor,
@@ -18,6 +16,7 @@ from psqlpy.exceptions import (
     TransactionExecuteError,
     TransactionSavepointError,
 )
+from tests.helpers import count_rows_in_test_table
 
 pytestmark = pytest.mark.anyio
 

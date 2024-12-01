@@ -3,10 +3,9 @@ import random
 from typing import AsyncGenerator
 
 import pytest
-from pydantic import BaseModel
-
 from psqlpy import ConnectionPool, Cursor
 from psqlpy._internal import SslMode
+from pydantic import BaseModel
 
 
 class DefaultPydanticModel(BaseModel):

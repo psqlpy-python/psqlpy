@@ -1,5 +1,4 @@
 import pytest
-
 from psqlpy import ConnectionPool, SslMode
 from psqlpy._internal import ConnectionPoolBuilder
 

@@ -1,15 +1,12 @@
 import datetime
 import uuid
+import zoneinfo
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Tuple, Union
 
 import pytest
-from pydantic import BaseModel
-from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
-from typing_extensions import Annotated
-
 from psqlpy import ConnectionPool
 from psqlpy.exceptions import PyToRustValueMappingError
 from psqlpy.extra_types import (
@@ -56,6 +53,9 @@ from psqlpy.extra_types import (
     UUIDArray,
     VarCharArray,
 )
+from pydantic import BaseModel
+from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
+from typing_extensions import Annotated
 
 pytestmark = pytest.mark.anyio
 now_datetime = datetime.datetime.now()
@@ -68,6 +68,16 @@ now_datetime_with_tz = datetime.datetime(
     46,
     142574,
     tzinfo=datetime.timezone.utc,
+)
+now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+    2024,
+    4,
+    13,
+    17,
+    3,
+    46,
+    142574,
+    tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
 )
 uuid_ = uuid.uuid4()
 
@@ -125,6 +135,7 @@ async def test_as_class(
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
         ("TIMESTAMPTZ", now_datetime_with_tz, now_datetime_with_tz),
+        ("TIMESTAMPTZ", now_datetime_with_tz_in_asia_jakarta, now_datetime_with_tz_in_asia_jakarta),
         ("UUID", uuid_, str(uuid_)),
         ("INET", IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")),
         (
@@ -286,6 +297,11 @@ async def test_as_class(
             "TIMESTAMPTZ ARRAY",
             [now_datetime_with_tz, now_datetime_with_tz],
             [now_datetime_with_tz, now_datetime_with_tz],
+        ),
+        (
+            "TIMESTAMPTZ ARRAY",
+            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
+            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
         ),
         (
             "TIMESTAMPTZ ARRAY",

@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
 
 pytestmark = pytest.mark.anyio
