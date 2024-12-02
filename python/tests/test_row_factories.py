@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Type
 
 import pytest
-
 from psqlpy import ConnectionPool
 from psqlpy.row_factories import class_row, tuple_row
 

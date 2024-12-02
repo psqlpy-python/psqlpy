@@ -5,9 +5,8 @@ from typing import AsyncGenerator, cast
 import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from typing_extensions import Annotated
-
 from psqlpy import Connection, PSQLPool
+from typing_extensions import Annotated
 
 
 @asynccontextmanager

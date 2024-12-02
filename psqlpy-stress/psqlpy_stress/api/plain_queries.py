@@ -97,7 +97,7 @@ async def psycopg_simple_pool_select(request: web.Request) -> web.Response:
     return web.Response(status=200, text="Ok")
 
 
-# --------------------------------------------- Hard queries handlers starting here ---------------------------------------------
+# ------------ Hard queries handlers starting here ------------
 
 
 async def psqlpy_hard_transaction_select(request: web.Request) -> web.Response:
@@ -187,7 +187,7 @@ async def psycopg_hard_pool_select(request: web.Request) -> web.Response:
     return web.Response(status=200, text="Ok")
 
 
-# --------------------------------------------- Combined queries (select + insert) handlers starting here ---------------------------------------------
+# ------------ Combined queries (select + insert) handlers starting here ------------
 
 
 async def psqlpy_combined_transaction_query(request: web.Request) -> web.Response:

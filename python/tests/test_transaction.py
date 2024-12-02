@@ -3,8 +3,6 @@ from __future__ import annotations
 import typing
 
 import pytest
-from tests.helpers import count_rows_in_test_table
-
 from psqlpy import (
     ConnectionPool,
     Cursor,
@@ -18,6 +16,8 @@ from psqlpy.exceptions import (
     TransactionExecuteError,
     TransactionSavepointError,
 )
+
+from tests.helpers import count_rows_in_test_table
 
 pytestmark = pytest.mark.anyio
 
@@ -355,13 +355,13 @@ async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
 
 @pytest.mark.parametrize(
     "synchronous_commit",
-    (
+    [
         SynchronousCommit.On,
         SynchronousCommit.Off,
         SynchronousCommit.Local,
         SynchronousCommit.RemoteWrite,
         SynchronousCommit.RemoteApply,
-    ),
+    ],
 )
 async def test_synchronous_commit(
     synchronous_commit: SynchronousCommit,

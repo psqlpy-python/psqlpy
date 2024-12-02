@@ -3,10 +3,9 @@ import random
 from typing import AsyncGenerator
 
 import pytest
-from pydantic import BaseModel
-
 from psqlpy import ConnectionPool, Cursor
 from psqlpy._internal import SslMode
+from pydantic import BaseModel
 
 
 class DefaultPydanticModel(BaseModel):
@@ -24,7 +23,7 @@ class DefaultPythonModelClass:
         self.name = name
 
 
-@pytest.fixture()
+@pytest.fixture
 def anyio_backend() -> str:
     """
     Anyio backend.
@@ -39,47 +38,47 @@ def random_string(length: int = 10) -> str:
     return "".join(random.choice("AbCdEfG") for _ in range(length))
 
 
-@pytest.fixture()
+@pytest.fixture
 def postgres_host() -> str:
     return os.environ.get("POSTGRES_HOST", "localhost")
 
 
-@pytest.fixture()
+@pytest.fixture
 def postgres_user() -> str:
     return os.environ.get("POSTGRES_USER", "postgres")
 
 
-@pytest.fixture()
+@pytest.fixture
 def postgres_password() -> str:
     return os.environ.get("POSTGRES_PASSWORD", "postgres")
 
 
-@pytest.fixture()
+@pytest.fixture
 def postgres_port() -> int:
     return int(os.environ.get("POSTGRES_PORT", 5432))
 
 
-@pytest.fixture()
+@pytest.fixture
 def postgres_dbname() -> str:
     return os.environ.get("POSTGRES_DBNAME", "psqlpy_test")
 
 
-@pytest.fixture()
+@pytest.fixture
 def table_name() -> str:
     return random_string()
 
 
-@pytest.fixture()
+@pytest.fixture
 def number_database_records() -> int:
     return random.randint(10, 35)
 
 
-@pytest.fixture()
+@pytest.fixture
 def ssl_cert_file() -> str:
     return os.environ.get("POSTGRES_CERT_FILE", "./root.crt")
 
 
-@pytest.fixture()
+@pytest.fixture
 async def psql_pool(
     postgres_host: str,
     postgres_user: str,
@@ -96,7 +95,7 @@ async def psql_pool(
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def psql_pool_with_cert_file(
     postgres_host: str,
     postgres_user: str,
@@ -138,7 +137,7 @@ async def create_default_data_for_tests(
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def test_cursor(
     psql_pool: ConnectionPool,
     table_name: str,

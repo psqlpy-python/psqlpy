@@ -6,10 +6,6 @@ from ipaddress import IPv4Address
 from typing import Any, Dict, List, Tuple, Union
 
 import pytest
-from pydantic import BaseModel
-from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
-from typing_extensions import Annotated
-
 from psqlpy import ConnectionPool
 from psqlpy.exceptions import PyToRustValueMappingError
 from psqlpy.extra_types import (
@@ -56,9 +52,13 @@ from psqlpy.extra_types import (
     UUIDArray,
     VarCharArray,
 )
+from pydantic import BaseModel
+from typing_extensions import Annotated
+
+from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
 pytestmark = pytest.mark.anyio
-now_datetime = datetime.datetime.now()
+now_datetime = datetime.datetime.now()  # noqa: DTZ005
 now_datetime_with_tz = datetime.datetime(
     2024,
     4,
@@ -101,8 +101,8 @@ async def test_as_class(
 
 
 @pytest.mark.parametrize(
-    ["postgres_type", "py_value", "expected_deserialized"],
-    (
+    ("postgres_type", "py_value", "expected_deserialized"),
+    [
         ("BYTEA", b"Bytes", b"Bytes"),
         ("VARCHAR", "Some String", "Some String"),
         ("TEXT", "Some String", "Some String"),
@@ -609,7 +609,7 @@ async def test_as_class(
             [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
             [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
         ),
-    ),
+    ],
 )
 async def test_deserialization_simple_into_python(
     psql_pool: ConnectionPool,
@@ -963,7 +963,7 @@ async def test_custom_decoder(
         "INSERT INTO for_test VALUES ('(1, 1)')",
     )
 
-    def point_encoder(point_bytes: bytes) -> str:
+    def point_encoder(point_bytes: bytes) -> str:  # noqa: ARG001
         return "Just An Example"
 
     qs_result = await psql_pool.execute(
@@ -1057,8 +1057,8 @@ async def test_empty_array(
 
 
 @pytest.mark.parametrize(
-    ["postgres_type", "py_value", "expected_deserialized"],
-    (
+    ("postgres_type", "py_value", "expected_deserialized"),
+    [
         (
             "VARCHAR ARRAY",
             VarCharArray(["Some String", "Some String"]),
@@ -1083,7 +1083,6 @@ async def test_empty_array(
         ("BOOL ARRAY", BoolArray([True, False]), [True, False]),
         ("BOOL ARRAY", BoolArray([[True], [False]]), [[True], [False]]),
         ("INT2 ARRAY", Int16Array([]), []),
-        ("INT2 ARRAY", Int16Array([SmallInt(12), SmallInt(100)]), [12, 100]),
         ("INT2 ARRAY", Int16Array([SmallInt(12), SmallInt(100)]), [12, 100]),
         ("INT2 ARRAY", Int16Array([[SmallInt(12)], [SmallInt(100)]]), [[12], [100]]),
         ("INT4 ARRAY", Int32Array([Integer(121231231), Integer(121231231)]), [121231231, 121231231]),
@@ -1519,7 +1518,7 @@ async def test_empty_array(
             ),
             [[datetime.timedelta(days=100, microseconds=100)], [datetime.timedelta(days=100, microseconds=100)]],
         ),
-    ),
+    ],
 )
 async def test_array_types(
     psql_pool: ConnectionPool,

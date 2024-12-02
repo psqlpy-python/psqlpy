@@ -3,22 +3,6 @@ repos:
     rev: v2.1.0
     hooks:
       - id: trailing-whitespace
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        name: python isort
-        pass_filenames: false
-        always_run: true
-        args: ["python"]
-  - repo: https://github.com/psf/black
-    rev: 23.9.1
-    hooks:
-      - id: black
-        name: python black
-        pass_filenames: false
-        always_run: true
-        args: ["python"]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.5.1
     hooks:
@@ -28,13 +12,18 @@ repos:
         pass_filenames: false
         args: ["python"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.0.291
+    rev: v0.8.1
     hooks:
       - id: ruff
         name: ruff
         pass_filenames: false
         always_run: true
         args: ["python", "--fix"]
+      - id: ruff-format
+        name: ruff
+        pass_filenames: false
+        always_run: true
+        args: ["python"]
   - repo: local
     hooks:
       - id: fmt

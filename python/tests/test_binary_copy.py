@@ -4,9 +4,8 @@ from io import BytesIO
 
 import pytest
 from pgpq import ArrowToPostgresBinaryEncoder
-from pyarrow import parquet
-
 from psqlpy import ConnectionPool
+from pyarrow import parquet
 
 pytestmark = pytest.mark.anyio
 
