@@ -2,7 +2,7 @@ import types
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, List, Optional, Sequence, TypeVar, Union
+from typing import Any, Callable, Sequence, TypeVar
 
 from typing_extensions import Buffer, Self
 
@@ -43,11 +43,9 @@ class QueryResult:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         class ExampleOfAsClass:
             def __init__(self, username: str) -> None:
                 self.username = username
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -111,11 +109,9 @@ class SingleQueryResult:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         class ExampleOfAsClass:
             def __init__(self, username: str) -> None:
                 self.username = username
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -472,7 +468,6 @@ class Transaction:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -492,7 +487,7 @@ class Transaction:
         querystring: str,
     ) -> None:
         """
-        Executes a sequence of SQL statements using the simple query protocol.
+        Execute a sequence of SQL statements using the simple query protocol.
 
         Statements should be separated by semicolons.
         If an error occurs, execution of the sequence will stop at that point.
@@ -585,7 +580,6 @@ class Transaction:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -628,7 +622,6 @@ class Transaction:
         import asyncio
 
         from psqlpy import PSQLPool, QueryResult
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -682,7 +675,6 @@ class Transaction:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -704,7 +696,6 @@ class Transaction:
                     ),
                 ]
             )
-
         ```
         """
     async def create_savepoint(self: Self, savepoint_name: str) -> None:
@@ -724,7 +715,6 @@ class Transaction:
         import asyncio
 
         from psqlpy import PSQLPool, QueryResult
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -748,7 +738,6 @@ class Transaction:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -771,7 +760,6 @@ class Transaction:
         import asyncio
 
         from psqlpy import PSQLPool, QueryResult
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -797,7 +785,6 @@ class Transaction:
         import asyncio
 
         from psqlpy import PSQLPool, QueryResult
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -837,7 +824,6 @@ class Transaction:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -852,17 +838,17 @@ class Transaction:
 
             async for fetched_result in cursor:
                 dict_result: List[Dict[Any, Any]] = fetched_result.result()
-                ... # do something with this result.
+                ...  # do something with this result.
 
             await cursor.close()
         ```
         """
     async def binary_copy_to_table(
         self: Self,
-        source: Union[bytes, bytearray, Buffer, BytesIO],
+        source: bytes | bytearray | Buffer | BytesIO,
         table_name: str,
-        columns: Optional[Sequence[str]] = None,
-        schema_name: Optional[str] = None,
+        columns: Sequence[str] | None = None,
+        schema_name: str | None = None,
     ) -> int:
         """Perform binary copy to PostgreSQL.
 
@@ -921,7 +907,6 @@ class Connection:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -937,7 +922,7 @@ class Connection:
         querystring: str,
     ) -> None:
         """
-        Executes a sequence of SQL statements using the simple query protocol.
+        Execute a sequence of SQL statements using the simple query protocol.
 
         Statements should be separated by semicolons.
         If an error occurs, execution of the sequence will stop at that point.
@@ -1025,7 +1010,6 @@ class Connection:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
 
@@ -1065,7 +1049,6 @@ class Connection:
         import asyncio
 
         from psqlpy import PSQLPool, QueryResult
-
 
         async def main() -> None:
             db_pool = PSQLPool()
@@ -1121,7 +1104,6 @@ class Connection:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             connection = await db_pool.connection()
@@ -1133,7 +1115,7 @@ class Connection:
                 ) as cursor:
                     async for fetched_result in cursor:
                         dict_result: List[Dict[Any, Any]] = fetched_result.result()
-                        ... # do something with this result.
+                        ...  # do something with this result.
         ```
         """
     def back_to_pool(self: Self) -> None:
@@ -1144,10 +1126,10 @@ class Connection:
         """
     async def binary_copy_to_table(
         self: Self,
-        source: Union[bytes, bytearray, Buffer, BytesIO],
+        source: bytes | bytearray | Buffer | BytesIO,
         table_name: str,
-        columns: Optional[Sequence[str]] = None,
-        schema_name: Optional[str] = None,
+        columns: Sequence[str] | None = None,
+        schema_name: str | None = None,
     ) -> int:
         """Perform binary copy to PostgreSQL.
 
@@ -1181,32 +1163,32 @@ class ConnectionPool:
 
     def __init__(
         self: Self,
-        dsn: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        host: Optional[str] = None,
-        hosts: Optional[List[str]] = None,
-        port: Optional[int] = None,
-        ports: Optional[List[int]] = None,
-        db_name: Optional[str] = None,
-        target_session_attrs: Optional[TargetSessionAttrs] = None,
-        options: Optional[str] = None,
-        application_name: Optional[str] = None,
-        connect_timeout_sec: Optional[int] = None,
-        connect_timeout_nanosec: Optional[int] = None,
-        tcp_user_timeout_sec: Optional[int] = None,
-        tcp_user_timeout_nanosec: Optional[int] = None,
-        keepalives: Optional[bool] = None,
-        keepalives_idle_sec: Optional[int] = None,
-        keepalives_idle_nanosec: Optional[int] = None,
-        keepalives_interval_sec: Optional[int] = None,
-        keepalives_interval_nanosec: Optional[int] = None,
-        keepalives_retries: Optional[int] = None,
-        load_balance_hosts: Optional[LoadBalanceHosts] = None,
+        dsn: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        hosts: list[str] | None = None,
+        port: int | None = None,
+        ports: list[int] | None = None,
+        db_name: str | None = None,
+        target_session_attrs: TargetSessionAttrs | None = None,
+        options: str | None = None,
+        application_name: str | None = None,
+        connect_timeout_sec: int | None = None,
+        connect_timeout_nanosec: int | None = None,
+        tcp_user_timeout_sec: int | None = None,
+        tcp_user_timeout_nanosec: int | None = None,
+        keepalives: bool | None = None,
+        keepalives_idle_sec: int | None = None,
+        keepalives_idle_nanosec: int | None = None,
+        keepalives_interval_sec: int | None = None,
+        keepalives_interval_nanosec: int | None = None,
+        keepalives_retries: int | None = None,
+        load_balance_hosts: LoadBalanceHosts | None = None,
         max_db_pool_size: int = 2,
-        conn_recycling_method: Optional[ConnRecyclingMethod] = None,
-        ssl_mode: Optional[SslMode] = None,
-        ca_file: Optional[str] = None,
+        conn_recycling_method: ConnRecyclingMethod | None = None,
+        ssl_mode: SslMode | None = None,
+        ca_file: str | None = None,
     ) -> None:
         """Create new PostgreSQL connection pool.
 
@@ -1325,7 +1307,6 @@ class ConnectionPool:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             query_result: QueryResult = await psqlpy.execute(
@@ -1373,7 +1354,6 @@ class ConnectionPool:
 
         from psqlpy import PSQLPool, QueryResult
 
-
         async def main() -> None:
             db_pool = PSQLPool()
             async with db_pool.acquire() as connection:
@@ -1384,32 +1364,32 @@ class ConnectionPool:
         """Close the connection pool."""
 
 def connect(
-    dsn: Optional[str] = None,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    host: Optional[str] = None,
-    hosts: Optional[List[str]] = None,
-    port: Optional[int] = None,
-    ports: Optional[List[int]] = None,
-    db_name: Optional[str] = None,
-    target_session_attrs: Optional[TargetSessionAttrs] = None,
-    options: Optional[str] = None,
-    application_name: Optional[str] = None,
-    connect_timeout_sec: Optional[int] = None,
-    connect_timeout_nanosec: Optional[int] = None,
-    tcp_user_timeout_sec: Optional[int] = None,
-    tcp_user_timeout_nanosec: Optional[int] = None,
-    keepalives: Optional[bool] = None,
-    keepalives_idle_sec: Optional[int] = None,
-    keepalives_idle_nanosec: Optional[int] = None,
-    keepalives_interval_sec: Optional[int] = None,
-    keepalives_interval_nanosec: Optional[int] = None,
-    keepalives_retries: Optional[int] = None,
-    load_balance_hosts: Optional[LoadBalanceHosts] = None,
+    dsn: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+    host: str | None = None,
+    hosts: list[str] | None = None,
+    port: int | None = None,
+    ports: list[int] | None = None,
+    db_name: str | None = None,
+    target_session_attrs: TargetSessionAttrs | None = None,
+    options: str | None = None,
+    application_name: str | None = None,
+    connect_timeout_sec: int | None = None,
+    connect_timeout_nanosec: int | None = None,
+    tcp_user_timeout_sec: int | None = None,
+    tcp_user_timeout_nanosec: int | None = None,
+    keepalives: bool | None = None,
+    keepalives_idle_sec: int | None = None,
+    keepalives_idle_nanosec: int | None = None,
+    keepalives_interval_sec: int | None = None,
+    keepalives_interval_nanosec: int | None = None,
+    keepalives_retries: int | None = None,
+    load_balance_hosts: LoadBalanceHosts | None = None,
     max_db_pool_size: int = 2,
-    conn_recycling_method: Optional[ConnRecyclingMethod] = None,
-    ssl_mode: Optional[SslMode] = None,
-    ca_file: Optional[str] = None,
+    conn_recycling_method: ConnRecyclingMethod | None = None,
+    ssl_mode: SslMode | None = None,
+    ca_file: str | None = None,
 ) -> ConnectionPool:
     """Create new PostgreSQL connection pool.
 
@@ -1607,7 +1587,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
-    def hostaddr(self: Self, hostaddr: Union[IPv4Address, IPv6Address]) -> Self:
+    def hostaddr(self: Self, hostaddr: IPv4Address | IPv6Address) -> Self:
         """
         Add a hostaddr to the configuration.
 
@@ -1739,7 +1719,7 @@ class ConnectionPoolBuilder:
         keepalives_interval: int,
     ) -> Self:
         """
-        Sets the time interval between TCP keepalive probes.
+        Set the time interval between TCP keepalive probes.
 
         On Windows, this sets the value of the
         tcp_keepalive struct keepalive interval field.
@@ -1758,7 +1738,7 @@ class ConnectionPoolBuilder:
         keepalives_retries: int,
     ) -> Self:
         """
-        Sets the maximum number of TCP keepalive probes that will be sent before dropping a connection.
+        Set the maximum number of TCP keepalive probes that will be sent before dropping a connection.
 
         This is ignored for Unix domain sockets, or if the `keepalives` option is disabled.
 

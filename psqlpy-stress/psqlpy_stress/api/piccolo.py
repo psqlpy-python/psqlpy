@@ -43,7 +43,7 @@ async def asyncpg_simple_connection_select_piccolo(
     return web.Response(status=200, text="Ok")
 
 
-# --------------------------------------------- Hard queries handlers starting here ---------------------------------------------
+# ------------ Hard queries handlers starting here ------------
 
 
 async def psqlpy_hard_transaction_select_piccolo(
@@ -79,7 +79,7 @@ async def asyncpg_hard_connection_select_piccolo(
     return web.Response(status=200, text="Ok")
 
 
-# --------------------------------------------- Combined queries (select + insert) handlers starting here ---------------------------------------------
+# ------------ Combined queries (select + insert) handlers starting here ------------
 
 
 async def psqlpy_combined_transaction_query_piccolo(

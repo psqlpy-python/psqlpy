@@ -1,5 +1,4 @@
 import pytest
-
 from psqlpy import (
     Connection,
     ConnectionPool,

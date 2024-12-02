@@ -6,7 +6,6 @@ from typing import AsyncGenerator
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-
 from psqlpy import PSQLPool
 
 db_pool = PSQLPool(
@@ -28,9 +27,7 @@ app = FastAPI(lifespan=lifespan)
 
 async def some_long_func() -> None:
     # Some very long execution.
-    print("Executing...")
     await asyncio.sleep(10)
-    print("Done.")
 
 
 @app.get("/")

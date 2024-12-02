@@ -1,4 +1,4 @@
-from typing import Any, Generic, Tuple, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from typing_extensions import Self
 
@@ -6,7 +6,7 @@ _CustomClass = TypeVar(
     "_CustomClass",
 )
 
-def tuple_row(row: dict[str, Any]) -> Tuple[Tuple[str, Any]]:
+def tuple_row(row: dict[str, Any]) -> tuple[tuple[str, Any]]:
     """Convert dict row into tuple row.
 
     ### Parameters:
@@ -50,7 +50,7 @@ class class_row(Generic[_CustomClass]):  # noqa: N801
     ```
     """
 
-    def __init__(self: Self, class_: Type[_CustomClass]) -> None:
+    def __init__(self: Self, class_: type[_CustomClass]) -> None:
         """Construct new `class_row`.
 
         ### Parameters:

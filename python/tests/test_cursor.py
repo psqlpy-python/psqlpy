@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import pytest
 
-from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
+if TYPE_CHECKING:
+    from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
 
 pytestmark = pytest.mark.anyio
 
@@ -167,7 +169,7 @@ async def test_cursor_as_async_manager(
         fetch_number=fetch_number,
     ) as cursor:
         async for result in cursor:
-            all_results.append(result)
+            all_results.append(result)  # noqa: PERF401
 
     assert len(all_results) == expected_num_results
 
