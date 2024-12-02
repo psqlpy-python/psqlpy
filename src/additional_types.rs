@@ -114,15 +114,15 @@ impl ToPyObject for Circle {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a RustPoint {
+impl IntoPy<PyObject> for &RustPoint {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let inner_value = self.inner();
-        return PyTuple::new_bound(
+        PyTuple::new_bound(
             py,
             vec![inner_value.x().into_py(py), inner_value.y().into_py(py)],
         )
-        .into();
+        .into()
     }
 }
 
@@ -157,7 +157,7 @@ impl<'a> FromSql<'a> for RustPoint {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a RustRect {
+impl IntoPy<PyObject> for &RustRect {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let inner_value = self.inner();
@@ -173,7 +173,7 @@ impl<'a> IntoPy<PyObject> for &'a RustRect {
                 .into(),
             );
         }
-        return PyTuple::new_bound(py, result_vec).into();
+        PyTuple::new_bound(py, result_vec).into()
     }
 }
 
@@ -208,7 +208,7 @@ impl<'a> FromSql<'a> for RustRect {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a RustLineString {
+impl IntoPy<PyObject> for &RustLineString {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let inner_value = self.inner();
@@ -224,7 +224,7 @@ impl<'a> IntoPy<PyObject> for &'a RustLineString {
         if inner_value.is_closed() {
             return PyTuple::new_bound(py, result_vec).into();
         }
-        return PyList::new_bound(py, result_vec).into();
+        PyList::new_bound(py, result_vec).into()
     }
 }
 
@@ -259,7 +259,7 @@ impl<'a> FromSql<'a> for RustLineString {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a RustLineSegment {
+impl IntoPy<PyObject> for &RustLineSegment {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let inner_value = self.inner();
@@ -272,7 +272,7 @@ impl<'a> IntoPy<PyObject> for &'a RustLineSegment {
             );
         }
 
-        return PyList::new_bound(py, result_vec).into();
+        PyList::new_bound(py, result_vec).into()
     }
 }
 
@@ -445,7 +445,7 @@ impl<T: CoordNum> DivAssign<T> for Line<T> {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a Line {
+impl IntoPy<PyObject> for &Line {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let result_vec: Vec<Py<PyAny>> = vec![
@@ -454,7 +454,7 @@ impl<'a> IntoPy<PyObject> for &'a Line {
             self.c().into_py(py),
         ];
 
-        return PyTuple::new_bound(py, result_vec).into();
+        PyTuple::new_bound(py, result_vec).into()
     }
 }
 
@@ -563,7 +563,7 @@ impl<T: CoordFloat> Circle<T> {
     }
 }
 
-impl<'a> IntoPy<PyObject> for &'a Circle {
+impl IntoPy<PyObject> for &Circle {
     #[inline]
     fn into_py(self, py: Python<'_>) -> PyObject {
         let center = self.center();
@@ -573,7 +573,7 @@ impl<'a> IntoPy<PyObject> for &'a Circle {
             self.radius().into_py(py),
         ];
 
-        return PyTuple::new_bound(py, result_vec).into();
+        PyTuple::new_bound(py, result_vec).into()
     }
 }
 

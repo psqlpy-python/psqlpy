@@ -10,6 +10,7 @@ use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::po
 /// May return Err Result if can not convert
 /// postgres type to python or set new key-value pair
 /// in python dict.
+#[allow(clippy::ref_option)]
 fn row_to_dict<'a>(
     py: Python<'a>,
     postgres_row: &'a Row,
