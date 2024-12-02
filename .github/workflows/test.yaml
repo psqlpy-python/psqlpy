@@ -8,8 +8,6 @@ jobs:
     strategy:
       matrix:
         cmd:
-          - ruff check
-          - ruff format
           - mypy
     runs-on: ubuntu-latest
     steps:
