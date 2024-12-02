@@ -1,10 +1,10 @@
 import datetime
+import sys
 import uuid
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Tuple, Union
-import sys
 
 import pytest
 from psqlpy import ConnectionPool
