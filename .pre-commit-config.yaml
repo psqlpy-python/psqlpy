@@ -1,3 +1,6 @@
+ci:
+  skip: [fmt, clippy, check]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.1.0
