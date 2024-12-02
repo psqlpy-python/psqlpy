@@ -8,9 +8,8 @@ jobs:
     strategy:
       matrix:
         cmd:
-          - black
-          - isort
-          - ruff
+          - ruff check
+          - ruff format
           - mypy
     runs-on: ubuntu-latest
     steps:
