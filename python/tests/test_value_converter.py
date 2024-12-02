@@ -1,10 +1,10 @@
 import datetime
 import uuid
-import zoneinfo
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
 from typing import Any, Dict, List, Tuple, Union
+import sys
 
 import pytest
 from psqlpy import ConnectionPool
@@ -57,6 +57,7 @@ from pydantic import BaseModel
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 from typing_extensions import Annotated
 
+uuid_ = uuid.uuid4()
 pytestmark = pytest.mark.anyio
 now_datetime = datetime.datetime.now()
 now_datetime_with_tz = datetime.datetime(
@@ -69,6 +70,7 @@ now_datetime_with_tz = datetime.datetime(
     142574,
     tzinfo=datetime.timezone.utc,
 )
+
 now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
     2024,
     4,
@@ -77,9 +79,21 @@ now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
     3,
     46,
     142574,
-    tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
+    tzinfo=datetime.timezone.utc,
 )
-uuid_ = uuid.uuid4()
+if sys.version_info >= (3, 9):
+    import zoneinfo
+
+    now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+        2024,
+        4,
+        13,
+        17,
+        3,
+        46,
+        142574,
+        tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
+    )
 
 
 async def test_as_class(
