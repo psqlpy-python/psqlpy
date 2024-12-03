@@ -1752,7 +1752,7 @@ pub fn composite_postgres_to_py(
     py: Python<'_>,
     fields: &Vec<Field>,
     buf: &mut &[u8],
-    custom_decoders: &Option<Py<PyDict>>,
+    custom_decoders: Option<&Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let result_py_dict: Bound<'_, PyDict> = PyDict::new_bound(py);
 
@@ -1821,7 +1821,7 @@ pub fn raw_bytes_data_process(
     raw_bytes_data: &mut &[u8],
     column_name: &str,
     column_type: &Type,
-    custom_decoders: &Option<Py<PyDict>>,
+    custom_decoders: Option<&Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     if let Some(custom_decoders) = custom_decoders {
         let py_encoder_func = custom_decoders
@@ -1860,7 +1860,7 @@ pub fn postgres_to_py(
     row: &Row,
     column: &Column,
     column_i: usize,
-    custom_decoders: &Option<Py<PyDict>>,
+    custom_decoders: Option<&Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<Py<PyAny>> {
     let raw_bytes_data = row.col_buffer(column_i);
     if let Some(mut raw_bytes_data) = raw_bytes_data {

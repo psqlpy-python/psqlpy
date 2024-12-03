@@ -18,10 +18,10 @@ trait CursorObjectTrait {
     async fn cursor_start(
         &self,
         cursor_name: &str,
-        scroll: &Option<bool>,
+        scroll: Option<&bool>,
         querystring: &str,
-        prepared: &Option<bool>,
-        parameters: &Option<Py<PyAny>>,
+        prepared: Option<&bool>,
+        parameters: Option<&Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<()>;
 
     async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()>;
@@ -38,10 +38,10 @@ impl CursorObjectTrait for Object {
     async fn cursor_start(
         &self,
         cursor_name: &str,
-        scroll: &Option<bool>,
+        scroll: Option<&bool>,
         querystring: &str,
-        prepared: &Option<bool>,
-        parameters: &Option<Py<PyAny>>,
+        prepared: Option<&bool>,
+        parameters: Option<&Py<PyAny>>,
     ) -> RustPSQLDriverPyResult<()> {
         let mut cursor_init_query = format!("DECLARE {cursor_name}");
         if let Some(scroll) = scroll {

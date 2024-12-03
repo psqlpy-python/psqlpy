@@ -14,7 +14,7 @@ use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::po
 fn row_to_dict<'a>(
     py: Python<'a>,
     postgres_row: &'a Row,
-    custom_decoders: &Option<Py<PyDict>>,
+    custom_decoders: Option<&Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<pyo3::Bound<'a, PyDict>> {
     let python_dict = PyDict::new_bound(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
