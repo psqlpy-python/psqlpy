@@ -95,11 +95,7 @@ class PyJSONB:
 
     def __init__(
         self: Self,
-        value: typing.Union[
-            dict[str, typing.Any],
-            list[dict[str, typing.Any]],
-            list[typing.Any],
-        ],
+        value: dict[str, typing.Any] | list[dict[str, typing.Any]] | list[typing.Any],
     ) -> None:
         """Create new instance of PyJSON.B.
 
@@ -114,11 +110,7 @@ class PyJSON:
 
     def __init__(
         self: Self,
-        value: typing.Union[
-            dict[str, typing.Any],
-            list[dict[str, typing.Any]],
-            list[typing.Any],
-        ],
+        value: dict[str, typing.Any] | list[dict[str, typing.Any]] | list[typing.Any],
     ) -> None:
         """Create new instance of PyJSON.
 
@@ -151,16 +143,10 @@ class PyMacAddr8:
 class PyCustomType:
     def __init__(self, value: bytes) -> None: ...
 
-Coordinates: typing.TypeAlias = typing.Union[
-    list[int | float],
-    set[int | float],
-    tuple[int | float, int | float],
-]
-PairsOfCoordinates: typing.TypeAlias = typing.Union[
-    list[Coordinates | int | float],
-    set[Coordinates | int | float],
-    tuple[Coordinates | int | float, ...],
-]
+Coordinates: typing.TypeAlias = list[int | float] | set[int | float] | tuple[int | float, int | float]
+PairsOfCoordinates: typing.TypeAlias = (
+    list[Coordinates | int | float] | set[Coordinates | int | float] | tuple[Coordinates | int | float, ...]
+)
 
 class PyPoint:
     """Represent point field in PostgreSQL and Point in Rust."""
@@ -241,11 +227,7 @@ class PyCircle:
 
     def __init__(
         self: Self,
-        value: typing.Union[
-            list[int | float],
-            set[int | float],
-            tuple[int | float, int | float, int | float],
-        ],
+        value: list[int | float] | set[int | float] | tuple[int | float, int | float, int | float],
     ) -> None:
         """Create new instance of PyCircle.
 
@@ -261,13 +243,7 @@ class BoolArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                bool,
-                typing.Sequence[bool],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[bool | typing.Sequence[bool] | typing.Any,],
     ) -> None:
         """Create new instance of BoolArray.
 
@@ -280,13 +256,7 @@ class UUIDArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                UUID,
-                typing.Sequence[UUID],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[UUID | typing.Sequence[UUID] | typing.Any,],
     ) -> None:
         """Create new instance of UuidArray.
 
@@ -299,13 +269,7 @@ class VarCharArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                str,
-                typing.Sequence[str],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[str | typing.Sequence[str] | typing.Any,],
     ) -> None:
         """Create new instance of VarCharArray.
 
@@ -318,13 +282,7 @@ class TextArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                str,
-                typing.Sequence[str],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[str | typing.Sequence[str] | typing.Any,],
     ) -> None:
         """Create new instance of TextArray.
 
@@ -337,13 +295,7 @@ class Int16Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                int,
-                typing.Sequence[int],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[int | typing.Sequence[int] | typing.Any,],
     ) -> None:
         """Create new instance of Int16Array.
 
@@ -356,13 +308,7 @@ class Int32Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                int,
-                typing.Sequence[int],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[int | typing.Sequence[int] | typing.Any,],
     ) -> None:
         """Create new instance of Int32Array.
 
@@ -375,13 +321,7 @@ class Int64Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                int,
-                typing.Sequence[int],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[int | typing.Sequence[int] | typing.Any,],
     ) -> None:
         """Create new instance of Int64Array.
 
@@ -394,13 +334,7 @@ class Float32Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                float,
-                typing.Sequence[float],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[float | typing.Sequence[float] | typing.Any,],
     ) -> None:
         """Create new instance of Float32Array.
 
@@ -413,13 +347,7 @@ class Float64Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                float,
-                typing.Sequence[float],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[float | typing.Sequence[float] | typing.Any,],
     ) -> None:
         """Create new instance of Float64Array.
 
@@ -432,13 +360,7 @@ class MoneyArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                int,
-                typing.Sequence[int],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[int | typing.Sequence[int] | typing.Any,],
     ) -> None:
         """Create new instance of MoneyArray.
 
@@ -452,13 +374,7 @@ class IpAddressArray:
     def __init__(
         self: Self,
         inner: typing.Sequence[
-            typing.Union[
-                IPv4Address,
-                IPv6Address,
-                typing.Sequence[IPv4Address],
-                typing.Sequence[IPv6Address],
-                typing.Any,
-            ],
+            IPv4Address | IPv6Address | typing.Sequence[IPv4Address] | typing.Sequence[IPv6Address] | typing.Any,
         ],
     ) -> None:
         """Create new instance of IpAddressArray.
@@ -473,13 +389,11 @@ class JSONBArray:
     def __init__(
         self: Self,
         inner: typing.Sequence[
-            typing.Union[
-                typing.Dict[str, typing.Any],
-                PyJSONB,
-                typing.Sequence[typing.Dict[str, typing.Any]],
-                typing.Sequence[PyJSONB],
-                typing.Sequence[typing.Any],
-            ]
+            dict[str, typing.Any]
+            | PyJSONB
+            | typing.Sequence[dict[str, typing.Any]]
+            | typing.Sequence[PyJSONB]
+            | typing.Sequence[typing.Any]
         ],
     ) -> None:
         """Create new instance of JSONBArray.
@@ -494,13 +408,11 @@ class JSONArray:
     def __init__(
         self: Self,
         inner: typing.Sequence[
-            typing.Union[
-                typing.Dict[str, typing.Any],
-                PyJSON,
-                typing.Sequence[typing.Dict[str, typing.Any]],
-                typing.Sequence[PyJSON],
-                typing.Sequence[typing.Any],
-            ]
+            dict[str, typing.Any]
+            | PyJSON
+            | typing.Sequence[dict[str, typing.Any]]
+            | typing.Sequence[PyJSON]
+            | typing.Sequence[typing.Any]
         ],
     ) -> None:
         """Create new instance of JSONArray.
@@ -514,13 +426,7 @@ class DateArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                date,
-                typing.Sequence[date],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[date | typing.Sequence[date] | typing.Any,],
     ) -> None:
         """Create new instance of DateArray.
 
@@ -533,13 +439,7 @@ class TimeArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                time,
-                typing.Sequence[time],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[time | typing.Sequence[time] | typing.Any,],
     ) -> None:
         """Create new instance of DateArray.
 
@@ -552,13 +452,7 @@ class DateTimeArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                datetime,
-                typing.Sequence[datetime],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[datetime | typing.Sequence[datetime] | typing.Any,],
     ) -> None:
         """Create new instance of DateArray.
 
@@ -571,13 +465,7 @@ class DateTimeTZArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                datetime,
-                typing.Sequence[datetime],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[datetime | typing.Sequence[datetime] | typing.Any,],
     ) -> None:
         """Create new instance of DateArray.
 
@@ -590,13 +478,7 @@ class MacAddr6Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyMacAddr6,
-                typing.Sequence[PyMacAddr6],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyMacAddr6 | typing.Sequence[PyMacAddr6] | typing.Any,],
     ) -> None:
         """Create new instance of MacAddr6Array.
 
@@ -609,13 +491,7 @@ class MacAddr8Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyMacAddr8,
-                typing.Sequence[PyMacAddr8],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyMacAddr8 | typing.Sequence[PyMacAddr8] | typing.Any,],
     ) -> None:
         """Create new instance of MacAddr8Array.
 
@@ -628,13 +504,7 @@ class NumericArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                Decimal,
-                typing.Sequence[Decimal],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[Decimal | typing.Sequence[Decimal] | typing.Any,],
     ) -> None:
         """Create new instance of NumericArray.
 
@@ -647,13 +517,7 @@ class PointArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyPoint,
-                typing.Sequence[PyPoint],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyPoint | typing.Sequence[PyPoint] | typing.Any,],
     ) -> None:
         """Create new instance of PointArray.
 
@@ -666,13 +530,7 @@ class BoxArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyBox,
-                typing.Sequence[PyBox],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyBox | typing.Sequence[PyBox] | typing.Any,],
     ) -> None:
         """Create new instance of BoxArray.
 
@@ -685,13 +543,7 @@ class PathArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyPath,
-                typing.Sequence[PyPath],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyPath | typing.Sequence[PyPath] | typing.Any,],
     ) -> None:
         """Create new instance of PathArray.
 
@@ -704,13 +556,7 @@ class LineArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyLine,
-                typing.Sequence[PyLine],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyLine | typing.Sequence[PyLine] | typing.Any,],
     ) -> None:
         """Create new instance of LineArray.
 
@@ -723,13 +569,7 @@ class LsegArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyLineSegment,
-                typing.Sequence[PyLineSegment],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyLineSegment | typing.Sequence[PyLineSegment] | typing.Any,],
     ) -> None:
         """Create new instance of LsegArray.
 
@@ -742,13 +582,7 @@ class CircleArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                PyCircle,
-                typing.Sequence[PyCircle],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[PyCircle | typing.Sequence[PyCircle] | typing.Any,],
     ) -> None:
         """Create new instance of CircleArray.
 
@@ -761,13 +595,7 @@ class IntervalArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[
-            typing.Union[
-                timedelta,
-                typing.Sequence[timedelta],
-                typing.Any,
-            ],
-        ],
+        inner: typing.Sequence[timedelta | typing.Sequence[timedelta] | typing.Any,],
     ) -> None:
         """Create new instance of IntervalArray.
 

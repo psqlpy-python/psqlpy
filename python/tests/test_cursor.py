@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import pytest
-from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
+
+if TYPE_CHECKING:
+    from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
 
 pytestmark = pytest.mark.anyio
 

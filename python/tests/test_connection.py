@@ -11,6 +11,8 @@ from psqlpy.exceptions import (
 )
 from tests.helpers import count_rows_in_test_table
 
+from tests.helpers import count_rows_in_test_table
+
 pytestmark = pytest.mark.anyio
 
 
@@ -136,7 +138,6 @@ async def test_connection_fetch_val_more_than_one_row(
 async def test_connection_cursor(
     psql_pool: ConnectionPool,
     table_name: str,
-    number_database_records: int,
 ) -> None:
     """Test cursor from Connection."""
     connection = await psql_pool.connection()
@@ -147,10 +148,6 @@ async def test_connection_cursor(
     await cursor.start()
     await cursor.close()
     await transaction.commit()
-
-    # async with connection.transaction(), connection.cursor(
-    # ) as cursor:
-    #     async for cur_res in cursor:
 
 
 async def test_connection_async_context_manager(

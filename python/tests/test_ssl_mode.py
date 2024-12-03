@@ -7,14 +7,14 @@ pytestmark = pytest.mark.anyio
 
 @pytest.mark.parametrize(
     "ssl_mode",
-    (
+    [
         SslMode.Disable,
         SslMode.Allow,
         SslMode.Prefer,
         SslMode.Require,
         SslMode.VerifyCa,
         SslMode.VerifyFull,
-    ),
+    ],
 )
 async def test_ssl_mode_require(
     ssl_mode: SslMode,
@@ -40,14 +40,14 @@ async def test_ssl_mode_require(
 
 @pytest.mark.parametrize(
     "ssl_mode",
-    (
+    [
         SslMode.Disable,
         SslMode.Allow,
         SslMode.Prefer,
         SslMode.Require,
         SslMode.VerifyCa,
         SslMode.VerifyFull,
-    ),
+    ],
 )
 async def test_ssl_mode_require_pool_builder(
     ssl_mode: SslMode,
