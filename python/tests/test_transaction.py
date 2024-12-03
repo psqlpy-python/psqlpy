@@ -16,7 +16,6 @@ from psqlpy.exceptions import (
     TransactionExecuteError,
     TransactionSavepointError,
 )
-from tests.helpers import count_rows_in_test_table
 
 from tests.helpers import count_rows_in_test_table
 

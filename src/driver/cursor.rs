@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Additional implementation for the `Object` type.
-#[allow(clippy::ref_option)]
+#[allow(clippy::ref_option_ref)]
 trait CursorObjectTrait {
     async fn cursor_start(
         &self,
@@ -34,7 +34,7 @@ impl CursorObjectTrait for Object {
     ///
     /// # Errors
     /// May return Err Result if cannot execute querystring.
-    #[allow(clippy::ref_option)]
+    #[allow(clippy::ref_option_ref)]
     async fn cursor_start(
         &self,
         cursor_name: &str,

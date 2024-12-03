@@ -168,8 +168,7 @@ async def test_cursor_as_async_manager(
         querystring=f"SELECT * FROM {table_name}",
         fetch_number=fetch_number,
     ) as cursor:
-        async for result in cursor:
-            all_results.append(result)
+        all_results.extend([result async for result in cursor])
 
     assert len(all_results) == expected_num_results
 
