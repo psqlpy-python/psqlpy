@@ -1,4 +1,5 @@
 import datetime
+import sys
 import uuid
 from decimal import Decimal
 from enum import Enum
@@ -57,6 +58,7 @@ from typing_extensions import Annotated
 
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
+uuid_ = uuid.uuid4()
 pytestmark = pytest.mark.anyio
 now_datetime = datetime.datetime.now()  # noqa: DTZ005
 now_datetime_with_tz = datetime.datetime(
@@ -69,7 +71,30 @@ now_datetime_with_tz = datetime.datetime(
     142574,
     tzinfo=datetime.timezone.utc,
 )
-uuid_ = uuid.uuid4()
+
+now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+    2024,
+    4,
+    13,
+    17,
+    3,
+    46,
+    142574,
+    tzinfo=datetime.timezone.utc,
+)
+if sys.version_info >= (3, 9):
+    import zoneinfo
+
+    now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+        2024,
+        4,
+        13,
+        17,
+        3,
+        46,
+        142574,
+        tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
+    )
 
 
 async def test_as_class(
@@ -125,6 +150,7 @@ async def test_as_class(
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
         ("TIMESTAMPTZ", now_datetime_with_tz, now_datetime_with_tz),
+        ("TIMESTAMPTZ", now_datetime_with_tz_in_asia_jakarta, now_datetime_with_tz_in_asia_jakarta),
         ("UUID", uuid_, str(uuid_)),
         ("INET", IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")),
         (
@@ -286,6 +312,11 @@ async def test_as_class(
             "TIMESTAMPTZ ARRAY",
             [now_datetime_with_tz, now_datetime_with_tz],
             [now_datetime_with_tz, now_datetime_with_tz],
+        ),
+        (
+            "TIMESTAMPTZ ARRAY",
+            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
+            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
         ),
         (
             "TIMESTAMPTZ ARRAY",

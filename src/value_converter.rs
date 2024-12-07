@@ -1,4 +1,5 @@
-use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+use chrono_tz::Tz;
 use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
@@ -626,8 +627,7 @@ impl ToSql for PythonDTO {
 #[allow(clippy::needless_pass_by_value)]
 pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
     let mut result_vec: Vec<PythonDTO> = vec![];
-
-    result_vec = Python::with_gil(|gil| {
+    Python::with_gil(|gil| {
         let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
             RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert you parameters argument into Rust type, please use List/Tuple"
@@ -637,8 +637,9 @@ pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<P
         for parameter in params {
             result_vec.push(py_to_rust(parameter.bind(gil))?);
         }
-        Ok::<Vec<PythonDTO>, RustPSQLDriverError>(result_vec)
+        Ok::<(), RustPSQLDriverError>(())
     })?;
+
     Ok(result_vec)
 }
 
@@ -744,6 +745,81 @@ pub fn py_sequence_into_postgres_array(
     }
 }
 
+/// Extract a value from a Python object, raising an error if missing or invalid
+///
+/// # Errors
+/// This function will return `Err` in the following cases:
+/// - The Python object does not have the specified attribute
+/// - The attribute exists but cannot be extracted into the specified Rust type
+fn extract_value_from_python_object_or_raise<'py, T>(
+    parameter: &'py pyo3::Bound<'_, PyAny>,
+    attr_name: &str,
+) -> Result<T, RustPSQLDriverError>
+where
+    T: FromPyObject<'py>,
+{
+    parameter
+        .getattr(attr_name)
+        .ok()
+        .and_then(|attr| attr.extract::<T>().ok())
+        .ok_or_else(|| {
+            RustPSQLDriverError::PyToRustValueConversionError("Invalid attribute".into())
+        })
+}
+
+/// Extract a timezone-aware datetime from a Python object.
+/// This function retrieves various datetime components (`year`, `month`, `day`, etc.)
+/// from a Python object and constructs a `DateTime<FixedOffset>`
+///
+/// # Errors
+/// This function will return `Err` in the following cases:
+/// - The Python object does not contain or support one or more required datetime attributes
+/// - The retrieved values are invalid for constructing a date, time, or datetime (e.g., invalid month or day)
+/// - The timezone information (`tzinfo`) is not available or cannot be parsed
+/// - The resulting datetime is ambiguous or invalid (e.g., due to DST transitions)
+fn extract_datetime_from_python_object_attrs(
+    parameter: &pyo3::Bound<'_, PyAny>,
+) -> Result<DateTime<FixedOffset>, RustPSQLDriverError> {
+    let year = extract_value_from_python_object_or_raise::<i32>(parameter, "year")?;
+    let month = extract_value_from_python_object_or_raise::<u32>(parameter, "month")?;
+    let day = extract_value_from_python_object_or_raise::<u32>(parameter, "day")?;
+    let hour = extract_value_from_python_object_or_raise::<u32>(parameter, "hour")?;
+    let minute = extract_value_from_python_object_or_raise::<u32>(parameter, "minute")?;
+    let second = extract_value_from_python_object_or_raise::<u32>(parameter, "second")?;
+    let microsecond = extract_value_from_python_object_or_raise::<u32>(parameter, "microsecond")?;
+
+    let date = NaiveDate::from_ymd_opt(year, month, day)
+        .ok_or_else(|| RustPSQLDriverError::PyToRustValueConversionError("Invalid date".into()))?;
+    let time = NaiveTime::from_hms_micro_opt(hour, minute, second, microsecond)
+        .ok_or_else(|| RustPSQLDriverError::PyToRustValueConversionError("Invalid time".into()))?;
+    let naive_datetime = NaiveDateTime::new(date, time);
+
+    let raw_timestamp_tz = parameter
+        .getattr("tzinfo")
+        .ok()
+        .and_then(|tzinfo| tzinfo.getattr("key").ok())
+        .and_then(|key| key.extract::<String>().ok())
+        .ok_or_else(|| {
+            RustPSQLDriverError::PyToRustValueConversionError("Invalid timezone info".into())
+        })?;
+
+    let fixed_offset_datetime = raw_timestamp_tz
+        .parse::<Tz>()
+        .map_err(|_| {
+            RustPSQLDriverError::PyToRustValueConversionError("Failed to parse TZ".into())
+        })?
+        .from_local_datetime(&naive_datetime)
+        .single()
+        .ok_or_else(|| {
+            RustPSQLDriverError::PyToRustValueConversionError(
+                "Ambiguous or invalid datetime".into(),
+            )
+        })?
+        .fixed_offset();
+
+    Ok(fixed_offset_datetime)
+}
+
 /// Convert single python parameter to `PythonDTO` enum.
 ///
 /// # Errors
@@ -847,6 +923,11 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         let timestamp_no_tz = parameter.extract::<NaiveDateTime>();
         if let Ok(pydatetime_no_tz) = timestamp_no_tz {
             return Ok(PythonDTO::PyDateTime(pydatetime_no_tz));
+        }
+
+        let timestamp_tz = extract_datetime_from_python_object_attrs(parameter);
+        if let Ok(pydatetime_tz) = timestamp_tz {
+            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
         }
 
         return Err(RustPSQLDriverError::PyToRustValueConversionError(

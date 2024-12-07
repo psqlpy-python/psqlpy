@@ -127,15 +127,6 @@ impl Connection {
 
 #[pymethods]
 impl Connection {
-    #[must_use]
-    pub fn __aiter__(self_: Py<Self>) -> Py<Self> {
-        self_
-    }
-
-    fn __await__(self_: Py<Self>) -> Py<Self> {
-        self_
-    }
-
     async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
         let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
