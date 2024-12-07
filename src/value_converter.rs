@@ -747,9 +747,6 @@ pub fn py_sequence_into_postgres_array(
 
 /// Extract a value from a Python object, raising an error if missing or invalid
 ///
-/// # Type Parameters
-/// - `T`: The type to which the attribute's value will be converted. This type must implement the `FromPyObject` trait
-///
 /// # Errors
 /// This function will return `Err` in the following cases:
 /// - The Python object does not have the specified attribute
