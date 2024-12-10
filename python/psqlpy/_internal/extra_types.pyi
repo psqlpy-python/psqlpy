@@ -4,7 +4,7 @@ from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
 from uuid import UUID
 
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
 
 class SmallInt:
     """Represent SmallInt in PostgreSQL and `i16` in Rust."""
@@ -143,8 +143,8 @@ class PyMacAddr8:
 class PyCustomType:
     def __init__(self, value: bytes) -> None: ...
 
-Coordinates: typing.TypeAlias = list[int | float] | set[int | float] | tuple[int | float, int | float]
-PairsOfCoordinates: typing.TypeAlias = (
+Coordinates: TypeAlias = list[int | float] | set[int | float] | tuple[int | float, int | float]
+PairsOfCoordinates: TypeAlias = (
     list[Coordinates | int | float] | set[Coordinates | int | float] | tuple[Coordinates | int | float, ...]
 )
 
