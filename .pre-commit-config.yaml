@@ -3,11 +3,11 @@ ci:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.1.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.1
+    rev: v1.13.0
     hooks:
       - id: mypy
         name: python mypy
@@ -15,7 +15,7 @@ repos:
         pass_filenames: false
         args: ["python"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.1
+    rev: v0.8.3
     hooks:
       - id: ruff
         name: ruff
