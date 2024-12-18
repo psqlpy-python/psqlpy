@@ -13,15 +13,15 @@ There are two types of benchmarks:
 1) With local database
 2) With external database
 
-In a real production system database doesn't usually locate on the same server where application runs, so if you application and database is located on the different servers, we recommend you to check `External Database`.
+In a real production system database doesn't usually locate on the same server where application runs, so if you application and database are located on the different servers, we recommend you to check `External Database`.
 
 ::: important
-For local benchmarks we use 5 connection in a connection pool and 10 processes make requests to the application, while for external database checks we use 40 connection and 100 processes make requests to the application.
+For local benchmarks we use 5 connections in a connection pool and 10 processes make requests to the application, while for external database checks we use 40 connections and 100 processes make requests to the application.
 The main reason is external database is located on a very powerful server and can serve more requests.
 :::
 
 ## Key findings
-If you application and database is located on the same server, there is no significant difference between `AsyncPG`, `PsycoPG` and `PSQLPy` but still you will have performance improve by approximately 10%.
+If your application and database are located on the same server, there is no significant difference between `AsyncPG`, `PsycoPG` and `PSQLPy` but still you will have performance improve by approximately 10%.
 However, if you have application and database located on different machines, you can get significant (up to 3 times) boost in performance.
 
 ## Local Database
