@@ -12,18 +12,18 @@ All extra types available from Python with mapping to PostgreSQL type and Rust t
 | SmallInt | SmallInt | i16 |
 | Float32 | FLOAT4 | f32 |
 | Float64 | FLOAT8 | f64 |
-| PyVarChar | VarChar | String |
-| PyText | Text | String |
-| PyJSON | JSON | serde::Value |
-| PyJSONB | JSONB | serde::Value |
-| PyMacAddr6 | MacAddr | MacAddr6 |
-| PyMacAddr8 | MacAddr8 | MacAddr8 |
-| PyPoint | Point | Point |
-| PyBox | Rect | Box |
-| PyPath | LineString | Path |
-| PyLine | LineSegment | Line |
-| PyLineSegment | LineSegment | Lseg |
-| PyCircle | Circle | Circle |
+| VarChar | VarChar | String |
+| Text | Text | String |
+| JSON | JSON | serde::Value |
+| JSONB | JSONB | serde::Value |
+| MacAddr6 | MacAddr | MacAddr6 |
+| MacAddr8 | MacAddr8 | MacAddr8 |
+| Point | Point | Point |
+| Box | Rect | Box |
+| Path | LineString | Path |
+| Line | LineSegment | Line |
+| LineSegment | LineSegment | Lseg |
+| Circle | Circle | Circle |
 | PgVector | Vector | Vector |
 
 ::: important
@@ -208,7 +208,7 @@ Let's assume we have table `geo_info` with all PostgreSQL geo types in the datab
 from typing import Final
 
 from psqlpy import ConnectionPool, QueryResult
-from psqlpy.extra_types import PyPoint, PyBox, PyPath, PyLine, PyLineSegment, PyCircle
+from psqlpy.extra_types import Point, Box, Path, Line, LineSegment, Circle
 
 
 async def main() -> None:
@@ -218,12 +218,12 @@ async def main() -> None:
     await db_pool.execute(
         "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
         [
-            PyPoint([1.5, 2]),
-            PyBox([(1.7, 2.8), (9, 9)]),
-            PyPath([(3.5, 3), (9, 9), (8, 8)]),
-            PyLine([1, -2, 3]),
-            PyLineSegment([(5.6, 3.1), (4, 5)]),
-            PyCircle([5, 1.8, 10]),
+            Point([1.5, 2]),
+            Box([(1.7, 2.8), (9, 9)]),
+            Path([(3.5, 3), (9, 9), (8, 8)]),
+            Line([1, -2, 3]),
+            LineSegment([(5.6, 3.1), (4, 5)]),
+            Circle([5, 1.8, 10]),
         ],
     )
 

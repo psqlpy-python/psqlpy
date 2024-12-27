@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use geo_types::{Line as LineSegment, LineString, Point, Rect};
-use macaddr::{MacAddr6, MacAddr8};
+use geo_types::{Line as RustLineSegment, LineString, Point as RustPoint, Rect as RustRect};
+use macaddr::{MacAddr6 as RustMacAddr6, MacAddr8 as RustMacAddr8};
 use pyo3::{
     pyclass, pymethods,
     types::{PyModule, PyModuleMethods},
@@ -10,7 +10,7 @@ use pyo3::{
 use serde_json::Value;
 
 use crate::{
-    additional_types::{Circle, Line},
+    additional_types::{Circle as RustCircle, Line as RustLine},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     value_converter::{
         build_flat_geo_coords, build_geo_coords, build_serde_value,
@@ -77,11 +77,11 @@ build_python_type!(Float64, f64);
 
 #[pyclass]
 #[derive(Clone)]
-pub struct PyText {
+pub struct Text {
     inner: String,
 }
 
-impl PyText {
+impl Text {
     #[must_use]
     pub fn inner(&self) -> String {
         self.inner.clone()
@@ -89,7 +89,7 @@ impl PyText {
 }
 
 #[pymethods]
-impl PyText {
+impl Text {
     /// Create new PyText from Python str.
     #[new]
     #[allow(clippy::missing_errors_doc)]
@@ -101,11 +101,11 @@ impl PyText {
 
 #[pyclass]
 #[derive(Clone)]
-pub struct PyVarChar {
+pub struct VarChar {
     inner: String,
 }
 
-impl PyVarChar {
+impl VarChar {
     #[must_use]
     pub fn inner(&self) -> String {
         self.inner.clone()
@@ -113,7 +113,7 @@ impl PyVarChar {
 }
 
 #[pymethods]
-impl PyVarChar {
+impl VarChar {
     /// Create new PyVarChar from Python str.
     #[new]
     #[allow(clippy::missing_errors_doc)]
@@ -156,8 +156,8 @@ macro_rules! build_json_py_type {
     };
 }
 
-build_json_py_type!(PyJSONB, Value);
-build_json_py_type!(PyJSON, Value);
+build_json_py_type!(JSONB, Value);
+build_json_py_type!(JSON, Value);
 
 macro_rules! build_macaddr_type {
     ($st_name:ident, $rust_type:ty) => {
@@ -187,16 +187,16 @@ macro_rules! build_macaddr_type {
     };
 }
 
-build_macaddr_type!(PyMacAddr6, MacAddr6);
-build_macaddr_type!(PyMacAddr8, MacAddr8);
+build_macaddr_type!(MacAddr6, RustMacAddr6);
+build_macaddr_type!(MacAddr8, RustMacAddr8);
 
 #[pyclass]
 #[derive(Clone, Debug)]
-pub struct PyCustomType {
+pub struct CustomType {
     inner: Vec<u8>,
 }
 
-impl PyCustomType {
+impl CustomType {
     #[must_use]
     pub fn inner(&self) -> Vec<u8> {
         self.inner.clone()
@@ -204,10 +204,10 @@ impl PyCustomType {
 }
 
 #[pymethods]
-impl PyCustomType {
+impl CustomType {
     #[new]
     fn new_class(type_bytes: Vec<u8>) -> Self {
-        PyCustomType { inner: type_bytes }
+        CustomType { inner: type_bytes }
     }
 }
 
@@ -228,41 +228,41 @@ macro_rules! build_geo_type {
     };
 }
 
-build_geo_type!(PyPoint, Point);
-build_geo_type!(PyBox, Rect);
-build_geo_type!(PyPath, LineString);
-build_geo_type!(PyLine, Line);
-build_geo_type!(PyLineSegment, LineSegment);
-build_geo_type!(PyCircle, Circle);
+build_geo_type!(Point, RustPoint);
+build_geo_type!(Box, RustRect);
+build_geo_type!(Path, LineString);
+build_geo_type!(Line, RustLine);
+build_geo_type!(LineSegment, RustLineSegment);
+build_geo_type!(Circle, RustCircle);
 
 #[pymethods]
-impl PyPoint {
+impl Point {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         let point_coords = build_geo_coords(value, Some(1))?;
 
         Ok(Self {
-            inner: Point::from(point_coords[0]),
+            inner: RustPoint::from(point_coords[0]),
         })
     }
 }
 
 #[pymethods]
-impl PyBox {
+impl Box {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         let box_coords = build_geo_coords(value, Some(2))?;
 
         Ok(Self {
-            inner: Rect::new(box_coords[0], box_coords[1]),
+            inner: RustRect::new(box_coords[0], box_coords[1]),
         })
     }
 }
 
 #[pymethods]
-impl PyPath {
+impl Path {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
@@ -275,39 +275,39 @@ impl PyPath {
 }
 
 #[pymethods]
-impl PyLine {
+impl Line {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         let line_coords = build_flat_geo_coords(value, Some(3))?;
 
         Ok(Self {
-            inner: Line::new(line_coords[0], line_coords[1], line_coords[2]),
+            inner: RustLine::new(line_coords[0], line_coords[1], line_coords[2]),
         })
     }
 }
 
 #[pymethods]
-impl PyLineSegment {
+impl LineSegment {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         let line_segment_coords = build_geo_coords(value, Some(2))?;
 
         Ok(Self {
-            inner: LineSegment::new(line_segment_coords[0], line_segment_coords[1]),
+            inner: RustLineSegment::new(line_segment_coords[0], line_segment_coords[1]),
         })
     }
 }
 
 #[pymethods]
-impl PyCircle {
+impl Circle {
     #[new]
     #[allow(clippy::missing_errors_doc)]
     pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
         let circle_coords = build_flat_geo_coords(value, Some(3))?;
         Ok(Self {
-            inner: Circle::new(circle_coords[0], circle_coords[1], circle_coords[2]),
+            inner: RustCircle::new(circle_coords[0], circle_coords[1], circle_coords[2]),
         })
     }
 }
@@ -391,19 +391,19 @@ pub fn extra_types_module(_py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyRes
     pymod.add_class::<Money>()?;
     pymod.add_class::<Float32>()?;
     pymod.add_class::<Float64>()?;
-    pymod.add_class::<PyText>()?;
-    pymod.add_class::<PyVarChar>()?;
-    pymod.add_class::<PyJSONB>()?;
-    pymod.add_class::<PyJSON>()?;
-    pymod.add_class::<PyMacAddr6>()?;
-    pymod.add_class::<PyMacAddr8>()?;
-    pymod.add_class::<PyCustomType>()?;
-    pymod.add_class::<PyPoint>()?;
-    pymod.add_class::<PyBox>()?;
-    pymod.add_class::<PyPath>()?;
-    pymod.add_class::<PyLine>()?;
-    pymod.add_class::<PyLineSegment>()?;
-    pymod.add_class::<PyCircle>()?;
+    pymod.add_class::<Text>()?;
+    pymod.add_class::<VarChar>()?;
+    pymod.add_class::<JSONB>()?;
+    pymod.add_class::<JSON>()?;
+    pymod.add_class::<MacAddr6>()?;
+    pymod.add_class::<MacAddr8>()?;
+    pymod.add_class::<CustomType>()?;
+    pymod.add_class::<Point>()?;
+    pymod.add_class::<Box>()?;
+    pymod.add_class::<Path>()?;
+    pymod.add_class::<Line>()?;
+    pymod.add_class::<LineSegment>()?;
+    pymod.add_class::<Circle>()?;
     pymod.add_class::<BoolArray>()?;
     pymod.add_class::<UUIDArray>()?;
     pymod.add_class::<VarCharArray>()?;
