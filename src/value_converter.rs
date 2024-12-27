@@ -832,9 +832,9 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyNone);
     }
 
-    if parameter.is_instance_of::<extra_types::PyCustomType>() {
+    if parameter.is_instance_of::<extra_types::CustomType>() {
         return Ok(PythonDTO::PyCustomType(
-            parameter.extract::<extra_types::PyCustomType>()?.inner(),
+            parameter.extract::<extra_types::CustomType>()?.inner(),
         ));
     }
 
@@ -846,15 +846,15 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
     }
 
-    if parameter.is_instance_of::<extra_types::PyText>() {
+    if parameter.is_instance_of::<extra_types::Text>() {
         return Ok(PythonDTO::PyText(
-            parameter.extract::<extra_types::PyText>()?.inner(),
+            parameter.extract::<extra_types::Text>()?.inner(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyVarChar>() {
+    if parameter.is_instance_of::<extra_types::VarChar>() {
         return Ok(PythonDTO::PyVarChar(
-            parameter.extract::<extra_types::PyVarChar>()?.inner(),
+            parameter.extract::<extra_types::VarChar>()?.inner(),
         ));
     }
 
@@ -984,27 +984,27 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyJsonb(Value::Object(serde_map)));
     }
 
-    if parameter.is_instance_of::<extra_types::PyJSONB>() {
+    if parameter.is_instance_of::<extra_types::JSONB>() {
         return Ok(PythonDTO::PyJsonb(
-            parameter.extract::<extra_types::PyJSONB>()?.inner().clone(),
+            parameter.extract::<extra_types::JSONB>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyJSON>() {
+    if parameter.is_instance_of::<extra_types::JSON>() {
         return Ok(PythonDTO::PyJson(
-            parameter.extract::<extra_types::PyJSON>()?.inner().clone(),
+            parameter.extract::<extra_types::JSON>()?.inner().clone(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyMacAddr6>() {
+    if parameter.is_instance_of::<extra_types::MacAddr6>() {
         return Ok(PythonDTO::PyMacAddr6(
-            parameter.extract::<extra_types::PyMacAddr6>()?.inner(),
+            parameter.extract::<extra_types::MacAddr6>()?.inner(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyMacAddr8>() {
+    if parameter.is_instance_of::<extra_types::MacAddr8>() {
         return Ok(PythonDTO::PyMacAddr8(
-            parameter.extract::<extra_types::PyMacAddr8>()?.inner(),
+            parameter.extract::<extra_types::MacAddr8>()?.inner(),
         ));
     }
 
@@ -1022,45 +1022,41 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         )?));
     }
 
-    if parameter.is_instance_of::<extra_types::PyPoint>() {
+    if parameter.is_instance_of::<extra_types::Point>() {
         return Ok(PythonDTO::PyPoint(
-            parameter
-                .extract::<extra_types::PyPoint>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::Point>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyBox>() {
+    if parameter.is_instance_of::<extra_types::Box>() {
         return Ok(PythonDTO::PyBox(
-            parameter.extract::<extra_types::PyBox>()?.retrieve_value(),
+            parameter.extract::<extra_types::Box>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyPath>() {
+    if parameter.is_instance_of::<extra_types::Path>() {
         return Ok(PythonDTO::PyPath(
-            parameter.extract::<extra_types::PyPath>()?.retrieve_value(),
+            parameter.extract::<extra_types::Path>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyLine>() {
+    if parameter.is_instance_of::<extra_types::Line>() {
         return Ok(PythonDTO::PyLine(
-            parameter.extract::<extra_types::PyLine>()?.retrieve_value(),
+            parameter.extract::<extra_types::Line>()?.retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyLineSegment>() {
+    if parameter.is_instance_of::<extra_types::LineSegment>() {
         return Ok(PythonDTO::PyLineSegment(
             parameter
-                .extract::<extra_types::PyLineSegment>()?
+                .extract::<extra_types::LineSegment>()?
                 .retrieve_value(),
         ));
     }
 
-    if parameter.is_instance_of::<extra_types::PyCircle>() {
+    if parameter.is_instance_of::<extra_types::Circle>() {
         return Ok(PythonDTO::PyCircle(
-            parameter
-                .extract::<extra_types::PyCircle>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::Circle>()?.retrieve_value(),
         ));
     }
 

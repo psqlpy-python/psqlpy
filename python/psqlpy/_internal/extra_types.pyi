@@ -66,7 +66,7 @@ class Float64:
         - `inner_value`: float object.
         """
 
-class PyVarChar:
+class VarChar:
     """Represent VarChar in PostgreSQL and String in Rust."""
 
     def __init__(self: Self, inner_value: str) -> None:
@@ -78,7 +78,7 @@ class PyVarChar:
         - `inner_value`: str object.
         """
 
-class PyText:
+class Text:
     """Represent TEXT in PostgreSQL and String ins Rust."""
 
     def __init__(self: Self, inner_value: str) -> None:
@@ -90,7 +90,7 @@ class PyText:
         - `inner_value`: str object.
         """
 
-class PyJSONB:
+class JSONB:
     """Represent JSONB field in PostgreSQL and Value in Rust."""
 
     def __init__(
@@ -105,7 +105,7 @@ class PyJSONB:
         - `value`: value for the JSONB field.
         """
 
-class PyJSON:
+class JSON:
     """Represent JSON field in PostgreSQL and Value in Rust."""
 
     def __init__(
@@ -120,7 +120,7 @@ class PyJSON:
         - `value`: value for the JSONB field.
         """
 
-class PyMacAddr6:
+class MacAddr6:
     """Represents MACADDR in PostgreSQL."""
 
     def __init__(self, value: str) -> None:
@@ -130,7 +130,7 @@ class PyMacAddr6:
         - `value`: value for MACADDR field.
         """
 
-class PyMacAddr8:
+class MacAddr8:
     """Represents MACADDR8 in PostgreSQL."""
 
     def __init__(self, value: str) -> None:
@@ -140,7 +140,7 @@ class PyMacAddr8:
         - `value`: value for MACADDR8 field.
         """
 
-class PyCustomType:
+class CustomType:
     def __init__(self, value: bytes) -> None: ...
 
 Coordinates: TypeAlias = list[int | float] | set[int | float] | tuple[int | float, int | float]
@@ -148,11 +148,11 @@ PairsOfCoordinates: TypeAlias = (
     list[Coordinates | int | float] | set[Coordinates | int | float] | tuple[Coordinates | int | float, ...]
 )
 
-class PyPoint:
+class Point:
     """Represent point field in PostgreSQL and Point in Rust."""
 
     def __init__(self: Self, value: Coordinates) -> None:
-        """Create new instance of PyPoint.
+        """Create new instance of Point.
 
         It accepts any pair(List, Tuple or Set)
             of int/float numbers in every combination.
@@ -161,11 +161,11 @@ class PyPoint:
         - `value`: pair of int/float numbers in every combination.
         """
 
-class PyBox:
+class Box:
     """Represent box field in PostgreSQL and Rect in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
-        """Create new instance of PyBox.
+        """Create new instance of Box.
 
         You need to pass any of this structures:
         - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
@@ -177,11 +177,11 @@ class PyBox:
             of int/float numbers in every combination.
         """
 
-class PyPath:
+class Path:
     """Represent path field in PostgreSQL and LineString in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
-        """Create new instance of PyPath.
+        """Create new instance of Path.
 
         You need to pass any of this structures:
         - sequence(List, Tuple or Set) of sequences(List, Tuple or Set),
@@ -193,11 +193,11 @@ class PyPath:
         - `value`: any valid structure with int/float numbers in every combination.
         """
 
-class PyLine:
+class Line:
     """Represent line field in PostgreSQL and LineSegment in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
-        """Create new instance of PyLine.
+        """Create new instance of Line.
 
         You need to pass any of this structures:
         - sequence of three int/float numbers(a, b, c)
@@ -206,11 +206,11 @@ class PyLine:
         - `value`: any valid structure with int/float numbers.
         """
 
-class PyLineSegment:
+class LineSegment:
     """Represent lseg field in PostgreSQL and LineSegment in Rust."""
 
     def __init__(self: Self, value: PairsOfCoordinates) -> None:
-        """Create new instance of PyLineSegment.
+        """Create new instance of LineSegment.
 
         You need to pass any of this structures:
         - sequence(List, Tuple or Set) of two sequences(List, Tuple or Set),
@@ -222,14 +222,14 @@ class PyLineSegment:
         - `value`: any valid structure with int/float numbers in every combination.
         """
 
-class PyCircle:
+class Circle:
     """Represent circle field in PostgreSQL and Circle in Rust."""
 
     def __init__(
         self: Self,
         value: list[int | float] | set[int | float] | tuple[int | float, int | float, int | float],
     ) -> None:
-        """Create new instance of PyCircle.
+        """Create new instance of Circle.
 
         You need to pass any of this structures:
         - sequence of three int/float numbers(x, y, r)
@@ -390,9 +390,9 @@ class JSONBArray:
         self: Self,
         inner: typing.Sequence[
             dict[str, typing.Any]
-            | PyJSONB
+            | JSONB
             | typing.Sequence[dict[str, typing.Any]]
-            | typing.Sequence[PyJSONB]
+            | typing.Sequence[JSONB]
             | typing.Sequence[typing.Any]
         ],
     ) -> None:
@@ -409,9 +409,9 @@ class JSONArray:
         self: Self,
         inner: typing.Sequence[
             dict[str, typing.Any]
-            | PyJSON
+            | JSON
             | typing.Sequence[dict[str, typing.Any]]
-            | typing.Sequence[PyJSON]
+            | typing.Sequence[JSON]
             | typing.Sequence[typing.Any]
         ],
     ) -> None:
@@ -478,7 +478,7 @@ class MacAddr6Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyMacAddr6 | typing.Sequence[PyMacAddr6] | typing.Any,],
+        inner: typing.Sequence[MacAddr6 | typing.Sequence[MacAddr6] | typing.Any,],
     ) -> None:
         """Create new instance of MacAddr6Array.
 
@@ -491,7 +491,7 @@ class MacAddr8Array:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyMacAddr8 | typing.Sequence[PyMacAddr8] | typing.Any,],
+        inner: typing.Sequence[MacAddr8 | typing.Sequence[MacAddr8] | typing.Any,],
     ) -> None:
         """Create new instance of MacAddr8Array.
 
@@ -517,7 +517,7 @@ class PointArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyPoint | typing.Sequence[PyPoint] | typing.Any,],
+        inner: typing.Sequence[Point | typing.Sequence[Point] | typing.Any,],
     ) -> None:
         """Create new instance of PointArray.
 
@@ -530,12 +530,12 @@ class BoxArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyBox | typing.Sequence[PyBox] | typing.Any,],
+        inner: typing.Sequence[Box | typing.Sequence[Box] | typing.Any,],
     ) -> None:
         """Create new instance of BoxArray.
 
         ### Parameters:
-        - `inner`: inner value, sequence of PyBox values.
+        - `inner`: inner value, sequence of Box values.
         """
 
 class PathArray:
@@ -543,7 +543,7 @@ class PathArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyPath | typing.Sequence[PyPath] | typing.Any,],
+        inner: typing.Sequence[Path | typing.Sequence[Path] | typing.Any,],
     ) -> None:
         """Create new instance of PathArray.
 
@@ -556,7 +556,7 @@ class LineArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyLine | typing.Sequence[PyLine] | typing.Any,],
+        inner: typing.Sequence[Line | typing.Sequence[Line] | typing.Any,],
     ) -> None:
         """Create new instance of LineArray.
 
@@ -569,7 +569,7 @@ class LsegArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyLineSegment | typing.Sequence[PyLineSegment] | typing.Any,],
+        inner: typing.Sequence[LineSegment | typing.Sequence[LineSegment] | typing.Any,],
     ) -> None:
         """Create new instance of LsegArray.
 
@@ -582,7 +582,7 @@ class CircleArray:
 
     def __init__(
         self: Self,
-        inner: typing.Sequence[PyCircle | typing.Sequence[PyCircle] | typing.Any,],
+        inner: typing.Sequence[Circle | typing.Sequence[Circle] | typing.Any,],
     ) -> None:
         """Create new instance of CircleArray.
 

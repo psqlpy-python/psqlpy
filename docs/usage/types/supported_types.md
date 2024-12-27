@@ -11,8 +11,8 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | bool | - | BOOL |
 | bytes | - | BYTEA |
 | str | - | VARCHAR |
-| str | PyVarChar | VARCHAR |
-| str | PyText | TEXT |
+| str | VarChar | VARCHAR |
+| str | Text | TEXT |
 | str | - | XML |
 | int | SmallInt | SMALLINT |
 | int | INTEGER | INTEGER |
@@ -28,20 +28,20 @@ Here you can find all types supported by `PSQLPy`. If PSQLPy isn't `-`, you can 
 | datetime.timedelta | - | INTERVAL |
 | UUID | - | UUID |
 | dict | - | JSONB |
-| dict | PyJSONB | JSONB |
-| dict | PyJSON | JSON |
-| Mac Address 6 | PyMacAddr6 | MacAddr |
-| Mac Address 8 | PyMacAddr8 | MacAddr |
+| dict | JSONB | JSONB |
+| dict | JSON | JSON |
+| Mac Address 6 | MacAddr6 | MacAddr |
+| Mac Address 8 | MacAddr8 | MacAddr |
 | IPv4Address | - | INET |
 | IPv6Address | - | INET |
 | decimal.Decimal | - | NUMERIC |
 | int/str | Money | MONEY |
-| Point | PyPoint | POINT |
-| Box | PyBox | BOX |
-| Path | PyPath | PATH |
-| Line | PyLine | LINE |
-| Line Segment | PyLineSegment | LSEG |
-| Circle | PyCircle | CIRCLE |
+| Point | Point | POINT |
+| Box | Box | BOX |
+| Path | Path | PATH |
+| Line | Line | LINE |
+| Line Segment | LineSegment | LSEG |
+| Circle | Circle | CIRCLE |
 | PgVector | PgVector | Vector |
 
 ::: important

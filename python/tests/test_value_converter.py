@@ -10,10 +10,15 @@ import pytest
 from psqlpy import ConnectionPool
 from psqlpy.exceptions import PyToRustValueMappingError
 from psqlpy.extra_types import (
+    JSON,
+    JSONB,
     BigInt,
     BoolArray,
+    Box,
     BoxArray,
+    Circle,
     CircleArray,
+    CustomType,
     DateArray,
     DateTimeArray,
     DateTimeTZArray,
@@ -28,26 +33,21 @@ from psqlpy.extra_types import (
     IpAddressArray,
     JSONArray,
     JSONBArray,
+    Line,
     LineArray,
+    LineSegment,
     LsegArray,
+    MacAddr6,
+    MacAddr8,
     Money,
     MoneyArray,
     NumericArray,
+    Path,
     PathArray,
+    Point,
     PointArray,
-    PyBox,
-    PyCircle,
-    PyCustomType,
-    PyJSON,
-    PyJSONB,
-    PyLine,
-    PyLineSegment,
-    PyMacAddr6,
-    PyMacAddr8,
-    PyPath,
-    PyPoint,
-    PyText,
     SmallInt,
+    Text,
     TextArray,
     TimeArray,
     UUIDArray,
@@ -166,7 +166,7 @@ async def test_as_class(
         ),
         (
             "JSONB",
-            PyJSONB([{"array": "json"}, {"one more": "test"}]),
+            JSONB([{"array": "json"}, {"one more": "test"}]),
             [{"array": "json"}, {"one more": "test"}],
         ),
         (
@@ -182,47 +182,47 @@ async def test_as_class(
         ),
         (
             "JSON",
-            PyJSON([{"array": "json"}, {"one more": "test"}]),
+            JSON([{"array": "json"}, {"one more": "test"}]),
             [{"array": "json"}, {"one more": "test"}],
         ),
         (
             "MACADDR",
-            PyMacAddr6("08:00:2b:01:02:03"),
+            MacAddr6("08:00:2b:01:02:03"),
             "08:00:2B:01:02:03",
         ),
         (
             "MACADDR8",
-            PyMacAddr8("08:00:2b:01:02:03:04:05"),
+            MacAddr8("08:00:2b:01:02:03:04:05"),
             "08:00:2B:01:02:03:04:05",
         ),
-        ("POINT", PyPoint([1.5, 2]), (1.5, 2.0)),
-        ("POINT", PyPoint({1.2, 2.3}), (1.2, 2.3)),
-        ("POINT", PyPoint((1.7, 2.8)), (1.7, 2.8)),
-        ("BOX", PyBox([3.5, 3, 9, 9]), ((9.0, 9.0), (3.5, 3.0))),
-        ("BOX", PyBox({(1, 2), (9, 9)}), ((9.0, 9.0), (1.0, 2.0))),
-        ("BOX", PyBox(((1.7, 2.8), (9, 9))), ((9.0, 9.0), (1.7, 2.8))),
+        ("POINT", Point([1.5, 2]), (1.5, 2.0)),
+        ("POINT", Point({1.2, 2.3}), (1.2, 2.3)),
+        ("POINT", Point((1.7, 2.8)), (1.7, 2.8)),
+        ("BOX", Box([3.5, 3, 9, 9]), ((9.0, 9.0), (3.5, 3.0))),
+        ("BOX", Box({(1, 2), (9, 9)}), ((9.0, 9.0), (1.0, 2.0))),
+        ("BOX", Box(((1.7, 2.8), (9, 9))), ((9.0, 9.0), (1.7, 2.8))),
         (
             "PATH",
-            PyPath([(3.5, 3), (9, 9), (8, 8)]),
+            Path([(3.5, 3), (9, 9), (8, 8)]),
             [(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)],
         ),
         (
             "PATH",
-            PyPath(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+            Path(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
             ((1.7, 2.8), (3.3, 2.5), (9.0, 9.0), (1.7, 2.8)),
         ),
-        ("LINE", PyLine([-2, 1, 2]), (-2.0, 1.0, 2.0)),
-        ("LINE", PyLine([1, -2, 3]), (1.0, -2.0, 3.0)),
-        ("LSEG", PyLineSegment({(1, 2), (9, 9)}), [(1.0, 2.0), (9.0, 9.0)]),
-        ("LSEG", PyLineSegment(((1.7, 2.8), (9, 9))), [(1.7, 2.8), (9.0, 9.0)]),
+        ("LINE", Line([-2, 1, 2]), (-2.0, 1.0, 2.0)),
+        ("LINE", Line([1, -2, 3]), (1.0, -2.0, 3.0)),
+        ("LSEG", LineSegment({(1, 2), (9, 9)}), [(1.0, 2.0), (9.0, 9.0)]),
+        ("LSEG", LineSegment(((1.7, 2.8), (9, 9))), [(1.7, 2.8), (9.0, 9.0)]),
         (
             "CIRCLE",
-            PyCircle((1.7, 2.8, 3)),
+            Circle((1.7, 2.8, 3)),
             ((1.7, 2.8), 3.0),
         ),
         (
             "CIRCLE",
-            PyCircle([1, 2.8, 3]),
+            Circle([1, 2.8, 3]),
             ((1.0, 2.8), 3.0),
         ),
         (
@@ -237,7 +237,7 @@ async def test_as_class(
         ),
         (
             "TEXT ARRAY",
-            [PyText("Some String"), PyText("Some String")],
+            [Text("Some String"), Text("Some String")],
             ["Some String", "Some String"],
         ),
         ("BOOL ARRAY", [True, False], [True, False]),
@@ -400,8 +400,8 @@ async def test_as_class(
         (
             "JSONB ARRAY",
             [
-                PyJSONB([{"array": "json"}, {"one more": "test"}]),
-                PyJSONB([{"array": "json"}, {"one more": "test"}]),
+                JSONB([{"array": "json"}, {"one more": "test"}]),
+                JSONB([{"array": "json"}, {"one more": "test"}]),
             ],
             [
                 [{"array": "json"}, {"one more": "test"}],
@@ -411,8 +411,8 @@ async def test_as_class(
         (
             "JSONB ARRAY",
             [
-                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
-                PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                JSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                JSONB([[{"array": "json"}], [{"one more": "test"}]]),
             ],
             [
                 [[{"array": "json"}], [{"one more": "test"}]],
@@ -422,13 +422,13 @@ async def test_as_class(
         (
             "JSON ARRAY",
             [
-                PyJSON(
+                JSON(
                     {
                         "test": ["something", 123, "here"],
                         "nested": ["JSON"],
                     },
                 ),
-                PyJSON(
+                JSON(
                     {
                         "test": ["something", 123, "here"],
                         "nested": ["JSON"],
@@ -450,7 +450,7 @@ async def test_as_class(
             "JSON ARRAY",
             [
                 [
-                    PyJSON(
+                    JSON(
                         {
                             "test": ["something", 123, "here"],
                             "nested": ["JSON"],
@@ -458,7 +458,7 @@ async def test_as_class(
                     ),
                 ],
                 [
-                    PyJSON(
+                    JSON(
                         {
                             "test": ["something", 123, "here"],
                             "nested": ["JSON"],
@@ -484,8 +484,8 @@ async def test_as_class(
         (
             "JSON ARRAY",
             [
-                PyJSON([{"array": "json"}, {"one more": "test"}]),
-                PyJSON([{"array": "json"}, {"one more": "test"}]),
+                JSON([{"array": "json"}, {"one more": "test"}]),
+                JSON([{"array": "json"}, {"one more": "test"}]),
             ],
             [
                 [{"array": "json"}, {"one more": "test"}],
@@ -495,8 +495,8 @@ async def test_as_class(
         (
             "JSON ARRAY",
             [
-                PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
-                PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
+                JSON([[{"array": "json"}], [{"one more": "test"}]]),
+                JSON([[{"array": "json"}], [{"one more": "test"}]]),
             ],
             [
                 [[{"array": "json"}], [{"one more": "test"}]],
@@ -506,8 +506,8 @@ async def test_as_class(
         (
             "POINT ARRAY",
             [
-                PyPoint([1.5, 2]),
-                PyPoint([2, 3]),
+                Point([1.5, 2]),
+                Point([2, 3]),
             ],
             [
                 (1.5, 2.0),
@@ -517,8 +517,8 @@ async def test_as_class(
         (
             "POINT ARRAY",
             [
-                [PyPoint([1.5, 2])],
-                [PyPoint([2, 3])],
+                [Point([1.5, 2])],
+                [Point([2, 3])],
             ],
             [
                 [(1.5, 2.0)],
@@ -528,8 +528,8 @@ async def test_as_class(
         (
             "BOX ARRAY",
             [
-                PyBox([3.5, 3, 9, 9]),
-                PyBox([8.5, 8, 9, 9]),
+                Box([3.5, 3, 9, 9]),
+                Box([8.5, 8, 9, 9]),
             ],
             [
                 ((9.0, 9.0), (3.5, 3.0)),
@@ -539,8 +539,8 @@ async def test_as_class(
         (
             "BOX ARRAY",
             [
-                [PyBox([3.5, 3, 9, 9])],
-                [PyBox([8.5, 8, 9, 9])],
+                [Box([3.5, 3, 9, 9])],
+                [Box([8.5, 8, 9, 9])],
             ],
             [
                 [((9.0, 9.0), (3.5, 3.0))],
@@ -550,8 +550,8 @@ async def test_as_class(
         (
             "PATH ARRAY",
             [
-                PyPath([(3.5, 3), (9, 9), (8, 8)]),
-                PyPath([(3.5, 3), (6, 6), (3.5, 3)]),
+                Path([(3.5, 3), (9, 9), (8, 8)]),
+                Path([(3.5, 3), (6, 6), (3.5, 3)]),
             ],
             [
                 [(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)],
@@ -561,8 +561,8 @@ async def test_as_class(
         (
             "PATH ARRAY",
             [
-                [PyPath([(3.5, 3), (9, 9), (8, 8)])],
-                [PyPath([(3.5, 3), (6, 6), (3.5, 3)])],
+                [Path([(3.5, 3), (9, 9), (8, 8)])],
+                [Path([(3.5, 3), (6, 6), (3.5, 3)])],
             ],
             [
                 [[(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)]],
@@ -572,8 +572,8 @@ async def test_as_class(
         (
             "LINE ARRAY",
             [
-                PyLine([-2, 1, 2]),
-                PyLine([1, -2, 3]),
+                Line([-2, 1, 2]),
+                Line([1, -2, 3]),
             ],
             [
                 (-2.0, 1.0, 2.0),
@@ -583,8 +583,8 @@ async def test_as_class(
         (
             "LINE ARRAY",
             [
-                [PyLine([-2, 1, 2])],
-                [PyLine([1, -2, 3])],
+                [Line([-2, 1, 2])],
+                [Line([1, -2, 3])],
             ],
             [
                 [(-2.0, 1.0, 2.0)],
@@ -594,8 +594,8 @@ async def test_as_class(
         (
             "LSEG ARRAY",
             [
-                PyLineSegment({(1, 2), (9, 9)}),
-                PyLineSegment([(5.6, 3.1), (4, 5)]),
+                LineSegment({(1, 2), (9, 9)}),
+                LineSegment([(5.6, 3.1), (4, 5)]),
             ],
             [
                 [(1.0, 2.0), (9.0, 9.0)],
@@ -605,8 +605,8 @@ async def test_as_class(
         (
             "LSEG ARRAY",
             [
-                [PyLineSegment({(1, 2), (9, 9)})],
-                [PyLineSegment([(5.6, 3.1), (4, 5)])],
+                [LineSegment({(1, 2), (9, 9)})],
+                [LineSegment([(5.6, 3.1), (4, 5)])],
             ],
             [
                 [[(1.0, 2.0), (9.0, 9.0)]],
@@ -616,8 +616,8 @@ async def test_as_class(
         (
             "CIRCLE ARRAY",
             [
-                PyCircle([1.7, 2.8, 3]),
-                PyCircle([5, 1.8, 10]),
+                Circle([1.7, 2.8, 3]),
+                Circle([5, 1.8, 10]),
             ],
             [
                 ((1.7, 2.8), 3.0),
@@ -627,8 +627,8 @@ async def test_as_class(
         (
             "CIRCLE ARRAY",
             [
-                [PyCircle([1.7, 2.8, 3])],
-                [PyCircle([5, 1.8, 10])],
+                [Circle([1.7, 2.8, 3])],
+                [Circle([5, 1.8, 10])],
             ],
             [
                 [((1.7, 2.8), 3.0)],
@@ -757,7 +757,7 @@ async def test_deserialization_composite_into_python(
         parameters=[
             b"Bytes",
             "Some String",
-            PyText("Some String"),
+            Text("Some String"),
             True,
             SmallInt(123),
             Integer(199),
@@ -775,21 +775,21 @@ async def test_deserialization_composite_into_python(
                 "test": ["something", 123, "here"],
                 "nested": ["JSON"],
             },
-            PyJSON(
+            JSON(
                 {
                     "test": ["something", 123, "here"],
                     "nested": ["JSON"],
                 },
             ),
-            PyPoint({1.2, 2.3}),
-            PyBox(((1.7, 2.8), (9, 9))),
-            PyPath(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
-            PyLine({-2, 1, 2}),
-            PyLineSegment(((1.7, 2.8), (9, 9))),
-            PyCircle([1.7, 2.8, 3]),
+            Point({1.2, 2.3}),
+            Box(((1.7, 2.8), (9, 9))),
+            Path(((1.7, 2.8), (3.3, 2.5), (9, 9), (1.7, 2.8))),
+            Line({-2, 1, 2}),
+            LineSegment(((1.7, 2.8), (9, 9))),
+            Circle([1.7, 2.8, 3]),
             ["Some String", "Some String"],
             [["Some String"], ["Some String"]],
-            [PyText("Some String"), PyText("Some String")],
+            [Text("Some String"), Text("Some String")],
             [True, False],
             [SmallInt(123), SmallInt(321)],
             [Integer(123), Integer(321)],
@@ -812,13 +812,13 @@ async def test_deserialization_composite_into_python(
                 },
             ],
             [
-                PyJSON(
+                JSON(
                     {
                         "test": ["something", 123, "here"],
                         "nested": ["JSON"],
                     },
                 ),
-                PyJSON(
+                JSON(
                     {
                         "test": ["something", 123, "here"],
                         "nested": ["JSON"],
@@ -829,28 +829,28 @@ async def test_deserialization_composite_into_python(
             "happy",
             TestEnum.OK,
             [
-                PyPoint([1.5, 2]),
-                PyPoint([2, 3]),
+                Point([1.5, 2]),
+                Point([2, 3]),
             ],
             [
-                PyBox([3.5, 3, 9, 9]),
-                PyBox([8.5, 8, 9, 9]),
+                Box([3.5, 3, 9, 9]),
+                Box([8.5, 8, 9, 9]),
             ],
             [
-                PyPath([(3.5, 3), (9, 9), (8, 8)]),
-                PyPath([(3.5, 3), (6, 6), (3.5, 3)]),
+                Path([(3.5, 3), (9, 9), (8, 8)]),
+                Path([(3.5, 3), (6, 6), (3.5, 3)]),
             ],
             [
-                PyLine([-2, 1, 2]),
-                PyLine([5.6, 4, 5]),
+                Line([-2, 1, 2]),
+                Line([5.6, 4, 5]),
             ],
             [
-                PyLineSegment({(1, 2), (9, 9)}),
-                PyLineSegment([(5.6, 3.1), (4, 5)]),
+                LineSegment({(1, 2), (9, 9)}),
+                LineSegment([(5.6, 3.1), (4, 5)]),
             ],
             [
-                PyCircle([1.7, 2.8, 3]),
-                PyCircle([5, 1.8, 10]),
+                Circle([1.7, 2.8, 3]),
+                Circle([5, 1.8, 10]),
             ],
         ],
     )
@@ -971,7 +971,7 @@ async def test_custom_type_as_parameter(
 
     await psql_pool.execute(
         querystring="INSERT INTO for_test VALUES ($1)",
-        parameters=[PyCustomType(b"Some Real Nickname")],
+        parameters=[CustomType(b"Some Real Nickname")],
     )
 
     qs_result = await psql_pool.execute(
@@ -1107,7 +1107,7 @@ async def test_empty_array(
         ),
         (
             "TEXT ARRAY",
-            TextArray([PyText("Some String"), PyText("Some String")]),
+            TextArray([Text("Some String"), Text("Some String")]),
             ["Some String", "Some String"],
         ),
         ("BOOL ARRAY", BoolArray([]), []),
@@ -1272,8 +1272,8 @@ async def test_empty_array(
             "JSONB ARRAY",
             JSONBArray(
                 [
-                    PyJSONB([{"array": "json"}, {"one more": "test"}]),
-                    PyJSONB([{"array": "json"}, {"one more": "test"}]),
+                    JSONB([{"array": "json"}, {"one more": "test"}]),
+                    JSONB([{"array": "json"}, {"one more": "test"}]),
                 ],
             ),
             [
@@ -1285,8 +1285,8 @@ async def test_empty_array(
             "JSONB ARRAY",
             JSONBArray(
                 [
-                    PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
-                    PyJSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                    JSONB([[{"array": "json"}], [{"one more": "test"}]]),
+                    JSONB([[{"array": "json"}], [{"one more": "test"}]]),
                 ],
             ),
             [
@@ -1298,13 +1298,13 @@ async def test_empty_array(
             "JSON ARRAY",
             JSONArray(
                 [
-                    PyJSON(
+                    JSON(
                         {
                             "test": ["something", 123, "here"],
                             "nested": ["JSON"],
                         },
                     ),
-                    PyJSON(
+                    JSON(
                         {
                             "test": ["something", 123, "here"],
                             "nested": ["JSON"],
@@ -1328,7 +1328,7 @@ async def test_empty_array(
             JSONArray(
                 [
                     [
-                        PyJSON(
+                        JSON(
                             {
                                 "test": ["something", 123, "here"],
                                 "nested": ["JSON"],
@@ -1336,7 +1336,7 @@ async def test_empty_array(
                         ),
                     ],
                     [
-                        PyJSON(
+                        JSON(
                             {
                                 "test": ["something", 123, "here"],
                                 "nested": ["JSON"],
@@ -1364,8 +1364,8 @@ async def test_empty_array(
             "JSON ARRAY",
             JSONArray(
                 [
-                    PyJSON([{"array": "json"}, {"one more": "test"}]),
-                    PyJSON([{"array": "json"}, {"one more": "test"}]),
+                    JSON([{"array": "json"}, {"one more": "test"}]),
+                    JSON([{"array": "json"}, {"one more": "test"}]),
                 ],
             ),
             [
@@ -1377,8 +1377,8 @@ async def test_empty_array(
             "JSON ARRAY",
             JSONArray(
                 [
-                    PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
-                    PyJSON([[{"array": "json"}], [{"one more": "test"}]]),
+                    JSON([[{"array": "json"}], [{"one more": "test"}]]),
+                    JSON([[{"array": "json"}], [{"one more": "test"}]]),
                 ],
             ),
             [
@@ -1390,8 +1390,8 @@ async def test_empty_array(
             "POINT ARRAY",
             PointArray(
                 [
-                    PyPoint([1.5, 2]),
-                    PyPoint([2, 3]),
+                    Point([1.5, 2]),
+                    Point([2, 3]),
                 ],
             ),
             [
@@ -1403,8 +1403,8 @@ async def test_empty_array(
             "POINT ARRAY",
             PointArray(
                 [
-                    [PyPoint([1.5, 2])],
-                    [PyPoint([2, 3])],
+                    [Point([1.5, 2])],
+                    [Point([2, 3])],
                 ],
             ),
             [
@@ -1416,8 +1416,8 @@ async def test_empty_array(
             "BOX ARRAY",
             BoxArray(
                 [
-                    PyBox([3.5, 3, 9, 9]),
-                    PyBox([8.5, 8, 9, 9]),
+                    Box([3.5, 3, 9, 9]),
+                    Box([8.5, 8, 9, 9]),
                 ],
             ),
             [
@@ -1429,8 +1429,8 @@ async def test_empty_array(
             "BOX ARRAY",
             BoxArray(
                 [
-                    [PyBox([3.5, 3, 9, 9])],
-                    [PyBox([8.5, 8, 9, 9])],
+                    [Box([3.5, 3, 9, 9])],
+                    [Box([8.5, 8, 9, 9])],
                 ],
             ),
             [
@@ -1442,8 +1442,8 @@ async def test_empty_array(
             "PATH ARRAY",
             PathArray(
                 [
-                    PyPath([(3.5, 3), (9, 9), (8, 8)]),
-                    PyPath([(3.5, 3), (6, 6), (3.5, 3)]),
+                    Path([(3.5, 3), (9, 9), (8, 8)]),
+                    Path([(3.5, 3), (6, 6), (3.5, 3)]),
                 ],
             ),
             [
@@ -1455,8 +1455,8 @@ async def test_empty_array(
             "PATH ARRAY",
             PathArray(
                 [
-                    [PyPath([(3.5, 3), (9, 9), (8, 8)])],
-                    [PyPath([(3.5, 3), (6, 6), (3.5, 3)])],
+                    [Path([(3.5, 3), (9, 9), (8, 8)])],
+                    [Path([(3.5, 3), (6, 6), (3.5, 3)])],
                 ],
             ),
             [
@@ -1468,8 +1468,8 @@ async def test_empty_array(
             "LINE ARRAY",
             LineArray(
                 [
-                    PyLine([-2, 1, 2]),
-                    PyLine([1, -2, 3]),
+                    Line([-2, 1, 2]),
+                    Line([1, -2, 3]),
                 ],
             ),
             [
@@ -1481,8 +1481,8 @@ async def test_empty_array(
             "LINE ARRAY",
             LineArray(
                 [
-                    [PyLine([-2, 1, 2])],
-                    [PyLine([1, -2, 3])],
+                    [Line([-2, 1, 2])],
+                    [Line([1, -2, 3])],
                 ],
             ),
             [
@@ -1494,8 +1494,8 @@ async def test_empty_array(
             "LSEG ARRAY",
             LsegArray(
                 [
-                    PyLineSegment({(1, 2), (9, 9)}),
-                    PyLineSegment([(5.6, 3.1), (4, 5)]),
+                    LineSegment({(1, 2), (9, 9)}),
+                    LineSegment([(5.6, 3.1), (4, 5)]),
                 ],
             ),
             [
@@ -1507,8 +1507,8 @@ async def test_empty_array(
             "LSEG ARRAY",
             LsegArray(
                 [
-                    [PyLineSegment({(1, 2), (9, 9)})],
-                    [PyLineSegment([(5.6, 3.1), (4, 5)])],
+                    [LineSegment({(1, 2), (9, 9)})],
+                    [LineSegment([(5.6, 3.1), (4, 5)])],
                 ],
             ),
             [
@@ -1520,8 +1520,8 @@ async def test_empty_array(
             "CIRCLE ARRAY",
             CircleArray(
                 [
-                    PyCircle([1.7, 2.8, 3]),
-                    PyCircle([5, 1.8, 10]),
+                    Circle([1.7, 2.8, 3]),
+                    Circle([5, 1.8, 10]),
                 ],
             ),
             [
@@ -1533,8 +1533,8 @@ async def test_empty_array(
             "CIRCLE ARRAY",
             CircleArray(
                 [
-                    [PyCircle([1.7, 2.8, 3])],
-                    [PyCircle([5, 1.8, 10])],
+                    [Circle([1.7, 2.8, 3])],
+                    [Circle([5, 1.8, 10])],
                 ],
             ),
             [
