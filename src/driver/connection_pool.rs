@@ -1,10 +1,10 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-use postgres_openssl::MakeTlsConnector;
-use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
-use std::{sync::Arc, vec};
-use tokio_postgres::NoTls;
+use futures::{stream, FutureExt, StreamExt, TryStreamExt};
+use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny, Python};
+use std::{sync::Arc, time::Duration, vec};
+use tokio::time::sleep;
+use tokio_postgres::{Config, NoTls};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -13,9 +13,10 @@ use crate::{
 };
 
 use super::{
-    common_options::{self, ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
-    utils::build_connection_config,
+    listener::Listener,
+    utils::{build_connection_config, build_manager, build_tls, ConfiguredTLS},
 };
 
 /// Make new connection pool.
@@ -77,7 +78,6 @@ pub fn connect(
     load_balance_hosts: Option<LoadBalanceHosts>,
     ssl_mode: Option<SslMode>,
     ca_file: Option<String>,
-
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
 ) -> RustPSQLDriverPyResult<ConnectionPool> {
@@ -126,33 +126,25 @@ pub fn connect(
         };
     }
 
-    let mgr: Manager;
-    if let Some(ca_file) = ca_file {
-        let mut builder = SslConnector::builder(SslMethod::tls())?;
-        builder.set_ca_file(ca_file)?;
-        let tls_connector = MakeTlsConnector::new(builder.build());
-        mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
-    } else if let Some(ssl_mode) = ssl_mode {
-        if ssl_mode == common_options::SslMode::Require {
-            let mut builder = SslConnector::builder(SslMethod::tls())?;
-            builder.set_verify(SslVerifyMode::NONE);
-            let tls_connector = MakeTlsConnector::new(builder.build());
-            mgr = Manager::from_config(pg_config, tls_connector, mgr_config);
-        } else {
-            mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-        }
-    } else {
-        mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-    }
+    let mgr: Manager = build_manager(
+        mgr_config,
+        pg_config.clone(),
+        build_tls(&ca_file, ssl_mode)?,
+    );
 
     let mut db_pool_builder = Pool::builder(mgr);
     if let Some(max_db_pool_size) = max_db_pool_size {
         db_pool_builder = db_pool_builder.max_size(max_db_pool_size);
     }
 
-    let db_pool = db_pool_builder.build()?;
+    let pool = db_pool_builder.build()?;
 
-    Ok(ConnectionPool(db_pool))
+    Ok(ConnectionPool {
+        pool,
+        pg_config,
+        ca_file,
+        ssl_mode,
+    })
 }
 
 #[pyclass]
@@ -212,8 +204,31 @@ impl ConnectionPoolStatus {
     }
 }
 
+// #[pyclass(subclass)]
+// pub struct ConnectionPool(pub Pool);
 #[pyclass(subclass)]
-pub struct ConnectionPool(pub Pool);
+pub struct ConnectionPool {
+    pool: Pool,
+    pg_config: Config,
+    ca_file: Option<String>,
+    ssl_mode: Option<SslMode>,
+}
+
+impl ConnectionPool {
+    pub fn build(
+        pool: Pool,
+        pg_config: Config,
+        ca_file: Option<String>,
+        ssl_mode: Option<SslMode>,
+    ) -> Self {
+        ConnectionPool {
+            pool,
+            pg_config,
+            ca_file,
+            ssl_mode,
+        }
+    }
+}
 
 #[pymethods]
 impl ConnectionPool {
@@ -333,7 +348,7 @@ impl ConnectionPool {
 
     #[must_use]
     pub fn status(&self) -> ConnectionPoolStatus {
-        let inner_status = self.0.status();
+        let inner_status = self.pool.status();
 
         ConnectionPoolStatus::new(
             inner_status.max_size,
@@ -344,7 +359,7 @@ impl ConnectionPool {
     }
 
     pub fn resize(&self, new_max_size: usize) {
-        self.0.resize(new_max_size);
+        self.pool.resize(new_max_size);
     }
 
     /// Execute querystring with parameters.
@@ -361,7 +376,7 @@ impl ConnectionPool {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
 
         let db_pool_manager = tokio_runtime()
             .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
@@ -430,7 +445,7 @@ impl ConnectionPool {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
 
         let db_pool_manager = tokio_runtime()
             .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
@@ -484,7 +499,75 @@ impl ConnectionPool {
 
     #[must_use]
     pub fn acquire(&self) -> Connection {
-        Connection::new(None, Some(self.0.clone()))
+        Connection::new(None, Some(self.pool.clone()))
+    }
+
+    pub async fn add_listener(
+        self_: pyo3::Py<Self>,
+        callback: Py<PyAny>,
+    ) -> RustPSQLDriverPyResult<Listener> {
+        let (pg_config, ca_file, ssl_mode) = pyo3::Python::with_gil(|gil| {
+            let b_gil = self_.borrow(gil);
+            (
+                b_gil.pg_config.clone(),
+                b_gil.ca_file.clone(),
+                b_gil.ssl_mode,
+            )
+        });
+
+        // let tls_ = build_tls(&ca_file, Some(SslMode::Disable)).unwrap();
+
+        // match tls_ {
+        //     ConfiguredTLS::NoTls => {
+        //         let a = pg_config.connect(NoTls).await.unwrap();
+        //     },
+        //     ConfiguredTLS::TlsConnector(connector) => {
+        //         let a = pg_config.connect(connector).await.unwrap();
+        //     }
+        // }
+
+        // let (client, mut connection) = tokio_runtime()
+        //     .spawn(async move { pg_config.connect(NoTls).await.unwrap() })
+        //     .await?;
+
+        // // Make transmitter and receiver.
+        // let (tx, mut rx) = futures_channel::mpsc::unbounded();
+        // let stream =
+        //     stream::poll_fn(move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e));
+        // let connection = stream.forward(tx).map(|r| r.unwrap());
+        // tokio_runtime().spawn(connection);
+
+        // // Wait for notifications in separate thread.
+        // tokio_runtime().spawn(async move {
+        //     client
+        //         .batch_execute(
+        //             "LISTEN test_notifications;
+        //             LISTEN test_notifications2;",
+        //         )
+        //         .await
+        //         .unwrap();
+
+        //     loop {
+        //         let next_element = rx.next().await;
+        //         client.batch_execute("LISTEN test_notifications3;").await.unwrap();
+        //         match next_element {
+        //                 Some(n) => {
+        //                     match n {
+        //                         tokio_postgres::AsyncMessage::Notification(n) => {
+        //                             Python::with_gil(|gil| {
+        //                                 callback.call0(gil);
+        //                             });
+        //                             println!("Notification {:?}", n);
+        //                         },
+        //                         _ => {println!("in_in {:?}", n)}
+        //                     }
+        //                 },
+        //                 _ => {println!("in {:?}", next_element)}
+        //         }
+        //     }
+        //     });
+
+        Ok(Listener::new(pg_config, ca_file, ssl_mode))
     }
 
     /// Return new single connection.
@@ -492,7 +575,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).0.clone());
+        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
         let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -507,7 +590,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub fn close(&self) {
-        let db_pool = self.0.clone();
+        let db_pool = self.pool.clone();
 
         db_pool.close();
     }

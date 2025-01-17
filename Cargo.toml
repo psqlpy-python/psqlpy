@@ -59,3 +59,5 @@ pg_interval = { git = "https://github.com/chandr-andr/rust-postgres-interval.git
 pgvector = { git = "https://github.com/chandr-andr/pgvector-rust.git", branch = "psqlpy", features = [
     "postgres",
 ] }
+futures-channel = "0.3.31"
+futures = "0.3.31"

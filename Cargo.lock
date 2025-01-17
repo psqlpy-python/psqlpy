@@ -1004,6 +1004,8 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "deadpool-postgres",
+ "futures",
+ "futures-channel",
  "futures-util",
  "geo-types",
  "itertools",

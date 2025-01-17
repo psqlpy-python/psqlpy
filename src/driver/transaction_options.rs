@@ -71,3 +71,11 @@ impl SynchronousCommit {
         }
     }
 }
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct ListenerTransactionConfig {
+    isolation_level: Option<IsolationLevel>,
+    read_variant: Option<ReadVariant>,
+    deferrable: Option<bool>,
+    synchronous_commit: Option<SynchronousCommit>,
+}
