@@ -197,7 +197,7 @@ pub fn build_tls(
     Ok(ConfiguredTLS::NoTls)
 }
 
-pub fn build_manager(
+#[must_use] pub fn build_manager(
     mgr_config: ManagerConfig,
     pg_config: Config,
     configured_tls: ConfiguredTLS,
@@ -212,5 +212,5 @@ pub fn build_manager(
         }
     }
 
-    return mgr;
+    mgr
 }

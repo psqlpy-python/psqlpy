@@ -1,16 +1,15 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
-    task::Poll,
 };
 
 use futures::{stream, FutureExt, StreamExt, TryStreamExt};
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
+use futures_channel::mpsc::UnboundedReceiver;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-use postgres_openssl::{MakeTlsConnector, TlsStream};
+use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyObject, Python};
 use tokio::{sync::RwLock, task::AbortHandle};
-use tokio_postgres::{AsyncMessage, Client, Config, Connection, NoTls, Socket};
+use tokio_postgres::{AsyncMessage, Client, Config};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -19,9 +18,6 @@ use crate::{
 
 use super::{
     common_options::SslMode,
-    transaction_options::{
-        IsolationLevel, ListenerTransactionConfig, ReadVariant, SynchronousCommit,
-    },
     utils::{build_tls, ConfiguredTLS},
 };
 
@@ -40,7 +36,7 @@ pub struct Listener {
 }
 
 impl Listener {
-    pub fn new(
+    #[must_use] pub fn new(
         // name: String,
         pg_config: Config,
         ca_file: Option<String>,
@@ -49,10 +45,10 @@ impl Listener {
     ) -> Self {
         Listener {
             // name: name,
-            pg_config: pg_config,
-            ca_file: ca_file,
+            pg_config,
+            ca_file,
             // transaction_config: transaction_config,
-            ssl_mode: ssl_mode,
+            ssl_mode,
             channel_callbacks: Default::default(),
             listen_abort_handler: Default::default(),
             client: Default::default(),
@@ -116,15 +112,15 @@ impl Listener {
                 match next_element {
                     Some(n) => match n {
                         tokio_postgres::AsyncMessage::Notification(n) => {
-                            println!("Notification {:?}", n);
+                            println!("Notification {n:?}");
                             return Ok(());
                         }
                         _ => {
-                            println!("in_in {:?}", n)
+                            println!("in_in {n:?}");
                         }
                     },
                     _ => {
-                        println!("in {:?}", next_element)
+                        println!("in {next_element:?}");
                     }
                 }
 
@@ -211,14 +207,14 @@ impl Listener {
                 match next_element {
                     Some(n) => match n {
                         tokio_postgres::AsyncMessage::Notification(n) => {
-                            println!("Notification {:?}", n);
+                            println!("Notification {n:?}");
                         }
                         _ => {
-                            println!("in_in {:?}", n)
+                            println!("in_in {n:?}");
                         }
                     },
                     _ => {
-                        println!("in {:?}", next_element)
+                        println!("in {next_element:?}");
                     }
                 }
             }

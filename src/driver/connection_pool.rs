@@ -1,10 +1,9 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use futures::{stream, FutureExt, StreamExt, TryStreamExt};
-use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny, Python};
-use std::{sync::Arc, time::Duration, vec};
-use tokio::time::sleep;
-use tokio_postgres::{Config, NoTls};
+use futures::{FutureExt, StreamExt, TryStreamExt};
+use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
+use std::{sync::Arc, vec};
+use tokio_postgres::Config;
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -16,7 +15,7 @@ use super::{
     common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     listener::Listener,
-    utils::{build_connection_config, build_manager, build_tls, ConfiguredTLS},
+    utils::{build_connection_config, build_manager, build_tls},
 };
 
 /// Make new connection pool.
@@ -215,7 +214,7 @@ pub struct ConnectionPool {
 }
 
 impl ConnectionPool {
-    pub fn build(
+    #[must_use] pub fn build(
         pool: Pool,
         pg_config: Config,
         ca_file: Option<String>,
