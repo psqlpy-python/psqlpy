@@ -1,5 +1,4 @@
 use bytes::BytesMut;
-use deadpool_postgres::Object;
 use futures_util::{future, pin_mut};
 use pyo3::{
     buffer::PyBuffer,
@@ -17,8 +16,7 @@ use crate::{
 };
 
 use super::{
-    cursor::Cursor,
-    transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
+    connection::InnerConnection, cursor::Cursor, transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit}
 };
 use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
@@ -36,7 +34,7 @@ pub trait TransactionObjectTrait {
     fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl TransactionObjectTrait for Object {
+impl TransactionObjectTrait for InnerConnection {
     async fn start_transaction(
         &self,
         isolation_level: Option<IsolationLevel>,
@@ -106,7 +104,7 @@ impl TransactionObjectTrait for Object {
 
 #[pyclass(subclass)]
 pub struct Transaction {
-    pub db_client: Option<Arc<Object>>,
+    pub db_client: Option<Arc<InnerConnection>>,
     is_started: bool,
     is_done: bool,
 
@@ -122,7 +120,7 @@ impl Transaction {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn new(
-        db_client: Arc<Object>,
+        db_client: Arc<InnerConnection>,
         is_started: bool,
         is_done: bool,
         isolation_level: Option<IsolationLevel>,

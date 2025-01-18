@@ -3,6 +3,7 @@ use std::{str::FromStr, time::Duration};
 use deadpool_postgres::{Manager, ManagerConfig};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
+use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
 use tokio_postgres::{Config, NoTls};
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
@@ -213,4 +214,19 @@ pub fn build_tls(
     }
 
     mgr
+}
+
+pub fn is_coroutine_function(
+    function: Py<PyAny>,
+) -> RustPSQLDriverPyResult<bool> {
+    let is_coroutine_function: bool = Python::with_gil(|py| {
+        let inspect = py.import_bound("inspect")?;
+
+        let is_cor = inspect.call_method1("iscoroutinefunction", (function,)).map_err(|_| {
+            RustPSQLDriverError::ListenerClosedError
+        })?.extract::<bool>()?;
+        Ok::<bool, RustPSQLDriverError>(is_cor)
+    })?;
+
+    Ok(is_coroutine_function)
 }

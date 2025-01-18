@@ -1,13 +1,10 @@
-use deadpool_postgres::Object;
 use pyo3::{
     types::{PyAnyMethods, PyModule, PyModuleMethods},
     Bound, PyAny, PyResult, Python,
 };
 
 use crate::{
-    exceptions::rust_errors::RustPSQLDriverPyResult,
-    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, PythonDTO, QueryParameter},
+    driver::connection::InnerConnection, exceptions::rust_errors::RustPSQLDriverPyResult, query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult}, value_converter::{convert_parameters, PythonDTO, QueryParameter}
 };
 
 /// Add new module to the parent one.
@@ -55,7 +52,7 @@ pub trait ObjectQueryTrait {
     ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl ObjectQueryTrait for Object {
+impl ObjectQueryTrait for InnerConnection {
     async fn psqlpy_query_one(
         &self,
         querystring: String,

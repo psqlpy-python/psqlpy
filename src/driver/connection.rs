@@ -1,9 +1,10 @@
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut};
 use deadpool_postgres::{Object, Pool};
 use futures_util::pin_mut;
+use postgres_types::ToSql;
 use pyo3::{buffer::PyBuffer, pyclass, pymethods, Py, PyAny, PyErr, Python};
 use std::{collections::HashSet, sync::Arc, vec};
-use tokio_postgres::binary_copy::BinaryCopyInWriter;
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, Client, CopyInSink, Row, Statement, ToStatement};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -19,109 +20,114 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
 
-/// Format OPTS parameter for Postgres COPY command.
-///
-/// # Errors
-/// May return Err Result if cannot format parameter.
-#[allow(clippy::too_many_arguments)]
-pub fn _format_copy_opts(
-    format: Option<String>,
-    freeze: Option<bool>,
-    delimiter: Option<String>,
-    null: Option<String>,
-    header: Option<String>,
-    quote: Option<String>,
-    escape: Option<String>,
-    force_quote: Option<Py<PyAny>>,
-    force_not_null: Option<Vec<String>>,
-    force_null: Option<Vec<String>>,
-    encoding: Option<String>,
-) -> RustPSQLDriverPyResult<String> {
-    let mut opts: Vec<String> = vec![];
+pub enum InnerConnection {
+    PoolConn(Object),
+    SingleConn(Client),
+}
 
-    if let Some(format) = format {
-        opts.push(format!("FORMAT {format}"));
+impl InnerConnection {
+    pub async fn prepare_cached(
+        &self,
+        query: &str
+    ) -> RustPSQLDriverPyResult<Statement> {
+        match self {
+            InnerConnection::PoolConn(pconn) => {
+                return Ok(pconn.prepare_cached(query).await?)
+            }
+            InnerConnection::SingleConn(sconn) => {
+                return Ok(sconn.prepare(query).await?)
+            }
+        }
     }
-
-    if let Some(freeze) = freeze {
-        if freeze {
-            opts.push("FREEZE TRUE".into());
-        } else {
-            opts.push("FREEZE FALSE".into());
+    
+    pub async fn query<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> RustPSQLDriverPyResult<Vec<Row>>
+    where T: ?Sized + ToStatement {
+        match self {
+            InnerConnection::PoolConn(pconn) => {
+                return Ok(pconn.query(statement, params).await?)
+            }
+            InnerConnection::SingleConn(sconn) => {
+                return Ok(sconn.query(statement, params).await?)
+            }
         }
     }
 
-    if let Some(delimiter) = delimiter {
-        opts.push(format!("DELIMITER {delimiter}"));
-    }
-
-    if let Some(null) = null {
-        opts.push(format!("NULL {}", quote_ident(&null)));
-    }
-
-    if let Some(header) = header {
-        opts.push(format!("HEADER {header}"));
-    }
-
-    if let Some(quote) = quote {
-        opts.push(format!("QUOTE {quote}"));
-    }
-
-    if let Some(escape) = escape {
-        opts.push(format!("ESCAPE {escape}"));
-    }
-
-    if let Some(force_quote) = force_quote {
-        let boolean_force_quote: Result<bool, PyErr> =
-            Python::with_gil(|gil| force_quote.extract::<bool>(gil));
-
-        if let Ok(force_quote) = boolean_force_quote {
-            if force_quote {
-                opts.push("FORCE_QUOTE *".into());
+    pub async fn batch_execute(&self, query: &str) -> RustPSQLDriverPyResult<()> {
+        match self {
+            InnerConnection::PoolConn(pconn) => {
+                return Ok(pconn.batch_execute(query).await?)
             }
-        } else {
-            let sequence_force_quote: Result<Vec<String>, PyErr> =
-                Python::with_gil(|gil| force_quote.extract::<Vec<String>>(gil));
-
-            if let Ok(force_quote) = sequence_force_quote {
-                opts.push(format!("FORCE_QUOTE ({})", force_quote.join(", ")));
+            InnerConnection::SingleConn(sconn) => {
+                return Ok(sconn.batch_execute(query).await?)
             }
-
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "force_quote parameter must be boolean or sequence of str's.".into(),
-            ));
         }
     }
 
-    if let Some(force_not_null) = force_not_null {
-        opts.push(format!("FORCE_NOT_NULL ({})", force_not_null.join(", ")));
+    pub async fn query_one<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> RustPSQLDriverPyResult<Row> 
+    where T: ?Sized + ToStatement 
+    {
+        match self {
+            InnerConnection::PoolConn(pconn) => {
+                return Ok(pconn.query_one(statement, params).await?)
+            }
+            InnerConnection::SingleConn(sconn) => {
+                return Ok(sconn.query_one(statement, params).await?)
+            }
+        }
     }
 
-    if let Some(force_null) = force_null {
-        opts.push(format!("FORCE_NULL ({})", force_null.join(", ")));
-    }
-
-    if let Some(encoding) = encoding {
-        opts.push(format!("ENCODING {}", quote_ident(&encoding)));
-    }
-
-    if opts.is_empty() {
-        Ok(String::new())
-    } else {
-        Ok(format!("({})", opts.join(", ")))
+    pub async fn copy_in<T, U>(
+        &self,
+        statement: &T
+    ) -> RustPSQLDriverPyResult<CopyInSink<U>> 
+    where
+        T: ?Sized + ToStatement,
+        U: Buf + 'static + Send
+    {
+        match self {
+            InnerConnection::PoolConn(pconn) => {
+                return Ok(pconn.copy_in(statement).await?)
+            }
+            InnerConnection::SingleConn(sconn) => {
+                return Ok(sconn.copy_in(statement).await?)
+            }
+        }
     }
 }
 
 #[pyclass(subclass)]
+#[derive(Clone)]
 pub struct Connection {
-    db_client: Option<Arc<Object>>,
+    db_client: Option<Arc<InnerConnection>>,
     db_pool: Option<Pool>,
 }
 
 impl Connection {
     #[must_use]
-    pub fn new(db_client: Option<Arc<Object>>, db_pool: Option<Pool>) -> Self {
+    pub fn new(db_client: Option<Arc<InnerConnection>>, db_pool: Option<Pool>) -> Self {
         Connection { db_client, db_pool }
+    }
+
+    pub fn db_client(&self) -> Option<Arc<InnerConnection>> {
+        return self.db_client.clone()
+    }
+
+    pub fn db_pool(&self) -> Option<Pool> {
+        return self.db_pool.clone()
+    }
+}
+
+impl Default for Connection {
+    fn default() -> Self {
+        Connection::new(None, None)
     }
 }
 
@@ -145,7 +151,7 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(db_connection));
+                self_.db_client = Some(Arc::new(InnerConnection::PoolConn(db_connection)));
             });
             return Ok(self_);
         }

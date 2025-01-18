@@ -5,13 +5,7 @@ use tokio::task::JoinError;
 use crate::exceptions::python_errors::{PyToRustValueMappingError, RustToPyValueMappingError};
 
 use super::python_errors::{
-    BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseTransactionError,
-    ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
-    ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
-    CursorClosedError, CursorFetchError, CursorStartError, DriverError, MacAddrParseError,
-    RuntimeJoinError, SSLError, TransactionBeginError, TransactionClosedError,
-    TransactionCommitError, TransactionExecuteError, TransactionRollbackError,
-    TransactionSavepointError, UUIDValueConvertError,
+    BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseListenerError, BaseTransactionError, ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError, CursorClosedError, CursorFetchError, CursorStartError, DriverError, ListenerCallbackError, ListenerClosedError, ListenerStartError, MacAddrParseError, RuntimeJoinError, SSLError, TransactionBeginError, TransactionClosedError, TransactionCommitError, TransactionExecuteError, TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError
 };
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
@@ -63,6 +57,16 @@ pub enum RustPSQLDriverError {
     CursorFetchError(String),
     #[error("Underlying connection is returned to the pool")]
     CursorClosedError,
+
+    // Listener Errors
+    #[error("Listener error: {0}")]
+    ListenerError(String),
+    #[error("Listener start error: {0}")]
+    ListenerStartError(String),
+    #[error("Underlying connection is returned to the pool")]
+    ListenerClosedError,
+    #[error("Callback must be an async callable")]
+    ListenerCallbackError,
 
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
@@ -161,6 +165,10 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::CursorFetchError(_) => CursorFetchError::new_err((error_desc,)),
             RustPSQLDriverError::SSLError(_) => SSLError::new_err((error_desc,)),
             RustPSQLDriverError::CursorClosedError => CursorClosedError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerError(_) => BaseListenerError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerStartError(_) => ListenerStartError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerClosedError => ListenerClosedError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerCallbackError => ListenerCallbackError::new_err((error_desc,)),
         }
     }
 }

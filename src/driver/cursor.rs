@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use deadpool_postgres::Object;
 use pyo3::{
     exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
 };
@@ -11,6 +10,8 @@ use crate::{
     query_result::PSQLDriverPyQueryResult,
     runtime::rustdriver_future,
 };
+
+use super::connection::InnerConnection;
 
 /// Additional implementation for the `Object` type.
 #[allow(clippy::ref_option)]
@@ -27,7 +28,7 @@ trait CursorObjectTrait {
     async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()>;
 }
 
-impl CursorObjectTrait for Object {
+impl CursorObjectTrait for InnerConnection {
     /// Start the cursor.
     ///
     /// Execute `DECLARE` command with parameters.
@@ -89,7 +90,7 @@ impl CursorObjectTrait for Object {
 
 #[pyclass(subclass)]
 pub struct Cursor {
-    db_transaction: Option<Arc<Object>>,
+    db_transaction: Option<Arc<InnerConnection>>,
     querystring: String,
     parameters: Option<Py<PyAny>>,
     cursor_name: String,
@@ -103,7 +104,7 @@ pub struct Cursor {
 impl Cursor {
     #[must_use]
     pub fn new(
-        db_transaction: Arc<Object>,
+        db_transaction: Arc<InnerConnection>,
         querystring: String,
         parameters: Option<Py<PyAny>>,
         cursor_name: String,

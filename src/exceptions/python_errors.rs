@@ -105,6 +105,16 @@ create_exception!(psqlpy.exceptions, CursorCloseError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorFetchError, BaseCursorError);
 create_exception!(psqlpy.exceptions, CursorClosedError, BaseCursorError);
 
+// Listener Error
+create_exception!(
+    psqlpy.exceptions,
+    BaseListenerError,
+    RustPSQLDriverPyBaseError
+);
+create_exception!(psqlpy.exceptions, ListenerStartError, BaseListenerError);
+create_exception!(psqlpy.exceptions, ListenerClosedError, BaseListenerError);
+create_exception!(psqlpy.exceptions, ListenerCallbackError, BaseListenerError);
+
 // Inner exceptions
 create_exception!(
     psqlpy.exceptions,

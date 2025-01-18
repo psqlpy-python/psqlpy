@@ -1,6 +1,5 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use futures::{FutureExt, StreamExt, TryStreamExt};
 use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::{sync::Arc, vec};
 use tokio_postgres::Config;
@@ -13,7 +12,7 @@ use crate::{
 
 use super::{
     common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
-    connection::Connection,
+    connection::{Connection, InnerConnection},
     listener::Listener,
     utils::{build_connection_config, build_manager, build_tls},
 };
@@ -503,7 +502,6 @@ impl ConnectionPool {
 
     pub async fn add_listener(
         self_: pyo3::Py<Self>,
-        callback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<Listener> {
         let (pg_config, ca_file, ssl_mode) = pyo3::Python::with_gil(|gil| {
             let b_gil = self_.borrow(gil);
@@ -513,58 +511,6 @@ impl ConnectionPool {
                 b_gil.ssl_mode,
             )
         });
-
-        // let tls_ = build_tls(&ca_file, Some(SslMode::Disable)).unwrap();
-
-        // match tls_ {
-        //     ConfiguredTLS::NoTls => {
-        //         let a = pg_config.connect(NoTls).await.unwrap();
-        //     },
-        //     ConfiguredTLS::TlsConnector(connector) => {
-        //         let a = pg_config.connect(connector).await.unwrap();
-        //     }
-        // }
-
-        // let (client, mut connection) = tokio_runtime()
-        //     .spawn(async move { pg_config.connect(NoTls).await.unwrap() })
-        //     .await?;
-
-        // // Make transmitter and receiver.
-        // let (tx, mut rx) = futures_channel::mpsc::unbounded();
-        // let stream =
-        //     stream::poll_fn(move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e));
-        // let connection = stream.forward(tx).map(|r| r.unwrap());
-        // tokio_runtime().spawn(connection);
-
-        // // Wait for notifications in separate thread.
-        // tokio_runtime().spawn(async move {
-        //     client
-        //         .batch_execute(
-        //             "LISTEN test_notifications;
-        //             LISTEN test_notifications2;",
-        //         )
-        //         .await
-        //         .unwrap();
-
-        //     loop {
-        //         let next_element = rx.next().await;
-        //         client.batch_execute("LISTEN test_notifications3;").await.unwrap();
-        //         match next_element {
-        //                 Some(n) => {
-        //                     match n {
-        //                         tokio_postgres::AsyncMessage::Notification(n) => {
-        //                             Python::with_gil(|gil| {
-        //                                 callback.call0(gil);
-        //                             });
-        //                             println!("Notification {:?}", n);
-        //                         },
-        //                         _ => {println!("in_in {:?}", n)}
-        //                     }
-        //                 },
-        //                 _ => {println!("in {:?}", next_element)}
-        //         }
-        //     }
-        //     });
 
         Ok(Listener::new(pg_config, ca_file, ssl_mode))
     }
@@ -581,7 +527,7 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(Some(Arc::new(db_connection)), None))
+        Ok(Connection::new(Some(Arc::new(InnerConnection::PoolConn(db_connection))), None))
     }
 
     /// Close connection pool.
