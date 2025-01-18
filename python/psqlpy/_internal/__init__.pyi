@@ -1752,6 +1752,5 @@ class ConnectionPoolBuilder:
 class Listener:
     """Result."""
 
-
 class ListenerNotification:
     """Result."""

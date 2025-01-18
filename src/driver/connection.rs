@@ -39,7 +39,7 @@ impl InnerConnection {
             }
         }
     }
-    
+
     pub async fn query<T>(
         &self,
         statement: &T,
@@ -71,8 +71,8 @@ impl InnerConnection {
         &self,
         statement: &T,
         params: &[&(dyn ToSql + Sync)],
-    ) -> RustPSQLDriverPyResult<Row> 
-    where T: ?Sized + ToStatement 
+    ) -> RustPSQLDriverPyResult<Row>
+    where T: ?Sized + ToStatement
     {
         match self {
             InnerConnection::PoolConn(pconn) => {
@@ -87,7 +87,7 @@ impl InnerConnection {
     pub async fn copy_in<T, U>(
         &self,
         statement: &T
-    ) -> RustPSQLDriverPyResult<CopyInSink<U>> 
+    ) -> RustPSQLDriverPyResult<CopyInSink<U>>
     where
         T: ?Sized + ToStatement,
         U: Buf + 'static + Send

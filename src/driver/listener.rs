@@ -107,7 +107,7 @@ impl ListenerCallback {
             }
             (self.callback.clone(), None)
         });
-        
+
         if let Some(task_locals) = task_locals {
             tokio_runtime().spawn(pyo3_async_runtimes::tokio::scope(task_locals, async move {
                 let future = Python::with_gil(|py| {
@@ -222,7 +222,7 @@ impl Listener {
 
             return Ok(());
         }
-        
+
         return Err(RustPSQLDriverError::ListenerClosedError)
     }
 
