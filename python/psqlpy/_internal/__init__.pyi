@@ -2,7 +2,7 @@ import types
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Awaitable, Callable, Sequence, TypeVar
 
 from typing_extensions import Buffer, Self
 
@@ -1360,6 +1360,9 @@ class ConnectionPool:
                 res = await connection.execute(...)
         ```
         """
+    def listener(self: Self) -> Listener:
+        """Create new listener."""
+
     def close(self: Self) -> None:
         """Close the connection pool."""
 
@@ -1752,6 +1755,70 @@ class ConnectionPoolBuilder:
 class Listener:
     """Result."""
 
+    connection: Connection
 
-class ListenerNotification:
-    """Result."""
+    def __aiter__(self: Self) -> Self: ...
+    async def __anext__(self: Self) -> ListenerNotificationMsg: ...
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
+    async def startup(self: Self) -> None:
+        """Startup the listener.
+
+        Each listener MUST be started up.
+        """
+    async def add_callback(
+        self: Self,
+        channel: str,
+        callback: Callable[
+            [str, str, int, Connection], Awaitable[None],
+        ],
+    ) -> None:
+        """Add callback to the channel.
+        
+        Callback must be async function and have signature like this:
+        ```python
+        async def callback(
+            channel: str,
+            payload: str,
+            process_id: str,
+            connection: Connection,
+        ) -> None:
+            ...
+        ```
+        """
+    
+    async def clear_channel_callbacks(self, channel: str) -> None:
+        """Remove all callbacks for the channel.
+        
+        ### Parameters:
+        - `channel`: name of the channel.
+        """
+
+    async def listen(self: Self) -> None:
+        """Start listening.
+
+        Start actual listening.  
+        In the background it creates task in Rust event loop.  
+        You must save returned Future to the array.
+        """
+
+    async def abort_listen(self: Self) -> None:
+        """Abort listen.
+        
+        If `listen()` method was called, stop listening,  
+        else don't do anything.
+        """
+
+
+class ListenerNotificationMsg:
+    """Listener message in async iterator."""
+
+    process_id: int
+    channel: str
+    payload: str
+    connection: Connection

@@ -55,11 +55,10 @@ impl ChannelCallbacks {
 
 
 #[derive(Clone, Debug)]
-#[pyclass]
 pub struct ListenerNotification {
-    process_id: i32,
-    channel: String,
-    payload: String,
+    pub process_id: i32,
+    pub channel: String,
+    pub payload: String,
 }
 
 impl From::<Notification> for ListenerNotification {
@@ -73,11 +72,45 @@ impl From::<Notification> for ListenerNotification {
 }
 
 #[pyclass]
-struct ListenerNotificationMsg {
+pub struct ListenerNotificationMsg {
     process_id: i32,
     channel: String,
     payload: String,
     connection: Connection,
+}
+
+#[pymethods]
+impl ListenerNotificationMsg {
+    #[getter]
+    fn process_id(&self) -> i32 {
+        self.process_id
+    }
+    
+    #[getter]
+    fn channel(&self) -> String {
+        self.channel.clone()
+    }
+    
+    #[getter]
+    fn payload(&self) -> String {
+        self.payload.clone()
+    }
+    
+    #[getter]
+    fn connection(&self) -> Connection {
+        self.connection.clone()
+    }
+}
+
+impl ListenerNotificationMsg {
+    fn new(value: ListenerNotification, conn: Connection) -> Self {
+        ListenerNotificationMsg {
+            process_id: value.process_id,
+            channel: String::from(value.channel),
+            payload: String::from(value.payload),
+            connection: conn,
+        }
+    }
 }
 
 struct ListenerCallback {
@@ -111,7 +144,15 @@ impl ListenerCallback {
         if let Some(task_locals) = task_locals {
             tokio_runtime().spawn(pyo3_async_runtimes::tokio::scope(task_locals, async move {
                 let future = Python::with_gil(|py| {
-                    let awaitable = callback.call1(py, (lister_notification, connection)).unwrap();
+                    let awaitable = callback.call1(
+                        py,
+                        (
+                            lister_notification.channel,
+                            lister_notification.payload,
+                            lister_notification.process_id,
+                            connection,
+                        )
+                    ).unwrap();
                     pyo3_async_runtimes::tokio::into_future(awaitable.into_bound(py)).unwrap()
                 });
                 future.await.unwrap();
@@ -226,6 +267,41 @@ impl Listener {
         return Err(RustPSQLDriverError::ListenerClosedError)
     }
 
+    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<Py<PyAny>>> {
+        let Some(client) = self.connection.db_client() else {
+            return Err(RustPSQLDriverError::ListenerStartError(
+                "Listener doesn't have underlying client, please call startup".into(),
+            ));
+        };
+        let Some(receiver) = self.receiver.clone() else {
+            return Err(RustPSQLDriverError::ListenerStartError(
+                "Listener doesn't have underlying receiver, please call startup".into(),
+            ));
+        };
+
+        let is_listened_clone = self.is_listened.clone();
+        let listen_query_clone = self.listen_query.clone();
+        let connection = self.connection.clone();
+
+        let py_future = Python::with_gil(move |gil| {
+            rustdriver_future(gil, async move {
+                {
+                    call_listen(&is_listened_clone, &listen_query_clone, &client).await?;
+                };
+                let next_element = {
+                    let mut write_receiver = receiver.write().await;
+                    write_receiver.next().await
+                };
+
+                let inner_notification = process_message(next_element)?;
+
+                Ok(ListenerNotificationMsg::new(inner_notification, connection))
+            })
+        });
+
+        Ok(Some(py_future?))
+    }
+
     #[getter]
     fn connection(&self) -> Connection {
         self.connection.clone()
@@ -280,40 +356,6 @@ impl Listener {
         Ok(())
     }
 
-    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<PyObject>> {
-        let Some(client) = self.connection.db_client() else {
-            return Err(RustPSQLDriverError::ListenerStartError(
-                "Listener doesn't have underlying client, please call startup".into(),
-            ));
-        };
-        let Some(receiver) = self.receiver.clone() else {
-            return Err(RustPSQLDriverError::ListenerStartError(
-                "Listener doesn't have underlying receiver, please call startup".into(),
-            ));
-        };
-
-        let is_listened_clone = self.is_listened.clone();
-        let listen_query_clone = self.listen_query.clone();
-
-        let py_future = Python::with_gil(move |gil| {
-            rustdriver_future(gil, async move {
-                {
-                    call_listen(&is_listened_clone, &listen_query_clone, &client).await?;
-                };
-                let next_element = {
-                    let mut write_receiver = receiver.write().await;
-                    write_receiver.next().await
-                };
-
-                let inner_notification = process_message(next_element)?;
-
-                Ok(inner_notification)
-            })
-        });
-
-        Ok(Some(py_future?))
-    }
-
     #[pyo3(signature = (channel, callback))]
     async fn add_callback(
         &mut self,
@@ -337,10 +379,6 @@ impl Listener {
             callback,
         );
 
-        // let awaitable = callback.call1(()).unwrap();
-        // println!("8888888 {:?}", awaitable);
-        // let bbb = pyo3_async_runtimes::tokio::into_future(awaitable).unwrap();
-        // println!("999999");
         {
             let mut write_channel_callbacks = self.channel_callbacks.write().await;
             write_channel_callbacks.add_callback(channel, listener_callback);
@@ -349,6 +387,15 @@ impl Listener {
         self.update_listen_query().await;
 
         Ok(())
+    }
+
+    async fn clear_channel_callbacks(&mut self, channel: String) {
+        {
+            let mut write_channel_callbacks = self.channel_callbacks.write().await;
+            write_channel_callbacks.clear_channel_callbacks(channel);
+        }
+
+        self.update_listen_query().await;
     }
 
     async fn listen(&mut self) -> RustPSQLDriverPyResult<()> {
@@ -400,6 +447,14 @@ impl Listener {
         self.listen_abort_handler = Some(abj);
 
         Ok(())
+    }
+
+    async fn abort_listen(&mut self) {
+        if let Some(listen_abort_handler) = &self.listen_abort_handler {
+            listen_abort_handler.abort();
+        }
+
+        self.listen_abort_handler = None;
     }
 }
 

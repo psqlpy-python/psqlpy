@@ -500,7 +500,7 @@ impl ConnectionPool {
         Connection::new(None, Some(self.pool.clone()))
     }
 
-    pub async fn add_listener(
+    pub fn listener(
         self_: pyo3::Py<Self>,
     ) -> RustPSQLDriverPyResult<Listener> {
         let (pg_config, ca_file, ssl_mode) = pyo3::Python::with_gil(|gil| {
