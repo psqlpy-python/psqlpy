@@ -5,7 +5,13 @@ use tokio::task::JoinError;
 use crate::exceptions::python_errors::{PyToRustValueMappingError, RustToPyValueMappingError};
 
 use super::python_errors::{
-    BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseListenerError, BaseTransactionError, ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError, ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError, CursorClosedError, CursorFetchError, CursorStartError, DriverError, ListenerCallbackError, ListenerClosedError, ListenerStartError, MacAddrParseError, RuntimeJoinError, SSLError, TransactionBeginError, TransactionClosedError, TransactionCommitError, TransactionExecuteError, TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError
+    BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseListenerError,
+    BaseTransactionError, ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
+    ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
+    CursorClosedError, CursorFetchError, CursorStartError, DriverError, ListenerCallbackError,
+    ListenerClosedError, ListenerStartError, MacAddrParseError, RuntimeJoinError, SSLError,
+    TransactionBeginError, TransactionClosedError, TransactionCommitError, TransactionExecuteError,
+    TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
 };
 
 pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
@@ -166,9 +172,13 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::SSLError(_) => SSLError::new_err((error_desc,)),
             RustPSQLDriverError::CursorClosedError => CursorClosedError::new_err((error_desc,)),
             RustPSQLDriverError::ListenerError(_) => BaseListenerError::new_err((error_desc,)),
-            RustPSQLDriverError::ListenerStartError(_) => ListenerStartError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerStartError(_) => {
+                ListenerStartError::new_err((error_desc,))
+            }
             RustPSQLDriverError::ListenerClosedError => ListenerClosedError::new_err((error_desc,)),
-            RustPSQLDriverError::ListenerCallbackError => ListenerCallbackError::new_err((error_desc,)),
+            RustPSQLDriverError::ListenerCallbackError => {
+                ListenerCallbackError::new_err((error_desc,))
+            }
         }
     }
 }

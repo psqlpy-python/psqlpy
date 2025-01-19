@@ -16,7 +16,9 @@ use crate::{
 };
 
 use super::{
-    connection::InnerConnection, cursor::Cursor, transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit}
+    connection::PsqlpyConnection,
+    cursor::Cursor,
+    transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
 use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
@@ -34,7 +36,7 @@ pub trait TransactionObjectTrait {
     fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl TransactionObjectTrait for InnerConnection {
+impl TransactionObjectTrait for PsqlpyConnection {
     async fn start_transaction(
         &self,
         isolation_level: Option<IsolationLevel>,
@@ -104,7 +106,7 @@ impl TransactionObjectTrait for InnerConnection {
 
 #[pyclass(subclass)]
 pub struct Transaction {
-    pub db_client: Option<Arc<InnerConnection>>,
+    pub db_client: Option<Arc<PsqlpyConnection>>,
     is_started: bool,
     is_done: bool,
 
@@ -120,7 +122,7 @@ impl Transaction {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn new(
-        db_client: Arc<InnerConnection>,
+        db_client: Arc<PsqlpyConnection>,
         is_started: bool,
         is_done: bool,
         isolation_level: Option<IsolationLevel>,
@@ -353,7 +355,7 @@ impl Transaction {
         });
         is_transaction_ready?;
         if let Some(db_client) = db_client {
-            return Ok(db_client.batch_execute(&querystring).await?);
+            return db_client.batch_execute(&querystring).await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)

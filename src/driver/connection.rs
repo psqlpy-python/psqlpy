@@ -4,7 +4,9 @@ use futures_util::pin_mut;
 use postgres_types::ToSql;
 use pyo3::{buffer::PyBuffer, pyclass, pymethods, Py, PyAny, PyErr, Python};
 use std::{collections::HashSet, sync::Arc, vec};
-use tokio_postgres::{binary_copy::BinaryCopyInWriter, Client, CopyInSink, Row, Statement, ToStatement};
+use tokio_postgres::{
+    binary_copy::BinaryCopyInWriter, Client, CopyInSink, Row, Statement, ToStatement,
+};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -20,85 +22,89 @@ use super::{
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
 
-pub enum InnerConnection {
+#[allow(clippy::module_name_repetitions)]
+pub enum PsqlpyConnection {
     PoolConn(Object),
     SingleConn(Client),
 }
 
-impl InnerConnection {
-    pub async fn prepare_cached(
-        &self,
-        query: &str
-    ) -> RustPSQLDriverPyResult<Statement> {
+impl PsqlpyConnection {
+    /// Prepare cached statement.
+    ///
+    /// # Errors
+    /// May return Err if cannot prepare statement.
+    pub async fn prepare_cached(&self, query: &str) -> RustPSQLDriverPyResult<Statement> {
         match self {
-            InnerConnection::PoolConn(pconn) => {
-                return Ok(pconn.prepare_cached(query).await?)
-            }
-            InnerConnection::SingleConn(sconn) => {
-                return Ok(sconn.prepare(query).await?)
-            }
+            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.prepare_cached(query).await?),
+            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.prepare(query).await?),
         }
     }
 
+    /// Prepare cached statement.
+    ///
+    /// # Errors
+    /// May return Err if cannot execute statement.
     pub async fn query<T>(
         &self,
         statement: &T,
         params: &[&(dyn ToSql + Sync)],
     ) -> RustPSQLDriverPyResult<Vec<Row>>
-    where T: ?Sized + ToStatement {
+    where
+        T: ?Sized + ToStatement,
+    {
         match self {
-            InnerConnection::PoolConn(pconn) => {
-                return Ok(pconn.query(statement, params).await?)
-            }
-            InnerConnection::SingleConn(sconn) => {
+            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.query(statement, params).await?),
+            PsqlpyConnection::SingleConn(sconn) => {
                 return Ok(sconn.query(statement, params).await?)
             }
         }
     }
 
+    /// Prepare cached statement.
+    ///
+    /// # Errors
+    /// May return Err if cannot execute statement.
     pub async fn batch_execute(&self, query: &str) -> RustPSQLDriverPyResult<()> {
         match self {
-            InnerConnection::PoolConn(pconn) => {
-                return Ok(pconn.batch_execute(query).await?)
-            }
-            InnerConnection::SingleConn(sconn) => {
-                return Ok(sconn.batch_execute(query).await?)
-            }
+            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.batch_execute(query).await?),
+            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.batch_execute(query).await?),
         }
     }
 
+    /// Prepare cached statement.
+    ///
+    /// # Errors
+    /// May return Err if cannot execute statement.
     pub async fn query_one<T>(
         &self,
         statement: &T,
         params: &[&(dyn ToSql + Sync)],
     ) -> RustPSQLDriverPyResult<Row>
-    where T: ?Sized + ToStatement
+    where
+        T: ?Sized + ToStatement,
     {
         match self {
-            InnerConnection::PoolConn(pconn) => {
+            PsqlpyConnection::PoolConn(pconn) => {
                 return Ok(pconn.query_one(statement, params).await?)
             }
-            InnerConnection::SingleConn(sconn) => {
+            PsqlpyConnection::SingleConn(sconn) => {
                 return Ok(sconn.query_one(statement, params).await?)
             }
         }
     }
 
-    pub async fn copy_in<T, U>(
-        &self,
-        statement: &T
-    ) -> RustPSQLDriverPyResult<CopyInSink<U>>
+    /// Prepare cached statement.
+    ///
+    /// # Errors
+    /// May return Err if cannot execute copy data.
+    pub async fn copy_in<T, U>(&self, statement: &T) -> RustPSQLDriverPyResult<CopyInSink<U>>
     where
         T: ?Sized + ToStatement,
-        U: Buf + 'static + Send
+        U: Buf + 'static + Send,
     {
         match self {
-            InnerConnection::PoolConn(pconn) => {
-                return Ok(pconn.copy_in(statement).await?)
-            }
-            InnerConnection::SingleConn(sconn) => {
-                return Ok(sconn.copy_in(statement).await?)
-            }
+            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.copy_in(statement).await?),
+            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.copy_in(statement).await?),
         }
     }
 }
@@ -106,22 +112,24 @@ impl InnerConnection {
 #[pyclass(subclass)]
 #[derive(Clone)]
 pub struct Connection {
-    db_client: Option<Arc<InnerConnection>>,
+    db_client: Option<Arc<PsqlpyConnection>>,
     db_pool: Option<Pool>,
 }
 
 impl Connection {
     #[must_use]
-    pub fn new(db_client: Option<Arc<InnerConnection>>, db_pool: Option<Pool>) -> Self {
+    pub fn new(db_client: Option<Arc<PsqlpyConnection>>, db_pool: Option<Pool>) -> Self {
         Connection { db_client, db_pool }
     }
 
-    pub fn db_client(&self) -> Option<Arc<InnerConnection>> {
-        return self.db_client.clone()
+    #[must_use]
+    pub fn db_client(&self) -> Option<Arc<PsqlpyConnection>> {
+        self.db_client.clone()
     }
 
+    #[must_use]
     pub fn db_pool(&self) -> Option<Pool> {
-        return self.db_pool.clone()
+        self.db_pool.clone()
     }
 }
 
@@ -151,7 +159,7 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(InnerConnection::PoolConn(db_connection)));
+                self_.db_client = Some(Arc::new(PsqlpyConnection::PoolConn(db_connection)));
             });
             return Ok(self_);
         }
@@ -277,7 +285,7 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return Ok(db_client.batch_execute(&querystring).await?);
+            return db_client.batch_execute(&querystring).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)

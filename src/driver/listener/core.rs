@@ -5,15 +5,25 @@ use futures_channel::mpsc::UnboundedReceiver;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyErr, Python};
-use tokio::{sync::RwLock, task::{AbortHandle, JoinHandle}};
+use tokio::{
+    sync::RwLock,
+    task::{AbortHandle, JoinHandle},
+};
 use tokio_postgres::{AsyncMessage, Config};
 
 use crate::{
-    driver::{common_options::SslMode, connection::{Connection, InnerConnection}, utils::{build_tls, is_coroutine_function, ConfiguredTLS}}, exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult}, runtime::{rustdriver_future, tokio_runtime}
+    driver::{
+        common_options::SslMode,
+        connection::{Connection, PsqlpyConnection},
+        utils::{build_tls, is_coroutine_function, ConfiguredTLS},
+    },
+    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    runtime::{rustdriver_future, tokio_runtime},
 };
 
-use super::structs::{ChannelCallbacks, ListenerCallback, ListenerNotification, ListenerNotificationMsg};
-
+use super::structs::{
+    ChannelCallbacks, ListenerCallback, ListenerNotification, ListenerNotificationMsg,
+};
 
 #[pyclass]
 pub struct Listener {
@@ -30,26 +40,23 @@ pub struct Listener {
 }
 
 impl Listener {
-    #[must_use] pub fn new(
-        pg_config: Config,
-        ca_file: Option<String>,
-        ssl_mode: Option<SslMode>,
-    ) -> Self {
+    #[must_use]
+    pub fn new(pg_config: Config, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
         Listener {
             pg_config,
             ca_file,
             ssl_mode,
-            channel_callbacks: Default::default(),
-            listen_abort_handler: Default::default(),
+            channel_callbacks: Arc::default(),
+            listen_abort_handler: Option::default(),
             connection: Connection::new(None, None),
-            receiver: Default::default(),
-            listen_query: Default::default(),
+            receiver: Option::default(),
+            listen_query: Arc::default(),
             is_listened: Arc::new(RwLock::new(false)),
             is_started: false,
         }
     }
 
-    async fn update_listen_query(&self) -> () {
+    async fn update_listen_query(&self) {
         let read_channel_callbacks = self.channel_callbacks.read().await;
 
         let channels = read_channel_callbacks.retrieve_all_channels();
@@ -57,9 +64,7 @@ impl Listener {
         let mut final_query: String = String::default();
 
         for channel_name in channels {
-            final_query.push_str(
-                format!("LISTEN {};", channel_name).as_str()
-            );
+            final_query.push_str(format!("LISTEN {channel_name};").as_str());
         }
 
         let mut write_listen_query = self.listen_query.write().await;
@@ -82,25 +87,26 @@ impl Listener {
         slf
     }
 
+    #[allow(clippy::unused_async)]
     async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
         Ok(slf)
     }
 
+    #[allow(clippy::unused_async)]
     async fn __aexit__<'a>(
         slf: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<()> {
-        let (client, is_exception_none, py_err) =
-            pyo3::Python::with_gil(|gil| {
-                let self_ = slf.borrow(gil);
-                (
-                    self_.connection.db_client(),
-                    exception.is_none(gil),
-                    PyErr::from_value_bound(exception.into_bound(gil)),
-                )
-            });
+        let (client, is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            (
+                self_.connection.db_client(),
+                exception.is_none(gil),
+                PyErr::from_value_bound(exception.into_bound(gil)),
+            )
+        });
 
         if client.is_some() {
             pyo3::Python::with_gil(|gil| {
@@ -115,8 +121,8 @@ impl Listener {
 
             return Ok(());
         }
-        
-        return Err(RustPSQLDriverError::ListenerClosedError)
+
+        Err(RustPSQLDriverError::ListenerClosedError)
     }
 
     fn __anext__(&self) -> RustPSQLDriverPyResult<Option<Py<PyAny>>> {
@@ -190,18 +196,14 @@ impl Listener {
         let (transmitter, receiver) = futures_channel::mpsc::unbounded::<AsyncMessage>();
 
         let stream =
-            stream::poll_fn(
-                move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e),
-            );
+            stream::poll_fn(move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e));
 
         let connection = stream.forward(transmitter).map(|r| r.unwrap());
         tokio_runtime().spawn(connection);
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
-        self.connection = Connection::new(
-            Some(Arc::new(InnerConnection::SingleConn(client))),
-            None,
-        );
+        self.connection =
+            Connection::new(Some(Arc::new(PsqlpyConnection::SingleConn(client))), None);
 
         self.is_started = true;
 
@@ -219,17 +221,12 @@ impl Listener {
         let is_coro = is_coroutine_function(callback_clone)?;
 
         if !is_coro {
-            return Err(RustPSQLDriverError::ListenerCallbackError)
+            return Err(RustPSQLDriverError::ListenerCallbackError);
         }
 
-        let task_locals = Python::with_gil(|py| {
-            pyo3_async_runtimes::tokio::get_current_locals(py)}
-        )?;
+        let task_locals = Python::with_gil(pyo3_async_runtimes::tokio::get_current_locals)?;
 
-        let listener_callback = ListenerCallback::new(
-            Some(task_locals),
-            callback,
-        );
+        let listener_callback = ListenerCallback::new(task_locals, callback);
 
         {
             let mut write_channel_callbacks = self.channel_callbacks.write().await;
@@ -244,13 +241,13 @@ impl Listener {
     async fn clear_channel_callbacks(&mut self, channel: String) {
         {
             let mut write_channel_callbacks = self.channel_callbacks.write().await;
-            write_channel_callbacks.clear_channel_callbacks(channel);
+            write_channel_callbacks.clear_channel_callbacks(&channel);
         }
 
         self.update_listen_query().await;
     }
 
-    async fn listen(&mut self) -> RustPSQLDriverPyResult<()> {
+    fn listen(&mut self) -> RustPSQLDriverPyResult<()> {
         let Some(client) = self.connection.db_client() else {
             return Err(RustPSQLDriverError::BaseConnectionError("test".into()));
         };
@@ -278,17 +275,12 @@ impl Listener {
 
                 let read_channel_callbacks = channel_callbacks.read().await;
                 let channel = inner_notification.channel.clone();
-                let callbacks = read_channel_callbacks.retrieve_channel_callbacks(
-                    channel,
-                );
+                let callbacks = read_channel_callbacks.retrieve_channel_callbacks(&channel);
 
                 if let Some(callbacks) = callbacks {
                     for callback in callbacks {
-                        dispatch_callback(
-                            callback,
-                            inner_notification.clone(),
-                            connection.clone(),
-                        ).await?;
+                        dispatch_callback(callback, inner_notification.clone(), connection.clone())
+                            .await?;
                     }
                 }
             }
@@ -301,7 +293,7 @@ impl Listener {
         Ok(())
     }
 
-    async fn abort_listen(&mut self) {
+    fn abort_listen(&mut self) {
         if let Some(listen_abort_handler) = &self.listen_abort_handler {
             listen_abort_handler.abort();
         }
@@ -315,10 +307,9 @@ async fn dispatch_callback(
     listener_notification: ListenerNotification,
     connection: Connection,
 ) -> RustPSQLDriverPyResult<()> {
-    listener_callback.call(
-        listener_notification.clone(),
-        connection,
-    ).await?;
+    listener_callback
+        .call(listener_notification.clone(), connection)
+        .await?;
 
     Ok(())
 }
@@ -326,7 +317,7 @@ async fn dispatch_callback(
 async fn call_listen(
     is_listened: &Arc<RwLock<bool>>,
     listen_query: &Arc<RwLock<String>>,
-    client: &Arc<InnerConnection>,
+    client: &Arc<PsqlpyConnection>,
 ) -> RustPSQLDriverPyResult<()> {
     let mut write_is_listened = is_listened.write().await;
 
@@ -336,23 +327,19 @@ async fn call_listen(
             String::from(read_listen_query.as_str())
         };
 
-        client
-            .batch_execute(listen_q.as_str())
-            .await?;
+        client.batch_execute(listen_q.as_str()).await?;
     }
 
     *write_is_listened = true;
     Ok(())
 }
 
-fn process_message(
-    message: Option<AsyncMessage>,
-) -> RustPSQLDriverPyResult<ListenerNotification> {
+fn process_message(message: Option<AsyncMessage>) -> RustPSQLDriverPyResult<ListenerNotification> {
     let Some(async_message) = message else {
-        return Err(RustPSQLDriverError::ListenerError("Wow".into()))
+        return Err(RustPSQLDriverError::ListenerError("Wow".into()));
     };
     let AsyncMessage::Notification(notification) = async_message else {
-        return Err(RustPSQLDriverError::ListenerError("Wow".into()))
+        return Err(RustPSQLDriverError::ListenerError("Wow".into()));
     };
 
     Ok(ListenerNotification::from(notification))

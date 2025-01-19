@@ -11,7 +11,10 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs}, connection::{Connection, InnerConnection}, listener::core::Listener, utils::{build_connection_config, build_manager, build_tls}
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+    connection::{Connection, PsqlpyConnection},
+    listener::core::Listener,
+    utils::{build_connection_config, build_manager, build_tls},
 };
 
 /// Make new connection pool.
@@ -210,7 +213,8 @@ pub struct ConnectionPool {
 }
 
 impl ConnectionPool {
-    #[must_use] pub fn build(
+    #[must_use]
+    pub fn build(
         pool: Pool,
         pg_config: Config,
         ca_file: Option<String>,
@@ -497,9 +501,9 @@ impl ConnectionPool {
         Connection::new(None, Some(self.pool.clone()))
     }
 
-    pub fn listener(
-        self_: pyo3::Py<Self>,
-    ) -> RustPSQLDriverPyResult<Listener> {
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn listener(self_: pyo3::Py<Self>) -> Listener {
         let (pg_config, ca_file, ssl_mode) = pyo3::Python::with_gil(|gil| {
             let b_gil = self_.borrow(gil);
             (
@@ -509,7 +513,7 @@ impl ConnectionPool {
             )
         });
 
-        Ok(Listener::new(pg_config, ca_file, ssl_mode))
+        Listener::new(pg_config, ca_file, ssl_mode)
     }
 
     /// Return new single connection.
@@ -524,7 +528,10 @@ impl ConnectionPool {
             })
             .await??;
 
-        Ok(Connection::new(Some(Arc::new(InnerConnection::PoolConn(db_connection))), None))
+        Ok(Connection::new(
+            Some(Arc::new(PsqlpyConnection::PoolConn(db_connection))),
+            None,
+        ))
     }
 
     /// Close connection pool.

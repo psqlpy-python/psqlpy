@@ -4,7 +4,10 @@ use pyo3::{
 };
 
 use crate::{
-    driver::connection::InnerConnection, exceptions::rust_errors::RustPSQLDriverPyResult, query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult}, value_converter::{convert_parameters, PythonDTO, QueryParameter}
+    driver::connection::PsqlpyConnection,
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
+    value_converter::{convert_parameters, PythonDTO, QueryParameter},
 };
 
 /// Add new module to the parent one.
@@ -52,7 +55,7 @@ pub trait ObjectQueryTrait {
     ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl ObjectQueryTrait for InnerConnection {
+impl ObjectQueryTrait for PsqlpyConnection {
     async fn psqlpy_query_one(
         &self,
         querystring: String,
@@ -128,6 +131,6 @@ impl ObjectQueryTrait for InnerConnection {
     }
 
     async fn psqlpy_query_simple(&self, querystring: String) -> RustPSQLDriverPyResult<()> {
-        Ok(self.batch_execute(querystring.as_str()).await?)
+        self.batch_execute(querystring.as_str()).await
     }
 }

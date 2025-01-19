@@ -175,6 +175,10 @@ pub enum ConfiguredTLS {
     TlsConnector(MakeTlsConnector),
 }
 
+/// Create TLS.
+///
+/// # Errors
+/// May return Err Result if cannot create builder.
 pub fn build_tls(
     ca_file: &Option<String>,
     ssl_mode: Option<SslMode>,
@@ -198,33 +202,36 @@ pub fn build_tls(
     Ok(ConfiguredTLS::NoTls)
 }
 
-#[must_use] pub fn build_manager(
+#[must_use]
+pub fn build_manager(
     mgr_config: ManagerConfig,
     pg_config: Config,
     configured_tls: ConfiguredTLS,
 ) -> Manager {
-    let mgr: Manager;
-    match configured_tls {
-        ConfiguredTLS::NoTls => {
-            mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-        }
+    let mgr: Manager = match configured_tls {
+        ConfiguredTLS::NoTls => Manager::from_config(pg_config, NoTls, mgr_config),
         ConfiguredTLS::TlsConnector(connector) => {
-            mgr = Manager::from_config(pg_config, connector, mgr_config);
+            Manager::from_config(pg_config, connector, mgr_config)
         }
-    }
+    };
 
     mgr
 }
 
-pub fn is_coroutine_function(
-    function: Py<PyAny>,
-) -> RustPSQLDriverPyResult<bool> {
+/// Check is python object async or not.
+///
+/// # Errors
+/// May return Err Result if cannot
+/// 1) import inspect
+/// 2) extract boolean
+pub fn is_coroutine_function(function: Py<PyAny>) -> RustPSQLDriverPyResult<bool> {
     let is_coroutine_function: bool = Python::with_gil(|py| {
         let inspect = py.import_bound("inspect")?;
 
-        let is_cor = inspect.call_method1("iscoroutinefunction", (function,)).map_err(|_| {
-            RustPSQLDriverError::ListenerClosedError
-        })?.extract::<bool>()?;
+        let is_cor = inspect
+            .call_method1("iscoroutinefunction", (function,))
+            .map_err(|_| RustPSQLDriverError::ListenerClosedError)?
+            .extract::<bool>()?;
         Ok::<bool, RustPSQLDriverError>(is_cor)
     })?;
 

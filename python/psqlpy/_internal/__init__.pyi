@@ -1799,7 +1799,7 @@ class Listener:
         - `channel`: name of the channel.
         """
 
-    async def listen(self: Self) -> None:
+    def listen(self: Self) -> None:
         """Start listening.
 
         Start actual listening.
@@ -1807,7 +1807,7 @@ class Listener:
         You must save returned Future to the array.
         """
 
-    async def abort_listen(self: Self) -> None:
+    def abort_listen(self: Self) -> None:
         """Abort listen.
 
         If `listen()` method was called, stop listening,
