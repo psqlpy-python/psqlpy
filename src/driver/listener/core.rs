@@ -115,7 +115,7 @@ impl Listener {
 
             return Ok(());
         }
-        
+
         return Err(RustPSQLDriverError::ListenerClosedError)
     }
 

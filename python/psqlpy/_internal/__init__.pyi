@@ -1775,11 +1775,12 @@ class Listener:
         self: Self,
         channel: str,
         callback: Callable[
-            [str, str, int, Connection], Awaitable[None],
+            [str, str, int, Connection],
+            Awaitable[None],
         ],
     ) -> None:
         """Add callback to the channel.
-        
+
         Callback must be async function and have signature like this:
         ```python
         async def callback(
@@ -1787,14 +1788,13 @@ class Listener:
             payload: str,
             process_id: str,
             connection: Connection,
-        ) -> None:
-            ...
+        ) -> None: ...
         ```
         """
-    
+
     async def clear_channel_callbacks(self, channel: str) -> None:
         """Remove all callbacks for the channel.
-        
+
         ### Parameters:
         - `channel`: name of the channel.
         """
@@ -1802,18 +1802,17 @@ class Listener:
     async def listen(self: Self) -> None:
         """Start listening.
 
-        Start actual listening.  
-        In the background it creates task in Rust event loop.  
+        Start actual listening.
+        In the background it creates task in Rust event loop.
         You must save returned Future to the array.
         """
 
     async def abort_listen(self: Self) -> None:
         """Abort listen.
-        
-        If `listen()` method was called, stop listening,  
+
+        If `listen()` method was called, stop listening,
         else don't do anything.
         """
-
 
 class ListenerNotificationMsg:
     """Listener message in async iterator."""

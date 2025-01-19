@@ -74,17 +74,17 @@ impl ListenerNotificationMsg {
     fn process_id(&self) -> i32 {
         self.process_id
     }
-    
+
     #[getter]
     fn channel(&self) -> String {
         self.channel.clone()
     }
-    
+
     #[getter]
     fn payload(&self) -> String {
         self.payload.clone()
     }
-    
+
     #[getter]
     fn connection(&self) -> Connection {
         self.connection.clone()
@@ -129,7 +129,7 @@ impl ListenerCallback {
             }
             (self.callback.clone(), None)
         });
-        
+
         if let Some(task_locals) = task_locals {
             tokio_runtime().spawn(pyo3_async_runtimes::tokio::scope(task_locals, async move {
                 let future = Python::with_gil(|py| {
