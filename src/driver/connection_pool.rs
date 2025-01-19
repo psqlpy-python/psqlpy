@@ -11,10 +11,7 @@ use crate::{
 };
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
-    connection::{Connection, InnerConnection},
-    listener::Listener,
-    utils::{build_connection_config, build_manager, build_tls},
+    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs}, connection::{Connection, InnerConnection}, listener::core::Listener, utils::{build_connection_config, build_manager, build_tls}
 };
 
 /// Make new connection pool.
