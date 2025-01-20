@@ -1753,7 +1753,60 @@ class ConnectionPoolBuilder:
         """
 
 class Listener:
-    """Result."""
+    """Listener for LISTEN command.
+
+    Can be used two ways:
+    1) As a background task
+    2) As an asynchronous iterator
+
+    ## Examples
+
+    ### Background task:
+
+    ```python
+    async def callback(
+        channel: str,
+        payload: str,
+        process_id: int,
+        connection: Connection,
+    ) -> None: ...
+    async def main():
+        pool = ConnectionPool()
+
+        listener = pool.listener()
+        await listener.add_callback(
+            channel="test_channel",
+            callback=callback,
+        )
+        await listener.startup()
+
+        listener.listen()
+    ```
+
+    ### Async iterator
+    ```python
+    from psqlpy import
+
+    async def msg_processor(
+        msg: ListenerNotificationMsg,
+    ) -> None:
+        ...
+
+
+    async def main():
+        pool = ConnectionPool()
+
+        listener = pool.listener()
+        await listener.add_callback(
+            channel="test_channel",
+            callback=callback,
+        )
+        await listener.startup()
+
+        for msg in listener:
+            await msg_processor(msg)
+    ```
+    """
 
     connection: Connection
 
