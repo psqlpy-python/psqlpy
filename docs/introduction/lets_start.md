@@ -40,7 +40,7 @@ Let's assume that we have table `users`:
 
 ```python
 import asyncio
-from typing import Final
+from typing import Final, Any
 
 from psqlpy import ConnectionPool, QueryResult
 
@@ -55,7 +55,7 @@ async def main() -> None:
     )
 
     dict_results: Final[list[dict[Any, Any]]] = results.result()
-    db.close()
+    db_pool.close()
 ```
 
 ::: tip
