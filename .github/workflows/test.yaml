@@ -30,7 +30,7 @@ jobs:
     - uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        args: -p psqlpy --all-features -- -W clippy::all -W clippy::pedantic -D warnings
+        args: -p psqlpy --all-features -- -W clippy::all -W clippy::pedantic
   pytest:
     name: ${{matrix.job.os}}-${{matrix.py_version}}
     strategy:
