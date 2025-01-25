@@ -15,6 +15,7 @@ stateDiagram-v2
     RustPSQLDriverPyBaseError --> BaseConnectionError
     RustPSQLDriverPyBaseError --> BaseTransactionError
     RustPSQLDriverPyBaseError --> BaseCursorError
+    RustPSQLDriverPyBaseError --> BaseListenerError
     RustPSQLDriverPyBaseError --> RustException
     RustPSQLDriverPyBaseError --> RustToPyValueMappingError
     RustPSQLDriverPyBaseError --> PyToRustValueMappingError
@@ -43,6 +44,11 @@ stateDiagram-v2
         [*] --> CursorCloseError
         [*] --> CursorFetchError
         [*] --> CursorClosedError
+    }
+    state BaseListenerError {
+        [*] --> ListenerStartError
+        [*] --> ListenerClosedError
+        [*] --> ListenerCallbackError
     }
     state RustException {
         [*] --> DriverError
@@ -127,3 +133,15 @@ Error in cursor fetch (any fetch).
 
 #### CursorClosedError
 Error if underlying connection is closed.
+
+### BaseListenerError
+Base error for all Listener errors.
+
+#### ListenerStartError
+Error if listener start failed.
+
+#### ListenerClosedError
+Error if listener manipulated but it's closed
+
+#### ListenerCallbackError
+Error if callback passed to listener isn't a coroutine

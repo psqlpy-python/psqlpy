@@ -1,5 +1,5 @@
 use futures_util::Future;
-use pyo3::{IntoPy, Py, PyAny, PyObject, Python};
+use pyo3::{IntoPyObject, Py, PyAny, Python};
 
 use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
 
@@ -21,7 +21,7 @@ pub fn tokio_runtime() -> &'static tokio::runtime::Runtime {
 pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<Py<PyAny>>
 where
     F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
-    T: IntoPy<PyObject>,
+    T: for<'py> IntoPyObject<'py>,
 {
     let res =
         pyo3_async_runtimes::tokio::future_into_py(py, async { future.await.map_err(Into::into) })

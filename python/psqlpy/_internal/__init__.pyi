@@ -2,7 +2,7 @@ import types
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Awaitable, Callable, Sequence, TypeVar
 
 from typing_extensions import Buffer, Self
 
@@ -1360,6 +1360,9 @@ class ConnectionPool:
                 res = await connection.execute(...)
         ```
         """
+    def listener(self: Self) -> Listener:
+        """Create new listener."""
+
     def close(self: Self) -> None:
         """Close the connection pool."""
 
@@ -1748,3 +1751,136 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
+class Listener:
+    """Listener for LISTEN command.
+
+    Can be used two ways:
+    1) As a background task
+    2) As an asynchronous iterator
+
+    ## Examples
+
+    ### Background task:
+
+    ```python
+    async def callback(
+        channel: str,
+        payload: str,
+        process_id: int,
+        connection: Connection,
+    ) -> None: ...
+    async def main():
+        pool = ConnectionPool()
+
+        listener = pool.listener()
+        await listener.add_callback(
+            channel="test_channel",
+            callback=callback,
+        )
+        await listener.startup()
+
+        listener.listen()
+    ```
+
+    ### Async iterator
+    ```python
+    from psqlpy import
+
+    async def msg_processor(
+        msg: ListenerNotificationMsg,
+    ) -> None:
+        ...
+
+
+    async def main():
+        pool = ConnectionPool()
+
+        listener = pool.listener()
+        await listener.add_callback(
+            channel="test_channel",
+            callback=callback,
+        )
+        await listener.startup()
+
+        for msg in listener:
+            await msg_processor(msg)
+    ```
+    """
+
+    connection: Connection
+    is_started: bool
+
+    def __aiter__(self: Self) -> Self: ...
+    async def __anext__(self: Self) -> ListenerNotificationMsg: ...
+    async def __aenter__(self: Self) -> Self: ...
+    async def __aexit__(
+        self: Self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None: ...
+    async def startup(self: Self) -> None:
+        """Startup the listener.
+
+        Each listener MUST be started up.
+        """
+    async def shutdown(self: Self) -> None:
+        """Shutdown the listener.
+
+        Abort listen and release underlying connection.
+        """
+    async def add_callback(
+        self: Self,
+        channel: str,
+        callback: Callable[
+            [Connection, str, str, int],
+            Awaitable[None],
+        ],
+    ) -> None:
+        """Add callback to the channel.
+
+        Callback must be async function and have signature like this:
+        ```python
+        async def callback(
+            connection: Connection,
+            payload: str,
+            channel: str,
+            process_id: int,
+        ) -> None: ...
+        ```
+
+        Callback parameters are passed as args on the Rust side.
+        """
+
+    async def clear_channel_callbacks(self, channel: str) -> None:
+        """Remove all callbacks for the channel.
+
+        ### Parameters:
+        - `channel`: name of the channel.
+        """
+
+    async def clear_all_channels(self) -> None:
+        """Clear all channels callbacks."""
+
+    def listen(self: Self) -> None:
+        """Start listening.
+
+        Start actual listening.
+        In the background it creates task in Rust event loop.
+        """
+
+    def abort_listen(self: Self) -> None:
+        """Abort listen.
+
+        If `listen()` method was called, stop listening,
+        else don't do anything.
+        """
+
+class ListenerNotificationMsg:
+    """Listener message in async iterator."""
+
+    process_id: int
+    channel: str
+    payload: str
+    connection: Connection

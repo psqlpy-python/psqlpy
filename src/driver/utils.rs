@@ -1,8 +1,14 @@
 use std::{str::FromStr, time::Duration};
 
+use deadpool_postgres::{Manager, ManagerConfig};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use postgres_openssl::MakeTlsConnector;
+use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
+use tokio_postgres::{Config, NoTls};
+
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs};
+use super::common_options::{self, LoadBalanceHosts, SslMode, TargetSessionAttrs};
 
 /// Create new config.
 ///
@@ -162,4 +168,72 @@ pub fn build_connection_config(
     }
 
     Ok(pg_config)
+}
+
+pub enum ConfiguredTLS {
+    NoTls,
+    TlsConnector(MakeTlsConnector),
+}
+
+/// Create TLS.
+///
+/// # Errors
+/// May return Err Result if cannot create builder.
+pub fn build_tls(
+    ca_file: &Option<String>,
+    ssl_mode: &Option<SslMode>,
+) -> RustPSQLDriverPyResult<ConfiguredTLS> {
+    if let Some(ca_file) = ca_file {
+        let mut builder = SslConnector::builder(SslMethod::tls())?;
+        builder.set_ca_file(ca_file)?;
+        return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
+            builder.build(),
+        )));
+    } else if let Some(ssl_mode) = ssl_mode {
+        if *ssl_mode == common_options::SslMode::Require {
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::NONE);
+            return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
+                builder.build(),
+            )));
+        }
+    }
+
+    Ok(ConfiguredTLS::NoTls)
+}
+
+#[must_use]
+pub fn build_manager(
+    mgr_config: ManagerConfig,
+    pg_config: Config,
+    configured_tls: ConfiguredTLS,
+) -> Manager {
+    let mgr: Manager = match configured_tls {
+        ConfiguredTLS::NoTls => Manager::from_config(pg_config, NoTls, mgr_config),
+        ConfiguredTLS::TlsConnector(connector) => {
+            Manager::from_config(pg_config, connector, mgr_config)
+        }
+    };
+
+    mgr
+}
+
+/// Check is python object async or not.
+///
+/// # Errors
+/// May return Err Result if cannot
+/// 1) import inspect
+/// 2) extract boolean
+pub fn is_coroutine_function(function: Py<PyAny>) -> RustPSQLDriverPyResult<bool> {
+    let is_coroutine_function: bool = Python::with_gil(|py| {
+        let inspect = py.import("inspect")?;
+
+        let is_cor = inspect
+            .call_method1("iscoroutinefunction", (function,))
+            .map_err(|_| RustPSQLDriverError::ListenerClosedError)?
+            .extract::<bool>()?;
+        Ok::<bool, RustPSQLDriverError>(is_cor)
+    })?;
+
+    Ok(is_coroutine_function)
 }

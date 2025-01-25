@@ -1,10 +1,10 @@
-use deadpool_postgres::Object;
 use pyo3::{
     types::{PyAnyMethods, PyModule, PyModuleMethods},
     Bound, PyAny, PyResult, Python,
 };
 
 use crate::{
+    driver::connection::PsqlpyConnection,
     exceptions::rust_errors::RustPSQLDriverPyResult,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     value_converter::{convert_parameters, PythonDTO, QueryParameter},
@@ -24,10 +24,10 @@ pub fn add_module(
     child_mod_name: &'static str,
     child_mod_builder: impl FnOnce(Python<'_>, &Bound<'_, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let sub_module = PyModule::new_bound(py, child_mod_name)?;
+    let sub_module = PyModule::new(py, child_mod_name)?;
     child_mod_builder(py, &sub_module)?;
     parent_mod.add_submodule(&sub_module)?;
-    py.import_bound("sys")?.getattr("modules")?.set_item(
+    py.import("sys")?.getattr("modules")?.set_item(
         format!("{}.{}", parent_mod.name()?, child_mod_name),
         sub_module,
     )?;
@@ -55,7 +55,7 @@ pub trait ObjectQueryTrait {
     ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
 }
 
-impl ObjectQueryTrait for Object {
+impl ObjectQueryTrait for PsqlpyConnection {
     async fn psqlpy_query_one(
         &self,
         querystring: String,
@@ -131,6 +131,6 @@ impl ObjectQueryTrait for Object {
     }
 
     async fn psqlpy_query_simple(&self, querystring: String) -> RustPSQLDriverPyResult<()> {
-        Ok(self.batch_execute(querystring.as_str()).await?)
+        self.batch_execute(querystring.as_str()).await
     }
 }

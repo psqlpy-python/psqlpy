@@ -29,6 +29,8 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection::Connection>()?;
     pymod.add_class::<driver::transaction::Transaction>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
+    pymod.add_class::<driver::listener::core::Listener>()?;
+    pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
     pymod.add_class::<driver::transaction_options::IsolationLevel>()?;
     pymod.add_class::<driver::transaction_options::SynchronousCommit>()?;
     pymod.add_class::<driver::transaction_options::ReadVariant>()?;

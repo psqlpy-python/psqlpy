@@ -16,7 +16,7 @@ fn row_to_dict<'a>(
     postgres_row: &'a Row,
     custom_decoders: &Option<Py<PyDict>>,
 ) -> RustPSQLDriverPyResult<pyo3::Bound<'a, PyDict>> {
-    let python_dict = PyDict::new_bound(py);
+    let python_dict = PyDict::new(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
         let python_type = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
         python_dict.set_item(column.name().to_object(py), python_type)?;
@@ -85,7 +85,7 @@ impl PSQLDriverPyQueryResult {
         let mut res: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &None)?;
-            let convert_class_inst = as_class.call_bound(py, (), Some(&pydict))?;
+            let convert_class_inst = as_class.call(py, (), Some(&pydict))?;
             res.push(convert_class_inst);
         }
 
@@ -109,7 +109,7 @@ impl PSQLDriverPyQueryResult {
         let mut res: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &custom_decoders)?;
-            let row_factory_class = row_factory.call_bound(py, (pydict,), None)?;
+            let row_factory_class = row_factory.call(py, (pydict,), None)?;
             res.push(row_factory_class);
         }
         Ok(res.to_object(py))
@@ -170,7 +170,7 @@ impl PSQLDriverSinglePyQueryResult {
         as_class: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, &self.inner, &None)?;
-        Ok(as_class.call_bound(py, (), Some(&pydict))?)
+        Ok(as_class.call(py, (), Some(&pydict))?)
     }
 
     /// Convert result from database with function passed from Python.
@@ -188,6 +188,6 @@ impl PSQLDriverSinglePyQueryResult {
         custom_decoders: Option<Py<PyDict>>,
     ) -> RustPSQLDriverPyResult<Py<PyAny>> {
         let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py);
-        Ok(row_factory.call_bound(py, (pydict,), None)?)
+        Ok(row_factory.call(py, (pydict,), None)?)
     }
 }
