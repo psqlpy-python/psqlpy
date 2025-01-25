@@ -35,7 +35,7 @@ jobs:
     name: ${{matrix.job.os}}-${{matrix.py_version}}
     strategy:
       matrix:
-        py_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        py_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         job:
             - os: ubuntu-latest
               ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
