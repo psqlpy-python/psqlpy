@@ -24,10 +24,10 @@ pub fn add_module(
     child_mod_name: &'static str,
     child_mod_builder: impl FnOnce(Python<'_>, &Bound<'_, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let sub_module = PyModule::new_bound(py, child_mod_name)?;
+    let sub_module = PyModule::new(py, child_mod_name)?;
     child_mod_builder(py, &sub_module)?;
     parent_mod.add_submodule(&sub_module)?;
-    py.import_bound("sys")?.getattr("modules")?.set_item(
+    py.import("sys")?.getattr("modules")?.set_item(
         format!("{}.{}", parent_mod.name()?, child_mod_name),
         sub_module,
     )?;

@@ -226,7 +226,7 @@ pub fn build_manager(
 /// 2) extract boolean
 pub fn is_coroutine_function(function: Py<PyAny>) -> RustPSQLDriverPyResult<bool> {
     let is_coroutine_function: bool = Python::with_gil(|py| {
-        let inspect = py.import_bound("inspect")?;
+        let inspect = py.import("inspect")?;
 
         let is_cor = inspect
             .call_method1("iscoroutinefunction", (function,))

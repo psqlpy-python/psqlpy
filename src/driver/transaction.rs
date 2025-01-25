@@ -236,7 +236,7 @@ impl Transaction {
                 (
                     self_.check_is_transaction_ready(),
                     exception.is_none(gil),
-                    PyErr::from_value_bound(exception.into_bound(gil)),
+                    PyErr::from_value(exception.into_bound(gil)),
                     self_.db_client.clone(),
                 )
             });

@@ -177,7 +177,7 @@ impl Connection {
         let (is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
             (
                 exception.is_none(gil),
-                PyErr::from_value_bound(exception.into_bound(gil)),
+                PyErr::from_value(exception.into_bound(gil)),
             )
         });
 

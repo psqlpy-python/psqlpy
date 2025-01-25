@@ -179,7 +179,7 @@ impl Cursor {
                     self_.closed,
                     self_.cursor_name.clone(),
                     exception.is_none(gil),
-                    PyErr::from_value_bound(exception.into_bound(gil)),
+                    PyErr::from_value(exception.into_bound(gil)),
                 )
             });
 

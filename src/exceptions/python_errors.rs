@@ -3,6 +3,7 @@ use pyo3::{
     types::{PyModule, PyModuleMethods},
     Bound, PyResult, Python,
 };
+
 // Main exception.
 create_exception!(
     psqlpy.exceptions,
@@ -146,108 +147,93 @@ create_exception!(psqlpy.exceptions, SSLError, RustPSQLDriverPyBaseError);
 pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add(
         "RustPSQLDriverPyBaseError",
-        py.get_type_bound::<RustPSQLDriverPyBaseError>(),
+        py.get_type::<RustPSQLDriverPyBaseError>(),
     )?;
 
     pymod.add(
         "BaseConnectionPoolError",
-        py.get_type_bound::<BaseConnectionPoolError>(),
+        py.get_type::<BaseConnectionPoolError>(),
     )?;
     pymod.add(
         "ConnectionPoolBuildError",
-        py.get_type_bound::<ConnectionPoolBuildError>(),
+        py.get_type::<ConnectionPoolBuildError>(),
     )?;
     pymod.add(
         "ConnectionPoolConfigurationError",
-        py.get_type_bound::<ConnectionPoolConfigurationError>(),
+        py.get_type::<ConnectionPoolConfigurationError>(),
     )?;
     pymod.add(
         "ConnectionPoolExecuteError",
-        py.get_type_bound::<ConnectionPoolExecuteError>(),
+        py.get_type::<ConnectionPoolExecuteError>(),
     )?;
 
-    pymod.add(
-        "BaseConnectionError",
-        py.get_type_bound::<BaseConnectionError>(),
-    )?;
+    pymod.add("BaseConnectionError", py.get_type::<BaseConnectionError>())?;
     pymod.add(
         "ConnectionExecuteError",
-        py.get_type_bound::<ConnectionExecuteError>(),
+        py.get_type::<ConnectionExecuteError>(),
     )?;
     pymod.add(
         "ConnectionClosedError",
-        py.get_type_bound::<ConnectionClosedError>(),
+        py.get_type::<ConnectionClosedError>(),
     )?;
 
     pymod.add(
         "BaseTransactionError",
-        py.get_type_bound::<BaseTransactionError>(),
+        py.get_type::<BaseTransactionError>(),
     )?;
     pymod.add(
         "TransactionBeginError",
-        py.get_type_bound::<TransactionBeginError>(),
+        py.get_type::<TransactionBeginError>(),
     )?;
     pymod.add(
         "TransactionCommitError",
-        py.get_type_bound::<TransactionCommitError>(),
+        py.get_type::<TransactionCommitError>(),
     )?;
     pymod.add(
         "TransactionRollbackError",
-        py.get_type_bound::<TransactionRollbackError>(),
+        py.get_type::<TransactionRollbackError>(),
     )?;
     pymod.add(
         "TransactionSavepointError",
-        py.get_type_bound::<TransactionSavepointError>(),
+        py.get_type::<TransactionSavepointError>(),
     )?;
     pymod.add(
         "TransactionExecuteError",
-        py.get_type_bound::<TransactionExecuteError>(),
+        py.get_type::<TransactionExecuteError>(),
     )?;
     pymod.add(
         "TransactionClosedError",
-        py.get_type_bound::<TransactionClosedError>(),
+        py.get_type::<TransactionClosedError>(),
     )?;
 
-    pymod.add("BaseCursorError", py.get_type_bound::<BaseCursorError>())?;
-    pymod.add("CursorStartError", py.get_type_bound::<CursorStartError>())?;
-    pymod.add("CursorCloseError", py.get_type_bound::<CursorCloseError>())?;
-    pymod.add("CursorFetchError", py.get_type_bound::<CursorFetchError>())?;
-    pymod.add(
-        "CursorClosedError",
-        py.get_type_bound::<CursorClosedError>(),
-    )?;
+    pymod.add("BaseCursorError", py.get_type::<BaseCursorError>())?;
+    pymod.add("CursorStartError", py.get_type::<CursorStartError>())?;
+    pymod.add("CursorCloseError", py.get_type::<CursorCloseError>())?;
+    pymod.add("CursorFetchError", py.get_type::<CursorFetchError>())?;
+    pymod.add("CursorClosedError", py.get_type::<CursorClosedError>())?;
 
     pymod.add(
         "RustToPyValueMappingError",
-        py.get_type_bound::<RustToPyValueMappingError>(),
+        py.get_type::<RustToPyValueMappingError>(),
     )?;
     pymod.add(
         "PyToRustValueMappingError",
-        py.get_type_bound::<PyToRustValueMappingError>(),
+        py.get_type::<PyToRustValueMappingError>(),
     )?;
     pymod.add(
         "UUIDValueConvertError",
-        py.get_type_bound::<UUIDValueConvertError>(),
+        py.get_type::<UUIDValueConvertError>(),
     )?;
     pymod.add(
         "MacAddrConversionError",
-        py.get_type_bound::<MacAddrConversionError>(),
+        py.get_type::<MacAddrConversionError>(),
     )?;
-    pymod.add(
-        "BaseListenerError",
-        py.get_type_bound::<BaseListenerError>(),
-    )?;
-    pymod.add(
-        "ListenerStartError",
-        py.get_type_bound::<ListenerStartError>(),
-    )?;
-    pymod.add(
-        "ListenerClosedError",
-        py.get_type_bound::<ListenerClosedError>(),
-    )?;
+    pymod.add("BaseListenerError", py.get_type::<BaseListenerError>())?;
+    pymod.add("ListenerStartError", py.get_type::<ListenerStartError>())?;
+    pymod.add("ListenerClosedError", py.get_type::<ListenerClosedError>())?;
     pymod.add(
         "ListenerCallbackError",
-        py.get_type_bound::<ListenerCallbackError>(),
+        py.get_type::<ListenerCallbackError>(),
     )?;
     Ok(())
 }

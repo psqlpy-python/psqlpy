@@ -104,7 +104,7 @@ impl Listener {
             (
                 self_.connection.db_client(),
                 exception.is_none(gil),
-                PyErr::from_value_bound(exception.into_bound(gil)),
+                PyErr::from_value(exception.into_bound(gil)),
             )
         });
 
