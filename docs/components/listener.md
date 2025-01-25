@@ -6,7 +6,7 @@ title: Listener
 
 ## Usage
 
-There two ways of using `Listener` object:
+There are two ways of using `Listener` object:
 - Async iterator
 - Background task
 
