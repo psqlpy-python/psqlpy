@@ -53,7 +53,7 @@ impl ConnectionPoolBuilder {
         let mgr: Manager = build_manager(
             mgr_config,
             self.config.clone(),
-            build_tls(&self.ca_file, self.ssl_mode)?,
+            build_tls(&self.ca_file, &self.ssl_mode)?,
         );
 
         let mut db_pool_builder = Pool::builder(mgr);

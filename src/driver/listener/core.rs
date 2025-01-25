@@ -161,8 +161,19 @@ impl Listener {
     }
 
     #[getter]
-    fn connection(&self) -> Connection {
-        self.connection.clone()
+    fn is_started(&self) -> bool {
+        self.is_started
+    }
+
+    #[getter]
+    fn connection(&self) -> RustPSQLDriverPyResult<Connection> {
+        if !self.is_started {
+            return Err(RustPSQLDriverError::ListenerStartError(
+                "Listener isn't started up".into(),
+            ));
+        }
+
+        Ok(self.connection.clone())
     }
 
     async fn startup(&mut self) -> RustPSQLDriverPyResult<()> {
@@ -172,7 +183,7 @@ impl Listener {
             ));
         }
 
-        let tls_ = build_tls(&self.ca_file.clone(), self.ssl_mode)?;
+        let tls_ = build_tls(&self.ca_file, &self.ssl_mode)?;
 
         let mut builder = SslConnector::builder(SslMethod::tls())?;
         builder.set_verify(SslVerifyMode::NONE);
@@ -212,6 +223,14 @@ impl Listener {
         self.is_started = true;
 
         Ok(())
+    }
+
+    async fn shutdown(&mut self) {
+        self.abort_listen();
+        std::mem::take(&mut self.connection);
+        std::mem::take(&mut self.receiver);
+
+        self.is_started = false;
     }
 
     #[pyo3(signature = (channel, callback))]

@@ -23,6 +23,7 @@ export default sidebar({
         "connection",
         "transaction",
         "cursor",
+        "listener",
         "results",
         "exceptions",
       ],

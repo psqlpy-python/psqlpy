@@ -254,6 +254,18 @@ This is the preferable way to work with the PostgreSQL.
 :::
 
 
+### Listener
+
+Create a new instance of a listener.
+
+```python
+async def main() -> None:
+    ...
+    listener = db_pool.listener()
+```
+```
+
+
 ### Close
 
 To close the connection pool at the stop of your application.

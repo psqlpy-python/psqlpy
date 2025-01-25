@@ -181,7 +181,7 @@ pub enum ConfiguredTLS {
 /// May return Err Result if cannot create builder.
 pub fn build_tls(
     ca_file: &Option<String>,
-    ssl_mode: Option<SslMode>,
+    ssl_mode: &Option<SslMode>,
 ) -> RustPSQLDriverPyResult<ConfiguredTLS> {
     if let Some(ca_file) = ca_file {
         let mut builder = SslConnector::builder(SslMethod::tls())?;
@@ -190,7 +190,7 @@ pub fn build_tls(
             builder.build(),
         )));
     } else if let Some(ssl_mode) = ssl_mode {
-        if ssl_mode == common_options::SslMode::Require {
+        if *ssl_mode == common_options::SslMode::Require {
             let mut builder = SslConnector::builder(SslMethod::tls())?;
             builder.set_verify(SslVerifyMode::NONE);
             return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(

@@ -1809,6 +1809,7 @@ class Listener:
     """
 
     connection: Connection
+    is_started: bool
 
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> ListenerNotificationMsg: ...
@@ -1823,6 +1824,11 @@ class Listener:
         """Startup the listener.
 
         Each listener MUST be started up.
+        """
+    async def shutdown(self: Self) -> None:
+        """Shutdown the listener.
+
+        Abort listen and release underlying connection.
         """
     async def add_callback(
         self: Self,
@@ -1844,7 +1850,7 @@ class Listener:
         ) -> None: ...
         ```
 
-        Callback parameters are passed as args.
+        Callback parameters are passed as args on the Rust side.
         """
 
     async def clear_channel_callbacks(self, channel: str) -> None:

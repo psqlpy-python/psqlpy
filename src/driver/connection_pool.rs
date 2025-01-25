@@ -127,7 +127,7 @@ pub fn connect(
     let mgr: Manager = build_manager(
         mgr_config,
         pg_config.clone(),
-        build_tls(&ca_file, ssl_mode)?,
+        build_tls(&ca_file, &ssl_mode)?,
     );
 
     let mut db_pool_builder = Pool::builder(mgr);
