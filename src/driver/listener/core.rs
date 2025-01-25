@@ -144,7 +144,7 @@ impl Listener {
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
                 {
-                    call_listen(&is_listened_clone, &listen_query_clone, &client).await?;
+                    execute_listen(&is_listened_clone, &listen_query_clone, &client).await?;
                 };
                 let next_element = {
                     let mut write_receiver = receiver.write().await;
@@ -198,7 +198,11 @@ impl Listener {
         let stream =
             stream::poll_fn(move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e));
 
-        let connection = stream.forward(transmitter).map(|r| r.unwrap());
+        let connection = stream.forward(transmitter).map(|r| {
+            r.map_err(|_| {
+                RustPSQLDriverError::ListenerStartError("Cannot startup the listener".into())
+            })
+        });
         tokio_runtime().spawn(connection);
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
@@ -216,11 +220,7 @@ impl Listener {
         channel: String,
         callback: Py<PyAny>,
     ) -> RustPSQLDriverPyResult<()> {
-        let callback_clone = callback.clone();
-
-        let is_coro = is_coroutine_function(callback_clone)?;
-
-        if !is_coro {
+        if !is_coroutine_function(callback.clone())? {
             return Err(RustPSQLDriverError::ListenerCallbackError);
         }
 
@@ -247,14 +247,28 @@ impl Listener {
         self.update_listen_query().await;
     }
 
+    async fn clear_all_channels(&mut self) {
+        {
+            let mut write_channel_callbacks = self.channel_callbacks.write().await;
+            write_channel_callbacks.clear_all();
+        }
+
+        self.update_listen_query().await;
+    }
+
     fn listen(&mut self) -> RustPSQLDriverPyResult<()> {
         let Some(client) = self.connection.db_client() else {
-            return Err(RustPSQLDriverError::BaseConnectionError("test".into()));
+            return Err(RustPSQLDriverError::ListenerStartError(
+                "Cannot start listening, underlying connection doesn't exist".into(),
+            ));
         };
-        let connection = self.connection.clone();
         let Some(receiver) = self.receiver.clone() else {
-            return Err(RustPSQLDriverError::BaseConnectionError("test".into()));
+            return Err(RustPSQLDriverError::ListenerStartError(
+                "Cannot start listening, underlying connection doesn't exist".into(),
+            ));
         };
+
+        let connection = self.connection.clone();
         let listen_query_clone = self.listen_query.clone();
         let is_listened_clone = self.is_listened.clone();
 
@@ -263,7 +277,7 @@ impl Listener {
         let jh: JoinHandle<Result<(), RustPSQLDriverError>> = tokio_runtime().spawn(async move {
             loop {
                 {
-                    call_listen(&is_listened_clone, &listen_query_clone, &client).await?;
+                    execute_listen(&is_listened_clone, &listen_query_clone, &client).await?;
                 };
 
                 let next_element = {
@@ -314,7 +328,7 @@ async fn dispatch_callback(
     Ok(())
 }
 
-async fn call_listen(
+async fn execute_listen(
     is_listened: &Arc<RwLock<bool>>,
     listen_query: &Arc<RwLock<String>>,
     client: &Arc<PsqlpyConnection>,

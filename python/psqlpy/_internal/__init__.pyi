@@ -1828,7 +1828,7 @@ class Listener:
         self: Self,
         channel: str,
         callback: Callable[
-            [str, str, int, Connection],
+            [Connection, str, str, int],
             Awaitable[None],
         ],
     ) -> None:
@@ -1837,12 +1837,14 @@ class Listener:
         Callback must be async function and have signature like this:
         ```python
         async def callback(
-            channel: str,
-            payload: str,
-            process_id: str,
             connection: Connection,
+            payload: str,
+            channel: str,
+            process_id: int,
         ) -> None: ...
         ```
+
+        Callback parameters are passed as args.
         """
 
     async def clear_channel_callbacks(self, channel: str) -> None:
@@ -1852,12 +1854,14 @@ class Listener:
         - `channel`: name of the channel.
         """
 
+    async def clear_all_channels(self) -> None:
+        """Clear all channels callbacks."""
+
     def listen(self: Self) -> None:
         """Start listening.
 
         Start actual listening.
         In the background it creates task in Rust event loop.
-        You must save returned Future to the array.
         """
 
     def abort_listen(self: Self) -> None:

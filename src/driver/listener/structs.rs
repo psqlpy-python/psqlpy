@@ -34,6 +34,10 @@ impl ChannelCallbacks {
         self.0.remove(channel);
     }
 
+    pub fn clear_all(&mut self) {
+        self.0.clear();
+    }
+
     #[must_use]
     pub fn retrieve_all_channels(&self) -> Vec<&String> {
         self.0.keys().collect::<Vec<&String>>()
@@ -133,10 +137,10 @@ impl ListenerCallback {
                         .call1(
                             py,
                             (
-                                lister_notification.channel,
-                                lister_notification.payload,
-                                lister_notification.process_id,
                                 connection,
+                                lister_notification.payload,
+                                lister_notification.channel,
+                                lister_notification.process_id,
                             ),
                         )
                         .map_err(|_| RustPSQLDriverError::ListenerCallbackError)?;

@@ -79,3 +79,15 @@ class PyToRustValueMappingError(RustPSQLDriverPyBaseError):
     You can get this exception when executing queries with parameters.
     So, if there are no parameters for the query, don't handle this error.
     """
+
+class BaseListenerError(RustPSQLDriverPyBaseError):
+    """Base error for all Listener errors."""
+
+class ListenerStartError(BaseListenerError):
+    """Error if listener start failed."""
+
+class ListenerClosedError(BaseListenerError):
+    """Error if listener manipulated but it's closed."""
+
+class ListenerCallbackError(BaseListenerError):
+    """Error if callback passed to listener isn't a coroutine."""

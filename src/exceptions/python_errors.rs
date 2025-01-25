@@ -142,6 +142,7 @@ create_exception!(
 create_exception!(psqlpy.exceptions, SSLError, RustPSQLDriverPyBaseError);
 
 #[allow(clippy::missing_errors_doc)]
+#[allow(clippy::too_many_lines)]
 pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add(
         "RustPSQLDriverPyBaseError",
@@ -231,6 +232,22 @@ pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> 
     pymod.add(
         "MacAddrConversionError",
         py.get_type_bound::<MacAddrConversionError>(),
+    )?;
+    pymod.add(
+        "BaseListenerError",
+        py.get_type_bound::<BaseListenerError>(),
+    )?;
+    pymod.add(
+        "ListenerStartError",
+        py.get_type_bound::<ListenerStartError>(),
+    )?;
+    pymod.add(
+        "ListenerClosedError",
+        py.get_type_bound::<ListenerClosedError>(),
+    )?;
+    pymod.add(
+        "ListenerCallbackError",
+        py.get_type_bound::<ListenerCallbackError>(),
     )?;
     Ok(())
 }
