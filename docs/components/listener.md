@@ -196,9 +196,17 @@ In the background it creates task in Rust event loop.
 async def main() -> None:
     listener = db_pool.listener()
     await listener.startup()
-    await listener.listen()
+    listener.listen()
 ```
 
 ### Abort Listen
 Abort listen.
 If `listen()` method was called, stop listening, else don't do anything.
+
+```python
+async def main() -> None:
+    listener = db_pool.listener()
+    await listener.startup()
+    listener.listen()
+    listener.abort_listen()
+```
