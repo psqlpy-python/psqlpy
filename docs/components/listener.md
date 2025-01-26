@@ -121,7 +121,7 @@ async def main() -> None:
 - `channel`: name of the channel to listen.
 - `callback`: coroutine callback.
 
-Add new callback to the channel, can be called more than 1 times.
+Add new callback to the channel, can be called multiple times (before or after `listen`).
 
 Callback signature is like this:
 ```python
