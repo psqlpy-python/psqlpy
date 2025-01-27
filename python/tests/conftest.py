@@ -69,6 +69,11 @@ def table_name() -> str:
 
 
 @pytest.fixture
+def listener_table_name() -> str:
+    return random_string()
+
+
+@pytest.fixture
 def number_database_records() -> int:
     return random.randint(10, 35)
 
@@ -134,6 +139,23 @@ async def create_default_data_for_tests(
     yield
     await psql_pool.execute(
         f"DROP TABLE {table_name}",
+    )
+
+
+@pytest.fixture
+async def create_table_for_listener_tests(
+    psql_pool: ConnectionPool,
+    listener_table_name: str,
+) -> AsyncGenerator[None, None]:
+    await psql_pool.execute(
+        f"CREATE TABLE {listener_table_name}"
+        f"(id SERIAL, payload VARCHAR(255),"
+        f"channel VARCHAR(255), process_id INT)",
+    )
+
+    yield
+    await psql_pool.execute(
+        f"DROP TABLE {listener_table_name}",
     )
 
 

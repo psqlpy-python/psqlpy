@@ -1,14 +1,15 @@
 use std::{net::IpAddr, time::Duration};
 
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-use postgres_openssl::MakeTlsConnector;
 use pyo3::{pyclass, pymethods, Py, Python};
-use tokio_postgres::NoTls;
 
 use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
-use super::{common_options, connection_pool::ConnectionPool};
+use super::{
+    common_options,
+    connection_pool::ConnectionPool,
+    utils::{build_manager, build_tls},
+};
 
 #[pyclass]
 pub struct ConnectionPoolBuilder {
@@ -49,24 +50,11 @@ impl ConnectionPoolBuilder {
             };
         };
 
-        let mgr: Manager;
-        if let Some(ca_file) = &self.ca_file {
-            let mut builder = SslConnector::builder(SslMethod::tls())?;
-            builder.set_ca_file(ca_file)?;
-            let tls_connector = MakeTlsConnector::new(builder.build());
-            mgr = Manager::from_config(self.config.clone(), tls_connector, mgr_config);
-        } else if let Some(ssl_mode) = self.ssl_mode {
-            if ssl_mode == common_options::SslMode::Require {
-                let mut builder = SslConnector::builder(SslMethod::tls())?;
-                builder.set_verify(SslVerifyMode::NONE);
-                let tls_connector = MakeTlsConnector::new(builder.build());
-                mgr = Manager::from_config(self.config.clone(), tls_connector, mgr_config);
-            } else {
-                mgr = Manager::from_config(self.config.clone(), NoTls, mgr_config);
-            }
-        } else {
-            mgr = Manager::from_config(self.config.clone(), NoTls, mgr_config);
-        }
+        let mgr: Manager = build_manager(
+            mgr_config,
+            self.config.clone(),
+            build_tls(&self.ca_file, &self.ssl_mode)?,
+        );
 
         let mut db_pool_builder = Pool::builder(mgr);
         if let Some(max_db_pool_size) = self.max_db_pool_size {
@@ -75,7 +63,12 @@ impl ConnectionPoolBuilder {
 
         let db_pool = db_pool_builder.build()?;
 
-        Ok(ConnectionPool(db_pool))
+        Ok(ConnectionPool::build(
+            db_pool,
+            self.config.clone(),
+            self.ca_file.clone(),
+            self.ssl_mode,
+        ))
     }
 
     /// Set ca_file for ssl_mode in PostgreSQL.
