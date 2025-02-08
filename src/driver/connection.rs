@@ -2,8 +2,8 @@ use bytes::BytesMut;
 use deadpool_postgres::Pool;
 use futures_util::pin_mut;
 use pyo3::{buffer::PyBuffer, pyclass, pymethods, Py, PyAny, PyErr, Python};
-use std::{collections::HashSet, sync::Arc};
-use tokio_postgres::binary_copy::BinaryCopyInWriter;
+use std::{collections::HashSet, net::IpAddr, sync::Arc};
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -24,12 +24,21 @@ use super::{
 pub struct Connection {
     db_client: Option<Arc<PsqlpyConnection>>,
     db_pool: Option<Pool>,
+    pg_config: Arc<Config>,
 }
 
 impl Connection {
     #[must_use]
-    pub fn new(db_client: Option<Arc<PsqlpyConnection>>, db_pool: Option<Pool>) -> Self {
-        Connection { db_client, db_pool }
+    pub fn new(
+        db_client: Option<Arc<PsqlpyConnection>>,
+        db_pool: Option<Pool>,
+        pg_config: Arc<Config>,
+    ) -> Self {
+        Connection {
+            db_client,
+            db_pool,
+            pg_config,
+        }
     }
 
     #[must_use]
@@ -45,12 +54,70 @@ impl Connection {
 
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new(None, None)
+        Connection::new(None, None, Arc::new(Config::default()))
     }
 }
 
 #[pymethods]
 impl Connection {
+    #[getter]
+    fn conn_dbname(&self) -> Option<&str> {
+        self.pg_config.get_dbname()
+    }
+
+    #[getter]
+    fn user(&self) -> Option<&str> {
+        self.pg_config.get_user()
+    }
+
+    #[getter]
+    fn host_addrs(&self) -> Vec<String> {
+        let mut host_addrs_vec = vec![];
+
+        let host_addrs = self.pg_config.get_hostaddrs();
+        for ip_addr in host_addrs {
+            match ip_addr {
+                IpAddr::V4(ipv4) => {
+                    host_addrs_vec.push(ipv4.to_string());
+                }
+                IpAddr::V6(ipv6) => {
+                    host_addrs_vec.push(ipv6.to_string());
+                }
+            }
+        }
+
+        host_addrs_vec
+    }
+
+    #[getter]
+    fn hosts(&self) -> Vec<String> {
+        let mut hosts_vec = vec![];
+
+        let hosts = self.pg_config.get_hosts();
+        for host in hosts {
+            match host {
+                Host::Tcp(host) => {
+                    hosts_vec.push(host.to_string());
+                }
+                Host::Unix(host) => {
+                    hosts_vec.push(host.display().to_string());
+                }
+            }
+        }
+
+        hosts_vec
+    }
+
+    #[getter]
+    fn ports(&self) -> Vec<&u16> {
+        return self.pg_config.get_ports().iter().collect::<Vec<&u16>>();
+    }
+
+    #[getter]
+    fn options(&self) -> Option<&str> {
+        return self.pg_config.get_options();
+    }
+
     async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
         let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
@@ -283,6 +350,7 @@ impl Connection {
         if let Some(db_client) = &self.db_client {
             return Ok(Transaction::new(
                 db_client.clone(),
+                self.pg_config.clone(),
                 false,
                 false,
                 isolation_level,
@@ -318,6 +386,7 @@ impl Connection {
         if let Some(db_client) = &self.db_client {
             return Ok(Cursor::new(
                 db_client.clone(),
+                self.pg_config.clone(),
                 querystring,
                 parameters,
                 "cur_name".into(),

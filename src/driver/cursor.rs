@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{net::IpAddr, sync::Arc};
 
 use pyo3::{
     exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
 };
+use tokio_postgres::{config::Host, Config};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -90,6 +91,7 @@ impl CursorObjectTrait for PsqlpyConnection {
 #[pyclass(subclass)]
 pub struct Cursor {
     db_transaction: Option<Arc<PsqlpyConnection>>,
+    pg_config: Arc<Config>,
     querystring: String,
     parameters: Option<Py<PyAny>>,
     cursor_name: String,
@@ -104,6 +106,7 @@ impl Cursor {
     #[must_use]
     pub fn new(
         db_transaction: Arc<PsqlpyConnection>,
+        pg_config: Arc<Config>,
         querystring: String,
         parameters: Option<Py<PyAny>>,
         cursor_name: String,
@@ -113,6 +116,7 @@ impl Cursor {
     ) -> Self {
         Cursor {
             db_transaction: Some(db_transaction),
+            pg_config,
             querystring,
             parameters,
             cursor_name,
@@ -127,6 +131,79 @@ impl Cursor {
 
 #[pymethods]
 impl Cursor {
+    #[getter]
+    fn conn_dbname(&self) -> Option<&str> {
+        self.pg_config.get_dbname()
+    }
+
+    #[getter]
+    fn user(&self) -> Option<&str> {
+        self.pg_config.get_user()
+    }
+
+    #[getter]
+    fn host_addrs(&self) -> Vec<String> {
+        let mut host_addrs_vec = vec![];
+
+        let host_addrs = self.pg_config.get_hostaddrs();
+        for ip_addr in host_addrs {
+            match ip_addr {
+                IpAddr::V4(ipv4) => {
+                    host_addrs_vec.push(ipv4.to_string());
+                }
+                IpAddr::V6(ipv6) => {
+                    host_addrs_vec.push(ipv6.to_string());
+                }
+            }
+        }
+
+        host_addrs_vec
+    }
+
+    #[getter]
+    fn hosts(&self) -> Vec<String> {
+        let mut hosts_vec = vec![];
+
+        let hosts = self.pg_config.get_hosts();
+        for host in hosts {
+            match host {
+                Host::Tcp(host) => {
+                    hosts_vec.push(host.to_string());
+                }
+                Host::Unix(host) => {
+                    hosts_vec.push(host.display().to_string());
+                }
+            }
+        }
+
+        hosts_vec
+    }
+
+    #[getter]
+    fn ports(&self) -> Vec<&u16> {
+        return self.pg_config.get_ports().iter().collect::<Vec<&u16>>();
+    }
+
+    #[getter]
+    fn cursor_name(&self) -> String {
+        return self.cursor_name.clone();
+    }
+
+    #[getter]
+    fn querystring(&self) -> String {
+        return self.querystring.clone();
+    }
+
+    #[getter]
+    fn parameters(&self) -> Option<Py<PyAny>> {
+        return self.parameters.clone();
+    }
+
+    #[getter]
+    fn prepared(&self) -> Option<bool> {
+        return self.prepared.clone();
+    }
+
     #[must_use]
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf

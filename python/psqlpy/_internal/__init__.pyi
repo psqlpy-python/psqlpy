@@ -288,6 +288,16 @@ class Cursor:
     It can be used as an asynchronous iterator.
     """
 
+    cursor_name: str
+    querystring: str
+    parameters: Sequence[Any]
+    prepared: bool | None
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
+
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> QueryResult: ...
     async def __aenter__(self: Self) -> Self: ...
@@ -423,6 +433,12 @@ class Transaction:
     You can create it only from `PSQLPool` with method
     `.transaction()`.
     """
+
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
 
     async def __aenter__(self: Self) -> Self: ...
     async def __aexit__(
@@ -873,6 +889,12 @@ class Connection:
 
     It can be created only from connection pool.
     """
+
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
 
     async def __aenter__(self: Self) -> Self: ...
     async def __aexit__(

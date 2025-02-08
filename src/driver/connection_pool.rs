@@ -139,10 +139,10 @@ pub fn connect(
     let pool = db_pool_builder.build()?;
 
     Ok(ConnectionPool {
-        pool,
-        pg_config,
-        ca_file,
-        ssl_mode,
+        pool: pool,
+        pg_config: Arc::new(pg_config),
+        ca_file: ca_file,
+        ssl_mode: ssl_mode,
     })
 }
 
@@ -208,7 +208,7 @@ impl ConnectionPoolStatus {
 #[pyclass(subclass)]
 pub struct ConnectionPool {
     pool: Pool,
-    pg_config: Config,
+    pg_config: Arc<Config>,
     ca_file: Option<String>,
     ssl_mode: Option<SslMode>,
 }
@@ -222,10 +222,10 @@ impl ConnectionPool {
         ssl_mode: Option<SslMode>,
     ) -> Self {
         ConnectionPool {
-            pool,
-            pg_config,
-            ca_file,
-            ssl_mode,
+            pool: pool,
+            pg_config: Arc::new(pg_config),
+            ca_file: ca_file,
+            ssl_mode: ssl_mode,
         }
     }
 }
@@ -499,7 +499,7 @@ impl ConnectionPool {
 
     #[must_use]
     pub fn acquire(&self) -> Connection {
-        Connection::new(None, Some(self.pool.clone()))
+        Connection::new(None, Some(self.pool.clone()), self.pg_config.clone())
     }
 
     #[must_use]
@@ -522,7 +522,10 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
+        let (db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
+            let slf = self_.borrow(gil);
+            (slf.pool.clone(), slf.pg_config.clone())
+        });
         let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -532,6 +535,7 @@ impl ConnectionPool {
         Ok(Connection::new(
             Some(Arc::new(PsqlpyConnection::PoolConn(db_connection))),
             None,
+            pg_config,
         ))
     }
 

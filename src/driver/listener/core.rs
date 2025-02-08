@@ -28,7 +28,7 @@ use super::structs::{
 
 #[pyclass]
 pub struct Listener {
-    pg_config: Config,
+    pg_config: Arc<Config>,
     ca_file: Option<String>,
     ssl_mode: Option<SslMode>,
     channel_callbacks: Arc<RwLock<ChannelCallbacks>>,
@@ -42,14 +42,14 @@ pub struct Listener {
 
 impl Listener {
     #[must_use]
-    pub fn new(pg_config: Config, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
+    pub fn new(pg_config: Arc<Config>, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
         Listener {
-            pg_config,
+            pg_config: pg_config.clone(),
             ca_file,
             ssl_mode,
             channel_callbacks: Arc::default(),
             listen_abort_handler: Option::default(),
-            connection: Connection::new(None, None),
+            connection: Connection::new(None, None, pg_config.clone()),
             receiver: Option::default(),
             listen_query: Arc::default(),
             is_listened: Arc::new(RwLock::new(false)),
@@ -218,8 +218,11 @@ impl Listener {
         tokio_runtime().spawn(connection);
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
-        self.connection =
-            Connection::new(Some(Arc::new(PsqlpyConnection::SingleConn(client))), None);
+        self.connection = Connection::new(
+            Some(Arc::new(PsqlpyConnection::SingleConn(client))),
+            None,
+            self.pg_config.clone(),
+        );
 
         self.is_started = true;
 
