@@ -5,13 +5,12 @@ use pyo3::{
 };
 
 use crate::{
-    common::ObjectQueryTrait,
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::PSQLDriverPyQueryResult,
     runtime::rustdriver_future,
 };
 
-use super::connection::PsqlpyConnection;
+use super::inner_connection::PsqlpyConnection;
 
 /// Additional implementation for the `Object` type.
 #[allow(clippy::ref_option)]
@@ -55,7 +54,7 @@ impl CursorObjectTrait for PsqlpyConnection {
 
         cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
 
-        self.psqlpy_query(cursor_init_query, parameters.clone(), *prepared)
+        self.execute(cursor_init_query, parameters.clone(), *prepared)
             .await
             .map_err(|err| {
                 RustPSQLDriverError::CursorStartError(format!("Cannot start cursor, error - {err}"))
@@ -77,7 +76,7 @@ impl CursorObjectTrait for PsqlpyConnection {
             ));
         }
 
-        self.psqlpy_query(
+        self.execute(
             format!("CLOSE {cursor_name}"),
             Option::default(),
             Some(false),
@@ -220,7 +219,7 @@ impl Cursor {
             rustdriver_future(gil, async move {
                 if let Some(db_transaction) = db_transaction {
                     let result = db_transaction
-                        .psqlpy_query(
+                        .execute(
                             format!("FETCH {fetch_number} FROM {cursor_name}"),
                             None,
                             Some(false),
@@ -318,7 +317,7 @@ impl Cursor {
             };
 
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH {fetch_number} FROM {cursor_name}"),
                     None,
                     Some(false),
@@ -350,7 +349,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(format!("FETCH NEXT FROM {cursor_name}"), None, Some(false))
+                .execute(format!("FETCH NEXT FROM {cursor_name}"), None, Some(false))
                 .await
                 .map_err(|err| {
                     RustPSQLDriverError::CursorFetchError(format!(
@@ -377,7 +376,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(format!("FETCH PRIOR FROM {cursor_name}"), None, Some(false))
+                .execute(format!("FETCH PRIOR FROM {cursor_name}"), None, Some(false))
                 .await
                 .map_err(|err| {
                     RustPSQLDriverError::CursorFetchError(format!(
@@ -404,7 +403,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(format!("FETCH FIRST FROM {cursor_name}"), None, Some(false))
+                .execute(format!("FETCH FIRST FROM {cursor_name}"), None, Some(false))
                 .await
                 .map_err(|err| {
                     RustPSQLDriverError::CursorFetchError(format!(
@@ -431,7 +430,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(format!("FETCH LAST FROM {cursor_name}"), None, Some(false))
+                .execute(format!("FETCH LAST FROM {cursor_name}"), None, Some(false))
                 .await
                 .map_err(|err| {
                     RustPSQLDriverError::CursorFetchError(format!(
@@ -461,7 +460,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH ABSOLUTE {absolute_number} FROM {cursor_name}"),
                     None,
                     Some(false),
@@ -495,7 +494,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH  RELATIVE {relative_number} FROM {cursor_name}"),
                     None,
                     Some(false),
@@ -528,7 +527,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH FORWARD ALL FROM {cursor_name}"),
                     None,
                     Some(false),
@@ -562,7 +561,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH BACKWARD {backward_count} FROM {cursor_name}",),
                     None,
                     Some(false),
@@ -595,7 +594,7 @@ impl Cursor {
 
         if let Some(db_transaction) = db_transaction {
             let result = db_transaction
-                .psqlpy_query(
+                .execute(
                     format!("FETCH BACKWARD ALL FROM {cursor_name}"),
                     None,
                     Some(false),

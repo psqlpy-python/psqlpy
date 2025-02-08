@@ -12,15 +12,13 @@ use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
 
 use super::{
-    connection::PsqlpyConnection,
     cursor::Cursor,
+    inner_connection::PsqlpyConnection,
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
-use crate::common::ObjectQueryTrait;
 use std::{collections::HashSet, sync::Arc};
 
 #[allow(clippy::module_name_repetitions)]
@@ -328,9 +326,7 @@ impl Transaction {
         });
         is_transaction_ready?;
         if let Some(db_client) = db_client {
-            return db_client
-                .psqlpy_query(querystring, parameters, prepared)
-                .await;
+            return db_client.execute(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
@@ -384,9 +380,7 @@ impl Transaction {
         });
         is_transaction_ready?;
         if let Some(db_client) = db_client {
-            return db_client
-                .psqlpy_query(querystring, parameters, prepared)
-                .await;
+            return db_client.execute(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
@@ -420,36 +414,7 @@ impl Transaction {
         is_transaction_ready?;
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-
-            let result = if prepared.unwrap_or(true) {
-                db_client
-                    .query_one(
-                        &db_client.prepare_cached(&querystring).await?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await?
-            } else {
-                db_client
-                    .query_one(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await?
-            };
-
-            return Ok(PSQLDriverSinglePyQueryResult::new(result));
+            return db_client.fetch_row(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
@@ -476,41 +441,9 @@ impl Transaction {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
+        is_transaction_ready?;
         if let Some(db_client) = db_client {
-            is_transaction_ready?;
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-
-            let result = if prepared.unwrap_or(true) {
-                db_client
-                    .query_one(
-                        &db_client.prepare_cached(&querystring).await?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await?
-            } else {
-                db_client
-                    .query_one(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await?
-            };
-
-            return Python::with_gil(|gil| match result.columns().first() {
-                Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
-                None => Ok(gil.None()),
-            });
+            return db_client.fetch_val(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
@@ -537,51 +470,11 @@ impl Transaction {
             (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
 
+        is_transaction_ready?;
         if let Some(db_client) = db_client {
-            is_transaction_ready?;
-
-            let mut params: Vec<Vec<PythonDTO>> = vec![];
-            if let Some(parameters) = parameters {
-                for vec_of_py_any in parameters {
-                    params.push(convert_parameters(vec_of_py_any)?);
-                }
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            for param in params {
-                let is_query_result_ok = if prepared {
-                    let prepared_stmt = &db_client.prepare_cached(&querystring).await;
-                    if let Err(error) = prepared_stmt {
-                        return Err(RustPSQLDriverError::TransactionExecuteError(format!(
-                            "Cannot prepare statement in execute_many, operation rolled back {error}",
-                        )));
-                    }
-                    db_client
-                        .query(
-                            &db_client.prepare_cached(&querystring).await?,
-                            &param
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>()
-                                .into_boxed_slice(),
-                        )
-                        .await
-                } else {
-                    db_client
-                        .query(
-                            &querystring,
-                            &param
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>()
-                                .into_boxed_slice(),
-                        )
-                        .await
-                };
-                is_query_result_ok?;
-            }
-
-            return Ok(());
+            return db_client
+                .execute_many(querystring, parameters, prepared)
+                .await;
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
@@ -804,9 +697,9 @@ impl Transaction {
             (self_.check_is_transaction_ready(), self_.db_client.clone())
         });
 
-        if let Some(db_client) = db_client {
-            is_transaction_ready?;
+        is_transaction_ready?;
 
+        if let Some(db_client) = db_client {
             let mut futures = vec![];
             if let Some(queries) = queries {
                 let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
@@ -822,7 +715,7 @@ impl Transaction {
                             Ok(param) => Some(param.into()),
                             Err(_) => None,
                         };
-                        futures.push(db_client.psqlpy_query(querystring, params, prepared));
+                        futures.push(db_client.execute(querystring, params, prepared));
                     }
                     Ok(())
                 });

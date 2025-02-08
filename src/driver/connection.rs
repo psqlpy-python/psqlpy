@@ -1,113 +1,23 @@
-use bytes::{Buf, BytesMut};
-use deadpool_postgres::{Object, Pool};
+use bytes::BytesMut;
+use deadpool_postgres::Pool;
 use futures_util::pin_mut;
-use postgres_types::ToSql;
 use pyo3::{buffer::PyBuffer, pyclass, pymethods, Py, PyAny, PyErr, Python};
-use std::{collections::HashSet, sync::Arc, vec};
-use tokio_postgres::{
-    binary_copy::BinaryCopyInWriter, Client, CopyInSink, Row, Statement, ToStatement,
-};
+use std::{collections::HashSet, sync::Arc};
+use tokio_postgres::binary_copy::BinaryCopyInWriter;
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     runtime::tokio_runtime,
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
 };
 
 use super::{
     cursor::Cursor,
+    inner_connection::PsqlpyConnection,
     transaction::Transaction,
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
-
-#[allow(clippy::module_name_repetitions)]
-pub enum PsqlpyConnection {
-    PoolConn(Object),
-    SingleConn(Client),
-}
-
-impl PsqlpyConnection {
-    /// Prepare cached statement.
-    ///
-    /// # Errors
-    /// May return Err if cannot prepare statement.
-    pub async fn prepare_cached(&self, query: &str) -> RustPSQLDriverPyResult<Statement> {
-        match self {
-            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.prepare_cached(query).await?),
-            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.prepare(query).await?),
-        }
-    }
-
-    /// Prepare cached statement.
-    ///
-    /// # Errors
-    /// May return Err if cannot execute statement.
-    pub async fn query<T>(
-        &self,
-        statement: &T,
-        params: &[&(dyn ToSql + Sync)],
-    ) -> RustPSQLDriverPyResult<Vec<Row>>
-    where
-        T: ?Sized + ToStatement,
-    {
-        match self {
-            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.query(statement, params).await?),
-            PsqlpyConnection::SingleConn(sconn) => {
-                return Ok(sconn.query(statement, params).await?)
-            }
-        }
-    }
-
-    /// Prepare cached statement.
-    ///
-    /// # Errors
-    /// May return Err if cannot execute statement.
-    pub async fn batch_execute(&self, query: &str) -> RustPSQLDriverPyResult<()> {
-        match self {
-            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.batch_execute(query).await?),
-            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.batch_execute(query).await?),
-        }
-    }
-
-    /// Prepare cached statement.
-    ///
-    /// # Errors
-    /// May return Err if cannot execute statement.
-    pub async fn query_one<T>(
-        &self,
-        statement: &T,
-        params: &[&(dyn ToSql + Sync)],
-    ) -> RustPSQLDriverPyResult<Row>
-    where
-        T: ?Sized + ToStatement,
-    {
-        match self {
-            PsqlpyConnection::PoolConn(pconn) => {
-                return Ok(pconn.query_one(statement, params).await?)
-            }
-            PsqlpyConnection::SingleConn(sconn) => {
-                return Ok(sconn.query_one(statement, params).await?)
-            }
-        }
-    }
-
-    /// Prepare cached statement.
-    ///
-    /// # Errors
-    /// May return Err if cannot execute copy data.
-    pub async fn copy_in<T, U>(&self, statement: &T) -> RustPSQLDriverPyResult<CopyInSink<U>>
-    where
-        T: ?Sized + ToStatement,
-        U: Buf + 'static + Send,
-    {
-        match self {
-            PsqlpyConnection::PoolConn(pconn) => return Ok(pconn.copy_in(statement).await?),
-            PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.copy_in(statement).await?),
-        }
-    }
-}
 
 #[pyclass(subclass)]
 #[derive(Clone)]
@@ -213,54 +123,7 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            let result = if prepared {
-                db_client
-                    .query(
-                        &db_client
-                            .prepare_cached(&querystring)
-                            .await
-                            .map_err(|err| {
-                                RustPSQLDriverError::ConnectionExecuteError(format!(
-                                    "Cannot prepare statement, error - {err}"
-                                ))
-                            })?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            } else {
-                db_client
-                    .query(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            };
-
-            return Ok(PSQLDriverPyQueryResult::new(result));
+            return db_client.execute(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -311,60 +174,9 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<Vec<PythonDTO>> = vec![];
-            if let Some(parameters) = parameters {
-                for vec_of_py_any in parameters {
-                    params.push(convert_parameters(vec_of_py_any)?);
-                }
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            db_client.batch_execute("BEGIN;").await.map_err(|err| {
-                RustPSQLDriverError::TransactionBeginError(format!(
-                    "Cannot start transaction to run execute_many: {err}"
-                ))
-            })?;
-            for param in params {
-                let querystring_result = if prepared {
-                    let prepared_stmt = &db_client.prepare_cached(&querystring).await;
-                    if let Err(error) = prepared_stmt {
-                        return Err(RustPSQLDriverError::TransactionExecuteError(format!(
-                            "Cannot prepare statement in execute_many, operation rolled back {error}",
-                        )));
-                    }
-                    db_client
-                        .query(
-                            &db_client.prepare_cached(&querystring).await?,
-                            &param
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>()
-                                .into_boxed_slice(),
-                        )
-                        .await
-                } else {
-                    db_client
-                        .query(
-                            &querystring,
-                            &param
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>()
-                                .into_boxed_slice(),
-                        )
-                        .await
-                };
-
-                if let Err(error) = querystring_result {
-                    db_client.batch_execute("ROLLBACK;").await?;
-                    return Err(RustPSQLDriverError::TransactionExecuteError(format!(
-                        "Error occured in `execute_many` statement, transaction is rolled back: {error}"
-                    )));
-                }
-            }
-            db_client.batch_execute("COMMIT;").await?;
-
-            return Ok(());
+            return db_client
+                .execute_many(querystring, parameters, prepared)
+                .await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -388,54 +200,7 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            let result = if prepared {
-                db_client
-                    .query(
-                        &db_client
-                            .prepare_cached(&querystring)
-                            .await
-                            .map_err(|err| {
-                                RustPSQLDriverError::ConnectionExecuteError(format!(
-                                    "Cannot prepare statement, error - {err}"
-                                ))
-                            })?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            } else {
-                db_client
-                    .query(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            };
-
-            return Ok(PSQLDriverPyQueryResult::new(result));
+            return db_client.execute(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -465,54 +230,7 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            let result = if prepared {
-                db_client
-                    .query_one(
-                        &db_client
-                            .prepare_cached(&querystring)
-                            .await
-                            .map_err(|err| {
-                                RustPSQLDriverError::ConnectionExecuteError(format!(
-                                    "Cannot prepare statement, error - {err}"
-                                ))
-                            })?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            } else {
-                db_client
-                    .query_one(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            };
-
-            return Ok(PSQLDriverSinglePyQueryResult::new(result));
+            return db_client.fetch_row(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -539,57 +257,7 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let mut params: Vec<PythonDTO> = vec![];
-            if let Some(parameters) = parameters {
-                params = convert_parameters(parameters)?;
-            }
-            let prepared = prepared.unwrap_or(true);
-
-            let result = if prepared {
-                db_client
-                    .query_one(
-                        &db_client
-                            .prepare_cached(&querystring)
-                            .await
-                            .map_err(|err| {
-                                RustPSQLDriverError::ConnectionExecuteError(format!(
-                                    "Cannot prepare statement, error - {err}"
-                                ))
-                            })?,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            } else {
-                db_client
-                    .query_one(
-                        &querystring,
-                        &params
-                            .iter()
-                            .map(|param| param as &QueryParameter)
-                            .collect::<Vec<&QueryParameter>>()
-                            .into_boxed_slice(),
-                    )
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot execute statement, error - {err}"
-                        ))
-                    })?
-            };
-
-            return Python::with_gil(|gil| match result.columns().first() {
-                Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
-                None => Ok(gil.None()),
-            });
+            return db_client.fetch_val(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)

@@ -14,7 +14,8 @@ use tokio_postgres::{AsyncMessage, Config};
 use crate::{
     driver::{
         common_options::SslMode,
-        connection::{Connection, PsqlpyConnection},
+        connection::Connection,
+        inner_connection::PsqlpyConnection,
         utils::{build_tls, is_coroutine_function, ConfiguredTLS},
     },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
