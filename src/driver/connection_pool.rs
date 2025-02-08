@@ -1,14 +1,10 @@
 use crate::runtime::tokio_runtime;
-use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
+use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
-use std::{sync::Arc, vec};
+use std::sync::Arc;
 use tokio_postgres::Config;
 
-use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    query_result::PSQLDriverPyQueryResult,
-    value_converter::{convert_parameters, PythonDTO, QueryParameter},
-};
+use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
 
 use super::{
     common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
@@ -360,141 +356,6 @@ impl ConnectionPool {
 
     pub fn resize(&self, new_max_size: usize) {
         self.pool.resize(new_max_size);
-    }
-
-    /// Execute querystring with parameters.
-    ///
-    /// Prepare statement and cache it, then execute.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot retrieve new connection
-    /// or prepare statement or execute statement.
-    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
-    pub async fn execute<'a>(
-        self_: pyo3::Py<Self>,
-        querystring: String,
-        parameters: Option<pyo3::Py<PyAny>>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
-
-        let db_pool_manager = tokio_runtime()
-            .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
-            .await??;
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
-        let prepared = prepared.unwrap_or(true);
-        let result = if prepared {
-            tokio_runtime()
-                .spawn(async move {
-                    db_pool_manager
-                        .query(
-                            &db_pool_manager.prepare_cached(&querystring).await?,
-                            &params
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>(),
-                        )
-                        .await
-                        .map_err(|err| {
-                            RustPSQLDriverError::ConnectionExecuteError(format!(
-                                "Cannot execute statement from ConnectionPool, error - {err}"
-                            ))
-                        })
-                })
-                .await??
-        } else {
-            tokio_runtime()
-                .spawn(async move {
-                    db_pool_manager
-                        .query(
-                            &querystring,
-                            &params
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>(),
-                        )
-                        .await
-                        .map_err(|err| {
-                            RustPSQLDriverError::ConnectionExecuteError(format!(
-                                "Cannot execute statement from ConnectionPool, error - {err}"
-                            ))
-                        })
-                })
-                .await??
-        };
-        Ok(PSQLDriverPyQueryResult::new(result))
-    }
-
-    /// Fetch result from the database.
-    ///
-    /// It's the same as `execute`, we made it for people who prefer
-    /// `fetch()`.
-    ///
-    /// Prepare statement and cache it, then execute.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot retrieve new connection
-    /// or prepare statement or execute statement.
-    #[pyo3(signature = (querystring, parameters=None, prepared=None))]
-    pub async fn fetch<'a>(
-        self_: pyo3::Py<Self>,
-        querystring: String,
-        parameters: Option<pyo3::Py<PyAny>>,
-        prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let db_pool = pyo3::Python::with_gil(|gil| self_.borrow(gil).pool.clone());
-
-        let db_pool_manager = tokio_runtime()
-            .spawn(async move { Ok::<Object, RustPSQLDriverError>(db_pool.get().await?) })
-            .await??;
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
-        let prepared = prepared.unwrap_or(true);
-        let result = if prepared {
-            tokio_runtime()
-                .spawn(async move {
-                    db_pool_manager
-                        .query(
-                            &db_pool_manager.prepare_cached(&querystring).await?,
-                            &params
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>(),
-                        )
-                        .await
-                        .map_err(|err| {
-                            RustPSQLDriverError::ConnectionExecuteError(format!(
-                                "Cannot execute statement from ConnectionPool, error - {err}"
-                            ))
-                        })
-                })
-                .await??
-        } else {
-            tokio_runtime()
-                .spawn(async move {
-                    db_pool_manager
-                        .query(
-                            &querystring,
-                            &params
-                                .iter()
-                                .map(|param| param as &QueryParameter)
-                                .collect::<Vec<&QueryParameter>>(),
-                        )
-                        .await
-                        .map_err(|err| {
-                            RustPSQLDriverError::ConnectionExecuteError(format!(
-                                "Cannot execute statement from ConnectionPool, error - {err}"
-                            ))
-                        })
-                })
-                .await??
-        };
-        Ok(PSQLDriverPyQueryResult::new(result))
     }
 
     #[must_use]

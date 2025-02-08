@@ -55,9 +55,10 @@ async def main() -> None:
         max_db_pool_size=2,
     )
 
-    res: QueryResult = await db_pool.execute(
-        "SELECT * FROM users",
-    )
+    async with db_pool.acquire() as conn:
+        res: QueryResult = await conn.execute(
+            "SELECT * FROM users",
+        )
 
     print(res.result())
     db_pool.close()

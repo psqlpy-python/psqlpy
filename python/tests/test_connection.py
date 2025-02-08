@@ -180,8 +180,9 @@ async def test_closed_connection_error(
 
 async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
     """Test `execute_batch` method."""
-    await psql_pool.execute(querystring="DROP TABLE IF EXISTS execute_batch")
-    await psql_pool.execute(querystring="DROP TABLE IF EXISTS execute_batch2")
+    connection = await psql_pool.connection()
+    await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch")
+    await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch2")
     query = "CREATE TABLE execute_batch (name VARCHAR);CREATE TABLE execute_batch2 (name VARCHAR);"
     async with psql_pool.acquire() as conn:
         await conn.execute_batch(querystring=query)

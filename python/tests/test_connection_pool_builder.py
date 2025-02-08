@@ -48,8 +48,8 @@ async def test_connection_pool_builder(
     )
 
     pool = builder.build()
-
-    results = await pool.execute(
+    connection = await pool.connection()
+    results = await connection.execute(
         querystring=f"SELECT * FROM {table_name}",
     )
 

@@ -62,7 +62,7 @@ async def notify(
     if with_delay:
         await asyncio.sleep(0.5)
 
-    await psql_pool.execute(f"NOTIFY {channel}, '{TEST_PAYLOAD}'")
+    await (await psql_pool.connection()).execute(f"NOTIFY {channel}, '{TEST_PAYLOAD}'")
 
 
 async def check_insert_callback(
@@ -72,7 +72,7 @@ async def check_insert_callback(
     number_of_data: int = 1,
 ) -> None:
     test_data_seq = (
-        await psql_pool.execute(
+        await (await psql_pool.connection()).execute(
             f"SELECT * FROM {listener_table_name}",
         )
     ).result()
@@ -93,7 +93,7 @@ async def clear_test_table(
     psql_pool: ConnectionPool,
     listener_table_name: str,
 ) -> None:
-    await psql_pool.execute(
+    await (await psql_pool.connection()).execute(
         f"DELETE FROM {listener_table_name}",
     )
 
@@ -244,7 +244,7 @@ async def test_listener_more_than_one_callback(
         number_of_data=2,
     )
 
-    query_result = await psql_pool.execute(
+    query_result = await (await psql_pool.connection()).execute(
         querystring=(f"SELECT * FROM {listener_table_name} WHERE channel = $1"),
         parameters=(additional_channel,),
     )

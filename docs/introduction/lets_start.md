@@ -49,20 +49,16 @@ async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
 
-    results: Final[QueryResult] = await db_pool.execute(
-        "SELECT * FROM users WHERE id = $1",
-        [2],
-    )
+    async with db_pool.acquire() as conn:
+        results: Final[QueryResult] = await conn.execute(
+            "SELECT * FROM users WHERE id = $1",
+            [2],
+        )
 
     dict_results: Final[list[dict[Any, Any]]] = results.result()
     db_pool.close()
 ```
 
 ::: tip
-You must call `close()` on database pool when you application is shutting down.
-:::
-::: caution
-You must not use `ConnectionPool.execute` method in high-load production code!
-It pulls new connection from connection pull each call.
-Recommended way to make queries is executing them with `Connection`, `Transaction` or `Cursor`.
+It's better to call `close()` on database pool when you application is shutting down.
 :::

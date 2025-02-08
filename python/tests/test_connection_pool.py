@@ -4,7 +4,6 @@ from psqlpy import (
     ConnectionPool,
     ConnRecyclingMethod,
     LoadBalanceHosts,
-    QueryResult,
     TargetSessionAttrs,
     connect,
 )
@@ -22,7 +21,8 @@ async def test_connect_func() -> None:
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
-    await pg_pool.execute("SELECT 1")
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
 
 async def test_pool_dsn_startup() -> None:
@@ -31,41 +31,8 @@ async def test_pool_dsn_startup() -> None:
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
-    await pg_pool.execute("SELECT 1")
-
-
-async def test_pool_execute(
-    psql_pool: ConnectionPool,
-    table_name: str,
-    number_database_records: int,
-) -> None:
-    """Test that ConnectionPool can execute queries."""
-    select_result = await psql_pool.execute(
-        f"SELECT * FROM {table_name}",
-    )
-
-    assert type(select_result) == QueryResult
-
-    inner_result = select_result.result()
-    assert isinstance(inner_result, list)
-    assert len(inner_result) == number_database_records
-
-
-async def test_pool_fetch(
-    psql_pool: ConnectionPool,
-    table_name: str,
-    number_database_records: int,
-) -> None:
-    """Test that ConnectionPool can fetch queries."""
-    select_result = await psql_pool.fetch(
-        f"SELECT * FROM {table_name}",
-    )
-
-    assert type(select_result) == QueryResult
-
-    inner_result = select_result.result()
-    assert isinstance(inner_result, list)
-    assert len(inner_result) == number_database_records
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
 
 async def test_pool_connection(
@@ -92,7 +59,8 @@ async def test_pool_conn_recycling_method(
         conn_recycling_method=conn_recycling_method,
     )
 
-    await pg_pool.execute("SELECT 1")
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
 
 async def test_build_pool_failure() -> None:
@@ -139,9 +107,10 @@ async def test_pool_target_session_attrs(
 
     if target_session_attrs == TargetSessionAttrs.ReadOnly:
         with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
-            await pg_pool.execute("SELECT 1")
+            await pg_pool.connection()
     else:
-        await pg_pool.execute("SELECT 1")
+        conn = await pg_pool.connection()
+        await conn.execute("SELECT 1")
 
 
 @pytest.mark.parametrize(
@@ -159,7 +128,8 @@ async def test_pool_load_balance_hosts(
         load_balance_hosts=load_balance_hosts,
     )
 
-    await pg_pool.execute("SELECT 1")
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
 
 async def test_close_connection_pool() -> None:
@@ -168,12 +138,13 @@ async def test_close_connection_pool() -> None:
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
-    await pg_pool.execute("SELECT 1")
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
     pg_pool.close()
 
     with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
-        await pg_pool.execute("SELECT 1")
+        await pg_pool.connection()
 
 
 async def test_connection_pool_as_context_manager() -> None:
@@ -181,8 +152,9 @@ async def test_connection_pool_as_context_manager() -> None:
     with ConnectionPool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     ) as pg_pool:
-        res = await pg_pool.execute("SELECT 1")
+        conn = await pg_pool.connection()
+        res = await conn.execute("SELECT 1")
         assert res.result()
 
     with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
-        await pg_pool.execute("SELECT 1")
+        await pg_pool.connection()
