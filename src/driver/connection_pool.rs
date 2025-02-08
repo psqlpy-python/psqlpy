@@ -12,7 +12,8 @@ use crate::{
 
 use super::{
     common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
-    connection::{Connection, PsqlpyConnection},
+    connection::Connection,
+    inner_connection::PsqlpyConnection,
     listener::core::Listener,
     utils::{build_connection_config, build_manager, build_tls},
 };
