@@ -68,6 +68,15 @@ export default sidebar({
       ],
     },
     {
+      text: "Integrations",
+      prefix: "/integrations",
+      collapsible: true,
+      children: [
+        "taskiq",
+        "opentelemetry",
+      ],
+    },
+    {
       text: "Contribution guide",
       prefix: "/contribution_guide",
       link: "/contribute.md"
