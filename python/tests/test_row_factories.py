@@ -13,7 +13,8 @@ async def test_tuple_row(
     table_name: str,
     number_database_records: int,
 ) -> None:
-    conn_result = await psql_pool.execute(
+    connection = await psql_pool.connection()
+    conn_result = await connection.execute(
         querystring=f"SELECT * FROM {table_name}",
     )
     tuple_res = conn_result.row_factory(row_factory=tuple_row)
@@ -32,7 +33,8 @@ async def test_class_row(
         id: int
         name: str
 
-    conn_result = await psql_pool.execute(
+    connection = await psql_pool.connection()
+    conn_result = await connection.execute(
         querystring=f"SELECT * FROM {table_name}",
     )
     class_res = conn_result.row_factory(row_factory=class_row(ValidationTestModel))
@@ -58,7 +60,8 @@ async def test_custom_row_factory(
 
         return to_class_inner
 
-    conn_result = await psql_pool.execute(
+    connection = await psql_pool.connection()
+    conn_result = await connection.execute(
         querystring=f"SELECT * FROM {table_name}",
     )
     class_res = conn_result.row_factory(row_factory=to_class(ValidationTestModel))

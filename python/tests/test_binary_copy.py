@@ -15,8 +15,9 @@ async def test_binary_copy_to_table_in_connection(
 ) -> None:
     """Test binary copy in connection."""
     table_name: typing.Final = "cars"
-    await psql_pool.execute(f"DROP TABLE IF EXISTS {table_name}")
-    await psql_pool.execute(
+    connection = await psql_pool.connection()
+    await connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+    await connection.execute(
         """
 CREATE TABLE IF NOT EXISTS cars (
     model VARCHAR,
@@ -46,17 +47,16 @@ CREATE TABLE IF NOT EXISTS cars (
     buf.write(encoder.finish())
     buf.seek(0)
 
-    async with psql_pool.acquire() as connection:
-        inserted_rows = await connection.binary_copy_to_table(
-            source=buf,
-            table_name=table_name,
-        )
+    inserted_rows = await connection.binary_copy_to_table(
+        source=buf,
+        table_name=table_name,
+    )
 
     expected_inserted_row: typing.Final = 32
 
     assert inserted_rows == expected_inserted_row
 
-    real_table_rows: typing.Final = await psql_pool.execute(
+    real_table_rows: typing.Final = await connection.execute(
         f"SELECT COUNT(*) AS rows_count FROM {table_name}",
     )
     assert real_table_rows.result()[0]["rows_count"] == expected_inserted_row
@@ -67,8 +67,10 @@ async def test_binary_copy_to_table_in_transaction(
 ) -> None:
     """Test binary copy in transaction."""
     table_name: typing.Final = "cars"
-    await psql_pool.execute(f"DROP TABLE IF EXISTS {table_name}")
-    await psql_pool.execute(
+
+    connection = await psql_pool.connection()
+    await connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+    await connection.execute(
         """
 CREATE TABLE IF NOT EXISTS cars (
     model VARCHAR,
@@ -108,7 +110,8 @@ CREATE TABLE IF NOT EXISTS cars (
 
     assert inserted_rows == expected_inserted_row
 
-    real_table_rows: typing.Final = await psql_pool.execute(
+    connection = await psql_pool.connection()
+    real_table_rows: typing.Final = await connection.execute(
         f"SELECT COUNT(*) AS rows_count FROM {table_name}",
     )
     assert real_table_rows.result()[0]["rows_count"] == expected_inserted_row

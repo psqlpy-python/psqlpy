@@ -35,7 +35,8 @@ async def test_ssl_mode_require(
         ca_file=ssl_cert_file,
     )
 
-    await pg_pool.execute("SELECT 1")
+    conn = await pg_pool.connection()
+    await conn.execute("SELECT 1")
 
 
 @pytest.mark.parametrize(
@@ -72,7 +73,8 @@ async def test_ssl_mode_require_pool_builder(
 
     pool = builder.build()
 
-    await pool.execute("SELECT 1")
+    connection = await pool.connection()
+    await connection.execute("SELECT 1")
 
 
 async def test_ssl_mode_require_without_ca_file(
@@ -94,4 +96,5 @@ async def test_ssl_mode_require_without_ca_file(
     )
     pool = builder.build()
 
-    await pool.execute("SELECT 1")
+    connection = await pool.connection()
+    await connection.execute("SELECT 1")

@@ -288,6 +288,16 @@ class Cursor:
     It can be used as an asynchronous iterator.
     """
 
+    cursor_name: str
+    querystring: str
+    parameters: Sequence[Any]
+    prepared: bool | None
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
+
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> QueryResult: ...
     async def __aenter__(self: Self) -> Self: ...
@@ -423,6 +433,12 @@ class Transaction:
     You can create it only from `PSQLPool` with method
     `.transaction()`.
     """
+
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
 
     async def __aenter__(self: Self) -> Self: ...
     async def __aexit__(
@@ -874,6 +890,12 @@ class Connection:
     It can be created only from connection pool.
     """
 
+    conn_dbname: str | None
+    user: str | None
+    host_addrs: list[str]
+    hosts: list[str]
+    ports: list[int]
+
     async def __aenter__(self: Self) -> Self: ...
     async def __aexit__(
         self: Self,
@@ -1283,60 +1305,6 @@ class ConnectionPool:
 
         ### Parameters:
         - `new_max_size`: new size for the connection pool.
-        """
-    async def execute(
-        self: Self,
-        querystring: str,
-        parameters: Sequence[Any] | None = None,
-        prepared: bool = True,
-    ) -> QueryResult:
-        """Execute the query.
-
-        Querystring can contain `$<number>` parameters
-        for converting them in the driver side.
-
-        ### Parameters:
-        - `querystring`: querystring to execute.
-        - `parameters`: list of parameters to pass in the query.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
-
-        ### Example:
-        ```python
-        import asyncio
-
-        from psqlpy import PSQLPool, QueryResult
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            query_result: QueryResult = await psqlpy.execute(
-                "SELECT username FROM users WHERE id = $1",
-                [100],
-            )
-            dict_result: List[Dict[Any, Any]] = query_result.result()
-            # you don't need to close the pool,
-            # it will be dropped on Rust side.
-        ```
-        """
-    async def fetch(
-        self: Self,
-        querystring: str,
-        parameters: Sequence[Any] | None = None,
-        prepared: bool = True,
-    ) -> QueryResult:
-        """Fetch the result from database.
-
-        It's the same as `execute` method, we made it because people are used
-        to `fetch` method name.
-
-        Querystring can contain `$<number>` parameters
-        for converting them in the driver side.
-
-        ### Parameters:
-        - `querystring`: querystring to execute.
-        - `parameters`: list of parameters to pass in the query.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
         """
     async def connection(self: Self) -> Connection:
         """Create new connection.

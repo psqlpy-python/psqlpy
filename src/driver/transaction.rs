@@ -6,7 +6,7 @@ use pyo3::{
     pyclass,
     types::{PyList, PyTuple},
 };
-use tokio_postgres::binary_copy::BinaryCopyInWriter;
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
@@ -19,7 +19,7 @@ use super::{
     inner_connection::PsqlpyConnection,
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, net::IpAddr, sync::Arc};
 
 #[allow(clippy::module_name_repetitions)]
 pub trait TransactionObjectTrait {
@@ -105,6 +105,7 @@ impl TransactionObjectTrait for PsqlpyConnection {
 #[pyclass(subclass)]
 pub struct Transaction {
     pub db_client: Option<Arc<PsqlpyConnection>>,
+    pg_config: Arc<Config>,
     is_started: bool,
     is_done: bool,
 
@@ -121,6 +122,7 @@ impl Transaction {
     #[must_use]
     pub fn new(
         db_client: Arc<PsqlpyConnection>,
+        pg_config: Arc<Config>,
         is_started: bool,
         is_done: bool,
         isolation_level: Option<IsolationLevel>,
@@ -131,6 +133,7 @@ impl Transaction {
     ) -> Self {
         Self {
             db_client: Some(db_client),
+            pg_config,
             is_started,
             is_done,
             isolation_level,
@@ -158,6 +161,59 @@ impl Transaction {
 
 #[pymethods]
 impl Transaction {
+    #[getter]
+    fn conn_dbname(&self) -> Option<&str> {
+        self.pg_config.get_dbname()
+    }
+
+    #[getter]
+    fn user(&self) -> Option<&str> {
+        self.pg_config.get_user()
+    }
+
+    #[getter]
+    fn host_addrs(&self) -> Vec<String> {
+        let mut host_addrs_vec = vec![];
+
+        let host_addrs = self.pg_config.get_hostaddrs();
+        for ip_addr in host_addrs {
+            match ip_addr {
+                IpAddr::V4(ipv4) => {
+                    host_addrs_vec.push(ipv4.to_string());
+                }
+                IpAddr::V6(ipv6) => {
+                    host_addrs_vec.push(ipv6.to_string());
+                }
+            }
+        }
+
+        host_addrs_vec
+    }
+
+    #[getter]
+    fn hosts(&self) -> Vec<String> {
+        let mut hosts_vec = vec![];
+
+        let hosts = self.pg_config.get_hosts();
+        for host in hosts {
+            match host {
+                Host::Tcp(host) => {
+                    hosts_vec.push(host.to_string());
+                }
+                Host::Unix(host) => {
+                    hosts_vec.push(host.display().to_string());
+                }
+            }
+        }
+
+        hosts_vec
+    }
+
+    #[getter]
+    fn ports(&self) -> Vec<&u16> {
+        return self.pg_config.get_ports().iter().collect::<Vec<&u16>>();
+    }
+
     #[must_use]
     pub fn __aiter__(self_: Py<Self>) -> Py<Self> {
         self_
@@ -756,6 +812,7 @@ impl Transaction {
         if let Some(db_client) = &self.db_client {
             return Ok(Cursor::new(
                 db_client.clone(),
+                self.pg_config.clone(),
                 querystring,
                 parameters,
                 "cur_name".into(),

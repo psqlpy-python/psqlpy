@@ -62,7 +62,9 @@ async def notify(
     if with_delay:
         await asyncio.sleep(0.5)
 
-    await psql_pool.execute(f"NOTIFY {channel}, '{TEST_PAYLOAD}'")
+    connection = await psql_pool.connection()
+    await connection.execute(f"NOTIFY {channel}, '{TEST_PAYLOAD}'")
+    connection.back_to_pool()
 
 
 async def check_insert_callback(
@@ -71,8 +73,9 @@ async def check_insert_callback(
     is_insert_exist: bool = True,
     number_of_data: int = 1,
 ) -> None:
+    connection = await psql_pool.connection()
     test_data_seq = (
-        await psql_pool.execute(
+        await connection.execute(
             f"SELECT * FROM {listener_table_name}",
         )
     ).result()
@@ -88,14 +91,18 @@ async def check_insert_callback(
     assert data_record["payload"] == TEST_PAYLOAD
     assert data_record["channel"] == TEST_CHANNEL
 
+    connection.back_to_pool()
+
 
 async def clear_test_table(
     psql_pool: ConnectionPool,
     listener_table_name: str,
 ) -> None:
-    await psql_pool.execute(
+    connection = await psql_pool.connection()
+    await connection.execute(
         f"DELETE FROM {listener_table_name}",
     )
+    connection.back_to_pool()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
@@ -244,7 +251,8 @@ async def test_listener_more_than_one_callback(
         number_of_data=2,
     )
 
-    query_result = await psql_pool.execute(
+    connection = await psql_pool.connection()
+    query_result = await connection.execute(
         querystring=(f"SELECT * FROM {listener_table_name} WHERE channel = $1"),
         parameters=(additional_channel,),
     )

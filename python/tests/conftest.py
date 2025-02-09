@@ -126,18 +126,19 @@ async def create_default_data_for_tests(
     table_name: str,
     number_database_records: int,
 ) -> AsyncGenerator[None, None]:
-    await psql_pool.execute(
+    connection = await psql_pool.connection()
+    await connection.execute(
         f"CREATE TABLE {table_name} (id SERIAL, name VARCHAR(255))",
     )
 
     for table_id in range(1, number_database_records + 1):
         new_name = random_string()
-        await psql_pool.execute(
+        await connection.execute(
             querystring=f"INSERT INTO {table_name} VALUES ($1, $2)",
             parameters=[table_id, new_name],
         )
     yield
-    await psql_pool.execute(
+    await connection.execute(
         f"DROP TABLE {table_name}",
     )
 
@@ -147,14 +148,15 @@ async def create_table_for_listener_tests(
     psql_pool: ConnectionPool,
     listener_table_name: str,
 ) -> AsyncGenerator[None, None]:
-    await psql_pool.execute(
+    connection = await psql_pool.connection()
+    await connection.execute(
         f"CREATE TABLE {listener_table_name}"
         f"(id SERIAL, payload VARCHAR(255),"
         f"channel VARCHAR(255), process_id INT)",
     )
 
     yield
-    await psql_pool.execute(
+    await connection.execute(
         f"DROP TABLE {listener_table_name}",
     )
 
