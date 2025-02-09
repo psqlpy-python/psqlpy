@@ -43,7 +43,7 @@ jobs:
                 apt update -y && apt-get install -y libssl-dev openssl pkg-config
             fi
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -73,7 +73,7 @@ jobs:
           args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -113,7 +113,7 @@ jobs:
           args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -135,7 +135,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -167,7 +167,7 @@ jobs:
           args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10
           manylinux: musllinux_1_2
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
