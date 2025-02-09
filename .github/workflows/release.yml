@@ -189,9 +189,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [linux, windows, macos, musllinux, sdist]
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          pattern: wheel*
+          merge-multiple: true
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
