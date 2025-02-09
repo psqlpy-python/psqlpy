@@ -160,6 +160,7 @@ impl Cursor {
         host_addrs_vec
     }
 
+    #[cfg(unix)]
     #[getter]
     fn hosts(&self) -> Vec<String> {
         let mut hosts_vec = vec![];
@@ -173,6 +174,24 @@ impl Cursor {
                 Host::Unix(host) => {
                     hosts_vec.push(host.display().to_string());
                 }
+            }
+        }
+
+        hosts_vec
+    }
+
+    #[cfg(not(unix))]
+    #[getter]
+    fn hosts(&self) -> Vec<String> {
+        let mut hosts_vec = vec![];
+
+        let hosts = self.pg_config.get_hosts();
+        for host in hosts {
+            match host {
+                Host::Tcp(host) => {
+                    hosts_vec.push(host.to_string());
+                }
+                _ => unreachable!(),
             }
         }
 
