@@ -39,8 +39,7 @@ async def test_transaction_init_parameters(
     deferrable: bool | None,
     read_variant: ReadVariant | None,
 ) -> None:
-    connection = await psql_pool.connection()
-    async with connection.transaction(
+    async with psql_pool.acquire() as connection, connection.transaction(
         isolation_level=isolation_level,
         deferrable=deferrable,
         read_variant=read_variant,
@@ -79,6 +78,8 @@ async def test_transaction_begin(
 
     assert len(result.result()) == number_database_records
 
+    await transaction.commit()
+
 
 async def test_transaction_commit(
     psql_pool: ConnectionPool,
@@ -97,7 +98,8 @@ async def test_transaction_commit(
 
     # Make request from other connection, it mustn't know
     # about new INSERT data before commit.
-    result = await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    result = await connection.execute(
         f"SELECT * FROM {table_name} WHERE name = $1",
         parameters=[test_name],
     )
@@ -105,7 +107,7 @@ async def test_transaction_commit(
 
     await transaction.commit()
 
-    result = await (await psql_pool.connection()).execute(
+    result = await connection.execute(
         f"SELECT * FROM {table_name} WHERE name = $1",
         parameters=[test_name],
     )
@@ -136,7 +138,8 @@ async def test_transaction_savepoint(
     assert result.result()
 
     await transaction.rollback_savepoint(savepoint_name=savepoint_name)
-    result = await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    result = await connection.execute(
         f"SELECT * FROM {table_name} WHERE name = $1",
         parameters=[test_name],
     )
@@ -174,10 +177,12 @@ async def test_transaction_rollback(
             parameters=[test_name],
         )
 
-    result_from_conn = await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    result_from_conn = await connection.execute(
         f"INSERT INTO {table_name} VALUES ($1, $2)",
         parameters=[100, test_name],
     )
+    connection.back_to_pool()
 
     assert not (result_from_conn.result())
 
@@ -344,13 +349,16 @@ async def test_transaction_send_underlying_connection_to_pool_manually(
 
 async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
     """Test `execute_batch` method."""
-    await (await psql_pool.connection()).execute(querystring="DROP TABLE IF EXISTS execute_batch")
-    await (await psql_pool.connection()).execute(querystring="DROP TABLE IF EXISTS execute_batch2")
+    connection = await psql_pool.connection()
+    await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch")
+    await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch2")
     query = "CREATE TABLE execute_batch (name VARCHAR);CREATE TABLE execute_batch2 (name VARCHAR);"
-    async with psql_pool.acquire() as conn, conn.transaction() as transaction:
+    async with connection.transaction() as transaction:
         await transaction.execute_batch(querystring=query)
         await transaction.execute(querystring="SELECT * FROM execute_batch")
         await transaction.execute(querystring="SELECT * FROM execute_batch2")
+
+    connection.back_to_pool()
 
 
 @pytest.mark.parametrize(

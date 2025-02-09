@@ -47,11 +47,10 @@ CREATE TABLE IF NOT EXISTS cars (
     buf.write(encoder.finish())
     buf.seek(0)
 
-    async with psql_pool.acquire() as connection:
-        inserted_rows = await connection.binary_copy_to_table(
-            source=buf,
-            table_name=table_name,
-        )
+    inserted_rows = await connection.binary_copy_to_table(
+        source=buf,
+        table_name=table_name,
+    )
 
     expected_inserted_row: typing.Final = 32
 

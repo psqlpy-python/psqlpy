@@ -103,7 +103,8 @@ async def test_as_class(
     number_database_records: int,
 ) -> None:
     """Test `as_class()` method."""
-    select_result = await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    select_result = await connection.execute(
         f"SELECT * FROM {table_name}",
     )
 
@@ -649,20 +650,21 @@ async def test_deserialization_simple_into_python(
     expected_deserialized: Any,
 ) -> None:
     """Test how types can cast from Python and to Python."""
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
+    connection = await psql_pool.connection()
+    await connection.execute("DROP TABLE IF EXISTS for_test")
     create_table_query = f"""
     CREATE TABLE for_test (test_field {postgres_type})
     """
     insert_data_query = """
     INSERT INTO for_test VALUES ($1)
     """
-    await (await psql_pool.connection()).execute(querystring=create_table_query)
-    await (await psql_pool.connection()).execute(
+    await connection.execute(querystring=create_table_query)
+    await connection.execute(
         querystring=insert_data_query,
         parameters=[py_value],
     )
 
-    raw_result = await (await psql_pool.connection()).execute(
+    raw_result = await connection.execute(
         querystring="SELECT test_field FROM for_test",
     )
 
@@ -673,12 +675,13 @@ async def test_deserialization_composite_into_python(
     psql_pool: ConnectionPool,
 ) -> None:
     """Test that it's possible to deserialize custom postgresql type."""
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
-    await (await psql_pool.connection()).execute("DROP TYPE IF EXISTS all_types")
-    await (await psql_pool.connection()).execute("DROP TYPE IF EXISTS inner_type")
-    await (await psql_pool.connection()).execute("DROP TYPE IF EXISTS enum_type")
-    await (await psql_pool.connection()).execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
-    await (await psql_pool.connection()).execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
+    connection = await psql_pool.connection()
+    await connection.execute("DROP TABLE IF EXISTS for_test")
+    await connection.execute("DROP TYPE IF EXISTS all_types")
+    await connection.execute("DROP TYPE IF EXISTS inner_type")
+    await connection.execute("DROP TYPE IF EXISTS enum_type")
+    await connection.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
+    await connection.execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -736,10 +739,10 @@ async def test_deserialization_composite_into_python(
     CREATE table for_test (custom_type all_types)
     """
 
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         querystring=create_type_query,
     )
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         querystring=create_table_query,
     )
 
@@ -752,7 +755,7 @@ async def test_deserialization_composite_into_python(
     row_values += ", ROW($41, $42), "
     row_values += ", ".join([f"${index}" for index in range(43, 50)])
 
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         querystring=f"INSERT INTO for_test VALUES (ROW({row_values}))",
         parameters=[
             b"Bytes",
@@ -914,7 +917,7 @@ async def test_deserialization_composite_into_python(
     class TopLevelModel(BaseModel):
         custom_type: ValidateModelForCustomType
 
-    query_result = await (await psql_pool.connection()).execute(
+    query_result = await connection.execute(
         "SELECT custom_type FROM for_test",
     )
 
@@ -938,21 +941,22 @@ async def test_enum_type(psql_pool: ConnectionPool) -> None:
         SAD = "sad"
         HAPPY = "happy"
 
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
-    await (await psql_pool.connection()).execute("DROP TYPE IF EXISTS mood")
-    await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    await connection.execute("DROP TABLE IF EXISTS for_test")
+    await connection.execute("DROP TYPE IF EXISTS mood")
+    await connection.execute(
         "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy')",
     )
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         "CREATE TABLE for_test (test_mood mood, test_mood2 mood)",
     )
 
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         querystring="INSERT INTO for_test VALUES ($1, $2)",
         parameters=[TestEnum.HAPPY, TestEnum.OK],
     )
 
-    qs_result = await (await psql_pool.connection()).execute(
+    qs_result = await connection.execute(
         "SELECT * FROM for_test",
     )
     assert qs_result.result()[0]["test_mood"] == TestEnum.HAPPY.value
@@ -964,17 +968,18 @@ async def test_custom_type_as_parameter(
     psql_pool: ConnectionPool,
 ) -> None:
     """Tests that we can use `PyCustomType`."""
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
-    await (await psql_pool.connection()).execute(
+    connection = await psql_pool.connection()
+    await connection.execute("DROP TABLE IF EXISTS for_test")
+    await connection.execute(
         "CREATE TABLE for_test (nickname VARCHAR)",
     )
 
-    await (await psql_pool.connection()).execute(
+    await connection.execute(
         querystring="INSERT INTO for_test VALUES ($1)",
         parameters=[CustomType(b"Some Real Nickname")],
     )
 
-    qs_result = await (await psql_pool.connection()).execute(
+    qs_result = await connection.execute(
         "SELECT * FROM for_test",
     )
 
@@ -985,28 +990,29 @@ async def test_custom_type_as_parameter(
 async def test_custom_decoder(
     psql_pool: ConnectionPool,
 ) -> None:
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
-    await (await psql_pool.connection()).execute(
-        "CREATE TABLE for_test (geo_point POINT)",
-    )
-
-    await (await psql_pool.connection()).execute(
-        "INSERT INTO for_test VALUES ('(1, 1)')",
-    )
-
     def point_encoder(point_bytes: bytes) -> str:  # noqa: ARG001
         return "Just An Example"
 
-    qs_result = await (await psql_pool.connection()).execute(
-        "SELECT * FROM for_test",
-    )
-    result = qs_result.result(
-        custom_decoders={
-            "geo_point": point_encoder,
-        },
-    )
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS for_test")
+        await conn.execute(
+            "CREATE TABLE for_test (geo_point POINT)",
+        )
 
-    assert result[0]["geo_point"] == "Just An Example"
+        await conn.execute(
+            "INSERT INTO for_test VALUES ('(1, 1)')",
+        )
+
+        qs_result = await conn.execute(
+            "SELECT * FROM for_test",
+        )
+        result = qs_result.result(
+            custom_decoders={
+                "geo_point": point_encoder,
+            },
+        )
+
+        assert result[0]["geo_point"] == "Just An Example"
 
 
 async def test_row_factory_query_result(
@@ -1014,77 +1020,80 @@ async def test_row_factory_query_result(
     table_name: str,
     number_database_records: int,
 ) -> None:
-    select_result = await (await psql_pool.connection()).execute(
-        f"SELECT * FROM {table_name}",
-    )
+    async with psql_pool.acquire() as conn:
+        select_result = await conn.execute(
+            f"SELECT * FROM {table_name}",
+        )
 
-    def row_factory(db_result: Dict[str, Any]) -> List[str]:
-        return list(db_result.keys())
+        def row_factory(db_result: Dict[str, Any]) -> List[str]:
+            return list(db_result.keys())
 
-    as_row_factory = select_result.row_factory(
-        row_factory=row_factory,
-    )
-    assert len(as_row_factory) == number_database_records
+        as_row_factory = select_result.row_factory(
+            row_factory=row_factory,
+        )
+        assert len(as_row_factory) == number_database_records
 
-    assert isinstance(as_row_factory[0], list)
+        assert isinstance(as_row_factory[0], list)
 
 
 async def test_row_factory_single_query_result(
     psql_pool: ConnectionPool,
     table_name: str,
 ) -> None:
-    connection = await psql_pool.connection()
-    select_result = await connection.fetch_row(
-        f"SELECT * FROM {table_name} LIMIT 1",
-    )
+    async with psql_pool.acquire() as conn:
+        select_result = await conn.fetch_row(
+            f"SELECT * FROM {table_name} LIMIT 1",
+        )
 
-    def row_factory(db_result: Dict[str, Any]) -> List[str]:
-        return list(db_result.keys())
+        def row_factory(db_result: Dict[str, Any]) -> List[str]:
+            return list(db_result.keys())
 
-    as_row_factory = select_result.row_factory(
-        row_factory=row_factory,
-    )
-    expected_number_of_elements_in_result = 2
-    assert len(as_row_factory) == expected_number_of_elements_in_result
+        as_row_factory = select_result.row_factory(
+            row_factory=row_factory,
+        )
+        expected_number_of_elements_in_result = 2
+        assert len(as_row_factory) == expected_number_of_elements_in_result
 
-    assert isinstance(as_row_factory, list)
+        assert isinstance(as_row_factory, list)
 
 
 async def test_incorrect_dimensions_array(
     psql_pool: ConnectionPool,
 ) -> None:
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS test_marr")
-    await (await psql_pool.connection()).execute("CREATE TABLE test_marr (var_array VARCHAR ARRAY)")
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS test_marr")
+        await conn.execute("CREATE TABLE test_marr (var_array VARCHAR ARRAY)")
 
-    with pytest.raises(expected_exception=PyToRustValueMappingError):
-        await (await psql_pool.connection()).execute(
-            querystring="INSERT INTO test_marr VALUES ($1)",
-            parameters=[
-                [
-                    ["Len", "is", "Three"],
-                    ["Len", "is", "Four", "Wow"],
+        with pytest.raises(expected_exception=PyToRustValueMappingError):
+            await conn.execute(
+                querystring="INSERT INTO test_marr VALUES ($1)",
+                parameters=[
+                    [
+                        ["Len", "is", "Three"],
+                        ["Len", "is", "Four", "Wow"],
+                    ],
                 ],
-            ],
-        )
+            )
 
 
 async def test_empty_array(
     psql_pool: ConnectionPool,
 ) -> None:
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS test_earr")
-    await (await psql_pool.connection()).execute(
-        "CREATE TABLE test_earr (id serial NOT NULL PRIMARY KEY, e_array text[] NOT NULL DEFAULT array[]::text[])",
-    )
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS test_earr")
+        await conn.execute(
+            "CREATE TABLE test_earr (id serial NOT NULL PRIMARY KEY, e_array text[] NOT NULL DEFAULT array[]::text[])",
+        )
 
-    await (await psql_pool.connection()).execute("INSERT INTO test_earr(id) VALUES(2);")
+        await conn.execute("INSERT INTO test_earr(id) VALUES(2);")
 
-    res = await (await psql_pool.connection()).execute(
-        "SELECT * FROM test_earr WHERE id = 2",
-    )
+        res = await conn.execute(
+            "SELECT * FROM test_earr WHERE id = 2",
+        )
 
-    json_result = res.result()
-    assert json_result
-    assert not json_result[0]["e_array"]
+        json_result = res.result()
+        assert json_result
+        assert not json_result[0]["e_array"]
 
 
 @pytest.mark.parametrize(
@@ -1557,21 +1566,22 @@ async def test_array_types(
     py_value: Any,
     expected_deserialized: Any,
 ) -> None:
-    await (await psql_pool.connection()).execute("DROP TABLE IF EXISTS for_test")
-    create_table_query = f"""
-    CREATE TABLE for_test (test_field {postgres_type})
-    """
-    insert_data_query = """
-    INSERT INTO for_test VALUES ($1)
-    """
-    await (await psql_pool.connection()).execute(querystring=create_table_query)
-    await (await psql_pool.connection()).execute(
-        querystring=insert_data_query,
-        parameters=[py_value],
-    )
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS for_test")
+        create_table_query = f"""
+        CREATE TABLE for_test (test_field {postgres_type})
+        """
+        insert_data_query = """
+        INSERT INTO for_test VALUES ($1)
+        """
+        await conn.execute(querystring=create_table_query)
+        await conn.execute(
+            querystring=insert_data_query,
+            parameters=[py_value],
+        )
 
-    raw_result = await (await psql_pool.connection()).execute(
-        querystring="SELECT test_field FROM for_test",
-    )
+        raw_result = await conn.execute(
+            querystring="SELECT test_field FROM for_test",
+        )
 
-    assert raw_result.result()[0]["test_field"] == expected_deserialized
+        assert raw_result.result()[0]["test_field"] == expected_deserialized
