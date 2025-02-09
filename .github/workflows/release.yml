@@ -47,6 +47,7 @@ jobs:
         with:
           name: wheels
           path: dist
+          overwrite: true
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
@@ -77,6 +78,7 @@ jobs:
         with:
           name: wheels
           path: dist
+          overwrite: true
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
@@ -117,6 +119,7 @@ jobs:
         with:
           name: wheels
           path: dist
+          overwrite: true
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
@@ -139,6 +142,7 @@ jobs:
         with:
           name: wheels
           path: dist
+          overwrite: true
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
@@ -171,6 +175,7 @@ jobs:
         with:
           name: wheels
           path: dist
+          overwrite: true
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
