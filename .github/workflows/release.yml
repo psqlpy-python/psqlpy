@@ -45,7 +45,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux
+          name: wheels-linux-${{ matrix.target }}
           path: dist
           overwrite: true
       - name: Releasing assets
@@ -76,7 +76,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows
+          name: wheels-windows-${{ matrix.target }}
           path: dist
           overwrite: true
       - name: Releasing assets
@@ -117,7 +117,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.target }}
           path: dist
           overwrite: true
       - name: Releasing assets
@@ -140,7 +140,7 @@ jobs:
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-sdist
+          name: wheels-sdist-${{ matrix.target }}
           path: dist
           overwrite: true
       - name: Releasing assets
@@ -173,7 +173,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-musllinux
+          name: wheels-musllinux-${{ matrix.target }}
           path: dist
           overwrite: true
       - name: Releasing assets
