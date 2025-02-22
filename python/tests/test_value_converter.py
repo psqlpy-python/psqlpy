@@ -134,7 +134,7 @@ async def test_as_class(
         ("TEXT", "Some String", "Some String"),
         (
             "XML",
-            """<?xml version="1.0"?><book><title>Manual</title><chapter>...</chapter></book>""",
+            """<?xml version="1.0"?><book><title>Manual</title><chapter>...</chapter></book>""",  # noqa: E501
             """<book><title>Manual</title><chapter>...</chapter></book>""",
         ),
         ("BOOL", True, True),
@@ -151,7 +151,11 @@ async def test_as_class(
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
         ("TIMESTAMPTZ", now_datetime_with_tz, now_datetime_with_tz),
-        ("TIMESTAMPTZ", now_datetime_with_tz_in_asia_jakarta, now_datetime_with_tz_in_asia_jakarta),
+        (
+            "TIMESTAMPTZ",
+            now_datetime_with_tz_in_asia_jakarta,
+            now_datetime_with_tz_in_asia_jakarta,
+        ),
         ("UUID", uuid_, str(uuid_)),
         ("INET", IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")),
         (
@@ -246,7 +250,11 @@ async def test_as_class(
         ("INT2 ARRAY", [SmallInt(12), SmallInt(100)], [12, 100]),
         ("INT2 ARRAY", [[SmallInt(12)], [SmallInt(100)]], [[12], [100]]),
         ("INT4 ARRAY", [Integer(121231231), Integer(121231231)], [121231231, 121231231]),
-        ("INT4 ARRAY", [[Integer(121231231)], [Integer(121231231)]], [[121231231], [121231231]]),
+        (
+            "INT4 ARRAY",
+            [[Integer(121231231)], [Integer(121231231)]],
+            [[121231231], [121231231]],
+        ),
         (
             "INT8 ARRAY",
             [BigInt(99999999999999999), BigInt(99999999999999999)],
@@ -308,7 +316,11 @@ async def test_as_class(
             [[now_datetime.time()], [now_datetime.time()]],
         ),
         ("TIMESTAMP ARRAY", [now_datetime, now_datetime], [now_datetime, now_datetime]),
-        ("TIMESTAMP ARRAY", [[now_datetime], [now_datetime]], [[now_datetime], [now_datetime]]),
+        (
+            "TIMESTAMP ARRAY",
+            [[now_datetime], [now_datetime]],
+            [[now_datetime], [now_datetime]],
+        ),
         (
             "TIMESTAMPTZ ARRAY",
             [now_datetime_with_tz, now_datetime_with_tz],
@@ -638,8 +650,14 @@ async def test_as_class(
         ),
         (
             "INTERVAL ARRAY",
-            [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
-            [datetime.timedelta(days=100, microseconds=100), datetime.timedelta(days=100, microseconds=100)],
+            [
+                datetime.timedelta(days=100, microseconds=100),
+                datetime.timedelta(days=100, microseconds=100),
+            ],
+            [
+                datetime.timedelta(days=100, microseconds=100),
+                datetime.timedelta(days=100, microseconds=100),
+            ],
         ),
     ],
 )
@@ -681,7 +699,9 @@ async def test_deserialization_composite_into_python(
     await connection.execute("DROP TYPE IF EXISTS inner_type")
     await connection.execute("DROP TYPE IF EXISTS enum_type")
     await connection.execute("CREATE TYPE enum_type AS ENUM ('sad', 'ok', 'happy')")
-    await connection.execute("CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)")
+    await connection.execute(
+        "CREATE TYPE inner_type AS (inner_value VARCHAR, some_enum enum_type)",
+    )
     create_type_query = """
     CREATE type all_types AS (
         bytea_ BYTEA,
@@ -1082,7 +1102,12 @@ async def test_empty_array(
     async with psql_pool.acquire() as conn:
         await conn.execute("DROP TABLE IF EXISTS test_earr")
         await conn.execute(
-            "CREATE TABLE test_earr (id serial NOT NULL PRIMARY KEY, e_array text[] NOT NULL DEFAULT array[]::text[])",
+            """
+            CREATE TABLE test_earr (
+                id serial NOT NULL PRIMARY KEY,
+                e_array text[] NOT NULL DEFAULT array[]::text[]
+            )
+            """,
         )
 
         await conn.execute("INSERT INTO test_earr(id) VALUES(2);")
@@ -1125,8 +1150,16 @@ async def test_empty_array(
         ("INT2 ARRAY", Int16Array([]), []),
         ("INT2 ARRAY", Int16Array([SmallInt(12), SmallInt(100)]), [12, 100]),
         ("INT2 ARRAY", Int16Array([[SmallInt(12)], [SmallInt(100)]]), [[12], [100]]),
-        ("INT4 ARRAY", Int32Array([Integer(121231231), Integer(121231231)]), [121231231, 121231231]),
-        ("INT4 ARRAY", Int32Array([[Integer(121231231)], [Integer(121231231)]]), [[121231231], [121231231]]),
+        (
+            "INT4 ARRAY",
+            Int32Array([Integer(121231231), Integer(121231231)]),
+            [121231231, 121231231],
+        ),
+        (
+            "INT4 ARRAY",
+            Int32Array([[Integer(121231231)], [Integer(121231231)]]),
+            [[121231231], [121231231]],
+        ),
         (
             "INT8 ARRAY",
             Int64Array([BigInt(99999999999999999), BigInt(99999999999999999)]),
@@ -1187,8 +1220,16 @@ async def test_empty_array(
             TimeArray([[now_datetime.time()], [now_datetime.time()]]),
             [[now_datetime.time()], [now_datetime.time()]],
         ),
-        ("TIMESTAMP ARRAY", DateTimeArray([now_datetime, now_datetime]), [now_datetime, now_datetime]),
-        ("TIMESTAMP ARRAY", DateTimeArray([[now_datetime], [now_datetime]]), [[now_datetime], [now_datetime]]),
+        (
+            "TIMESTAMP ARRAY",
+            DateTimeArray([now_datetime, now_datetime]),
+            [now_datetime, now_datetime],
+        ),
+        (
+            "TIMESTAMP ARRAY",
+            DateTimeArray([[now_datetime], [now_datetime]]),
+            [[now_datetime], [now_datetime]],
+        ),
         (
             "TIMESTAMPTZ ARRAY",
             DateTimeTZArray([now_datetime_with_tz, now_datetime_with_tz]),
@@ -1554,9 +1595,15 @@ async def test_empty_array(
         (
             "INTERVAL ARRAY",
             IntervalArray(
-                [[datetime.timedelta(days=100, microseconds=100)], [datetime.timedelta(days=100, microseconds=100)]],
+                [
+                    [datetime.timedelta(days=100, microseconds=100)],
+                    [datetime.timedelta(days=100, microseconds=100)],
+                ],
             ),
-            [[datetime.timedelta(days=100, microseconds=100)], [datetime.timedelta(days=100, microseconds=100)]],
+            [
+                [datetime.timedelta(days=100, microseconds=100)],
+                [datetime.timedelta(days=100, microseconds=100)],
+            ],
         ),
     ],
 )

@@ -126,7 +126,7 @@ async def test_listener_listen(
         listener_table_name=listener_table_name,
     )
 
-    listener.abort_listen()
+    await listener.shutdown()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
@@ -152,7 +152,7 @@ async def test_listener_asynciterator(
         assert listener_msg.payload == TEST_PAYLOAD
         break
 
-    listener.abort_listen()
+    await listener.shutdown()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
@@ -175,7 +175,7 @@ async def test_listener_abort(
         listener_table_name=listener_table_name,
     )
 
-    listener.abort_listen()
+    await listener.shutdown()
 
     await clear_test_table(
         psql_pool=psql_pool,
@@ -261,7 +261,7 @@ async def test_listener_more_than_one_callback(
 
     assert data_result["channel"] == additional_channel
 
-    listener.abort_listen()
+    await listener.shutdown()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
@@ -290,7 +290,7 @@ async def test_listener_clear_callbacks(
         is_insert_exist=False,
     )
 
-    listener.abort_listen()
+    await listener.shutdown()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
@@ -317,4 +317,4 @@ async def test_listener_clear_all_callbacks(
         is_insert_exist=False,
     )
 
-    listener.abort_listen()
+    await listener.shutdown()

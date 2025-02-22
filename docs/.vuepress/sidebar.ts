@@ -33,6 +33,7 @@ export default sidebar({
       prefix: "usage/",
       collapsible: true,
       children: [
+        "parameters",
         {
           text: "Types",
           prefix: "types/",

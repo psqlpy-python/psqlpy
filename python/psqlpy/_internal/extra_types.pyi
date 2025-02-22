@@ -143,9 +143,13 @@ class MacAddr8:
 class CustomType:
     def __init__(self, value: bytes) -> None: ...
 
-Coordinates: TypeAlias = list[int | float] | set[int | float] | tuple[int | float, int | float]
+Coordinates: TypeAlias = (
+    list[int | float] | set[int | float] | tuple[int | float, int | float]
+)
 PairsOfCoordinates: TypeAlias = (
-    list[Coordinates | int | float] | set[Coordinates | int | float] | tuple[Coordinates | int | float, ...]
+    list[Coordinates | int | float]
+    | set[Coordinates | int | float]
+    | tuple[Coordinates | int | float, ...]
 )
 
 class Point:
@@ -227,7 +231,9 @@ class Circle:
 
     def __init__(
         self: Self,
-        value: list[int | float] | set[int | float] | tuple[int | float, int | float, int | float],
+        value: list[int | float]
+        | set[int | float]
+        | tuple[int | float, int | float, int | float],
     ) -> None:
         """Create new instance of Circle.
 
@@ -374,7 +380,11 @@ class IpAddressArray:
     def __init__(
         self: Self,
         inner: typing.Sequence[
-            IPv4Address | IPv6Address | typing.Sequence[IPv4Address] | typing.Sequence[IPv6Address] | typing.Any,
+            IPv4Address
+            | IPv6Address
+            | typing.Sequence[IPv4Address]
+            | typing.Sequence[IPv6Address]
+            | typing.Any,
         ],
     ) -> None:
         """Create new instance of IpAddressArray.

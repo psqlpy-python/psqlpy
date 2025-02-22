@@ -3,11 +3,12 @@ use chrono_tz::Tz;
 use geo_types::{coord, Coord, Line as LineSegment, LineString, Point, Rect};
 use itertools::Itertools;
 use macaddr::{MacAddr6, MacAddr8};
+use once_cell::sync::Lazy;
 use pg_interval::Interval;
 use postgres_types::{Field, FromSql, Kind, ToSql};
 use rust_decimal::Decimal;
 use serde_json::{json, Map, Value};
-use std::{fmt::Debug, net::IpAddr};
+use std::{collections::HashMap, fmt::Debug, net::IpAddr, sync::RwLock};
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
@@ -16,8 +17,8 @@ use pyo3::{
     sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyDictMethods, PyFloat,
-        PyInt, PyList, PyListMethods, PySequence, PySet, PyString, PyTime, PyTuple, PyType,
-        PyTypeMethods,
+        PyInt, PyList, PyListMethods, PyMapping, PySequence, PySet, PyString, PyTime, PyTuple,
+        PyType, PyTypeMethods,
     },
     Bound, FromPyObject, IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
 };
@@ -39,16 +40,15 @@ use postgres_array::{array::Array, Dimension};
 
 static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static TIMEDELTA_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static KWARGS_QUERYSTRINGS: Lazy<RwLock<HashMap<String, (String, Vec<String>)>>> =
+    Lazy::new(|| RwLock::new(Default::default()));
 
 pub type QueryParameter = (dyn ToSql + Sync);
 
 fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
     DECIMAL_CLS
         .get_or_try_init(py, || {
-            let type_object = py
-                .import_bound("decimal")?
-                .getattr("Decimal")?
-                .downcast_into()?;
+            let type_object = py.import("decimal")?.getattr("Decimal")?.downcast_into()?;
             Ok(type_object.unbind())
         })
         .map(|ty| ty.bind(py))
@@ -58,7 +58,7 @@ fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
     TIMEDELTA_CLS
         .get_or_try_init(py, || {
             let type_object = py
-                .import_bound("datetime")?
+                .import("datetime")?
                 .getattr("timedelta")?
                 .downcast_into()?;
             Ok(type_object.unbind())
@@ -613,6 +613,73 @@ impl ToSql for PythonDTO {
     to_sql_checked!();
 }
 
+fn parse_kwargs_qs(querystring: &str) -> (String, Vec<String>) {
+    let re = regex::Regex::new(r"\$\(([^)]+)\)p").unwrap();
+
+    {
+        let kq_read = KWARGS_QUERYSTRINGS.read().unwrap();
+        let qs = kq_read.get(querystring);
+
+        if let Some(qs) = qs {
+            return qs.clone();
+        }
+    };
+
+    let mut counter = 0;
+    let mut sequence = Vec::new();
+
+    let result = re.replace_all(querystring, |caps: &regex::Captures| {
+        let account_id = caps[1].to_string();
+
+        sequence.push(account_id.clone());
+        counter += 1;
+
+        format!("${}", &counter)
+    });
+
+    let mut kq_write = KWARGS_QUERYSTRINGS.write().unwrap();
+    kq_write.insert(
+        querystring.to_string(),
+        (result.clone().into(), sequence.clone()),
+    );
+    (result.into(), sequence)
+}
+
+pub fn convert_kwargs_parameters<'a>(
+    kw_params: &Bound<'_, PyMapping>,
+    querystring: &'a str,
+) -> RustPSQLDriverPyResult<(String, Vec<PythonDTO>)> {
+    let mut result_vec: Vec<PythonDTO> = vec![];
+    let (changed_string, params_names) = parse_kwargs_qs(querystring);
+
+    for param_name in params_names {
+        match kw_params.get_item(&param_name) {
+            Ok(param) => result_vec.push(py_to_rust(&param)?),
+            Err(_) => {
+                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                    format!("Cannot find parameter with name <{param_name}> in parameters").into(),
+                ))
+            }
+        }
+    }
+
+    Ok((changed_string, result_vec))
+}
+
+pub fn convert_seq_parameters(
+    seq_params: Vec<Py<PyAny>>,
+) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
+    let mut result_vec: Vec<PythonDTO> = vec![];
+    Python::with_gil(|gil| {
+        for parameter in seq_params {
+            result_vec.push(py_to_rust(parameter.bind(gil))?);
+        }
+        Ok::<(), RustPSQLDriverError>(())
+    })?;
+
+    Ok(result_vec)
+}
+
 /// Convert parameters come from python.
 ///
 /// Parameters for `execute()` method can be either
@@ -625,22 +692,36 @@ impl ToSql for PythonDTO {
 ///
 /// May return Err Result if can't convert python object.
 #[allow(clippy::needless_pass_by_value)]
-pub fn convert_parameters(parameters: Py<PyAny>) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
-    let mut result_vec: Vec<PythonDTO> = vec![];
-    Python::with_gil(|gil| {
+pub fn convert_parameters_and_qs(
+    querystring: String,
+    parameters: Option<Py<PyAny>>,
+) -> RustPSQLDriverPyResult<(String, Vec<PythonDTO>)> {
+    let Some(parameters) = parameters else {
+        return Ok((querystring, vec![]));
+    };
+
+    let res = Python::with_gil(|gil| {
         let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
             RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert you parameters argument into Rust type, please use List/Tuple"
                     .into(),
             )
-        })?;
-        for parameter in params {
-            result_vec.push(py_to_rust(parameter.bind(gil))?);
+        });
+        if let Ok(params) = params {
+            return Ok((querystring, convert_seq_parameters(params)?));
         }
-        Ok::<(), RustPSQLDriverError>(())
+
+        let kw_params = parameters.downcast_bound::<PyMapping>(gil);
+        if let Ok(kw_params) = kw_params {
+            return convert_kwargs_parameters(kw_params, &querystring);
+        }
+
+        Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "Parameters must be sequence or mapping".into(),
+        ))
     })?;
 
-    Ok(result_vec)
+    Ok(res)
 }
 
 /// Convert Sequence from Python (except String) into flat vec.
