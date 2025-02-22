@@ -183,7 +183,10 @@ async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
     connection = await psql_pool.connection()
     await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch")
     await connection.execute(querystring="DROP TABLE IF EXISTS execute_batch2")
-    query = "CREATE TABLE execute_batch (name VARCHAR);CREATE TABLE execute_batch2 (name VARCHAR);"
+    query = (
+        "CREATE TABLE execute_batch (name VARCHAR);"
+        "CREATE TABLE execute_batch2 (name VARCHAR);"
+    )
     async with psql_pool.acquire() as conn:
         await conn.execute_batch(querystring=query)
         await conn.execute(querystring="SELECT * FROM execute_batch")

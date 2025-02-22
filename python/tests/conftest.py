@@ -74,6 +74,11 @@ def listener_table_name() -> str:
 
 
 @pytest.fixture
+def map_parameters_table_name() -> str:
+    return random_string()
+
+
+@pytest.fixture
 def number_database_records() -> int:
     return random.randint(10, 35)
 
@@ -158,6 +163,23 @@ async def create_table_for_listener_tests(
     yield
     await connection.execute(
         f"DROP TABLE {listener_table_name}",
+    )
+
+
+@pytest.fixture
+async def create_table_for_map_parameters_test(
+    psql_pool: ConnectionPool,
+    map_parameters_table_name: str,
+) -> AsyncGenerator[None, None]:
+    connection = await psql_pool.connection()
+    await connection.execute(
+        f"CREATE TABLE {map_parameters_table_name}"
+        "(id SERIAL, name VARCHAR(255),surname VARCHAR(255), age INT)",
+    )
+
+    yield
+    await connection.execute(
+        f"DROP TABLE {map_parameters_table_name}",
     )
 
 

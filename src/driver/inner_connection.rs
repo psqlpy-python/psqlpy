@@ -8,7 +8,7 @@ use tokio_postgres::{Client, CopyInSink, Row, Statement, ToStatement};
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters, postgres_to_py, PythonDTO, QueryParameter},
+    value_converter::{convert_parameters_and_qs, postgres_to_py, PythonDTO, QueryParameter},
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -82,7 +82,7 @@ impl PsqlpyConnection {
         }
     }
 
-    pub async fn execute(
+    pub async fn cursor_execute(
         &self,
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
@@ -90,10 +90,7 @@ impl PsqlpyConnection {
     ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
         let prepared = prepared.unwrap_or(true);
 
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
+        let (qs, params) = convert_parameters_and_qs(querystring, parameters)?;
 
         let boxed_params = &params
             .iter()
@@ -103,7 +100,7 @@ impl PsqlpyConnection {
 
         let result = if prepared {
             self.query(
-                &self.prepare_cached(&querystring).await.map_err(|err| {
+                &self.prepare_cached(&qs).await.map_err(|err| {
                     RustPSQLDriverError::ConnectionExecuteError(format!(
                         "Cannot prepare statement, error - {err}"
                     ))
@@ -117,13 +114,53 @@ impl PsqlpyConnection {
                 ))
             })?
         } else {
-            self.query(&querystring, boxed_params)
-                .await
-                .map_err(|err| {
+            self.query(&qs, boxed_params).await.map_err(|err| {
+                RustPSQLDriverError::ConnectionExecuteError(format!(
+                    "Cannot execute statement, error - {err}"
+                ))
+            })?
+        };
+
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
+    pub async fn execute(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+        prepared: Option<bool>,
+    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+        let prepared = prepared.unwrap_or(true);
+
+        let (qs, params) = convert_parameters_and_qs(querystring, parameters)?;
+
+        let boxed_params = &params
+            .iter()
+            .map(|param| param as &QueryParameter)
+            .collect::<Vec<&QueryParameter>>()
+            .into_boxed_slice();
+
+        let result = if prepared {
+            self.query(
+                &self.prepare_cached(&qs).await.map_err(|err| {
                     RustPSQLDriverError::ConnectionExecuteError(format!(
-                        "Cannot execute statement, error - {err}"
+                        "Cannot prepare statement, error - {err}"
                     ))
-                })?
+                })?,
+                boxed_params,
+            )
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::ConnectionExecuteError(format!(
+                    "Cannot execute statement, error - {err}"
+                ))
+            })?
+        } else {
+            self.query(&qs, boxed_params).await.map_err(|err| {
+                RustPSQLDriverError::ConnectionExecuteError(format!(
+                    "Cannot execute statement, error - {err}"
+                ))
+            })?
         };
 
         Ok(PSQLDriverPyQueryResult::new(result))
@@ -131,7 +168,7 @@ impl PsqlpyConnection {
 
     pub async fn execute_many(
         &self,
-        querystring: String,
+        mut querystring: String,
         parameters: Option<Vec<Py<PyAny>>>,
         prepared: Option<bool>,
     ) -> RustPSQLDriverPyResult<()> {
@@ -140,7 +177,11 @@ impl PsqlpyConnection {
         let mut params: Vec<Vec<PythonDTO>> = vec![];
         if let Some(parameters) = parameters {
             for vec_of_py_any in parameters {
-                params.push(convert_parameters(vec_of_py_any)?);
+                // TODO: Fix multiple qs creation
+                let (qs, parsed_params) =
+                    convert_parameters_and_qs(querystring.clone(), Some(vec_of_py_any))?;
+                querystring = qs;
+                params.push(parsed_params);
             }
         }
 
@@ -182,10 +223,7 @@ impl PsqlpyConnection {
     ) -> RustPSQLDriverPyResult<Row> {
         let prepared = prepared.unwrap_or(true);
 
-        let mut params: Vec<PythonDTO> = vec![];
-        if let Some(parameters) = parameters {
-            params = convert_parameters(parameters)?;
-        }
+        let (qs, params) = convert_parameters_and_qs(querystring, parameters)?;
 
         let boxed_params = &params
             .iter()
@@ -195,7 +233,7 @@ impl PsqlpyConnection {
 
         let result = if prepared {
             self.query_one(
-                &self.prepare_cached(&querystring).await.map_err(|err| {
+                &self.prepare_cached(&qs).await.map_err(|err| {
                     RustPSQLDriverError::ConnectionExecuteError(format!(
                         "Cannot prepare statement, error - {err}"
                     ))
@@ -209,13 +247,11 @@ impl PsqlpyConnection {
                 ))
             })?
         } else {
-            self.query_one(&querystring, boxed_params)
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::ConnectionExecuteError(format!(
-                        "Cannot execute statement, error - {err}"
-                    ))
-                })?
+            self.query_one(&qs, boxed_params).await.map_err(|err| {
+                RustPSQLDriverError::ConnectionExecuteError(format!(
+                    "Cannot execute statement, error - {err}"
+                ))
+            })?
         };
 
         return Ok(result);

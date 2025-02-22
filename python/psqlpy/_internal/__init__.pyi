@@ -2,9 +2,9 @@ import types
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Awaitable, Callable, Sequence, TypeVar
+from typing import Any, Awaitable, Callable, Mapping, Sequence, TypeVar
 
-from typing_extensions import Buffer, Self
+from typing_extensions import Buffer, Self, TypeAlias
 
 _CustomClass = TypeVar(
     "_CustomClass",
@@ -12,6 +12,8 @@ _CustomClass = TypeVar(
 _RowFactoryRV = TypeVar(
     "_RowFactoryRV",
 )
+
+ParamsT: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
 
 class QueryResult:
     """Result."""
@@ -150,7 +152,7 @@ class SingleQueryResult:
 
 class SynchronousCommit(Enum):
     """
-    Class for synchronous_commit option for transactions.
+    Synchronous_commit option for transactions.
 
     ### Variants:
     - `On`: The meaning may change based on whether you have
@@ -181,7 +183,7 @@ class SynchronousCommit(Enum):
     RemoteApply = 5
 
 class IsolationLevel(Enum):
-    """Class for Isolation Level for transactions."""
+    """Isolation Level for transactions."""
 
     ReadUncommitted = 1
     ReadCommitted = 2
@@ -290,7 +292,7 @@ class Cursor:
 
     cursor_name: str
     querystring: str
-    parameters: Sequence[Any]
+    parameters: ParamsT = None
     prepared: bool | None
     conn_dbname: str | None
     user: str | None
@@ -464,7 +466,7 @@ class Transaction:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
@@ -554,7 +556,7 @@ class Transaction:
     async def fetch(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Fetch the result from database.
@@ -574,7 +576,7 @@ class Transaction:
     async def fetch_row(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> SingleQueryResult:
         """Fetch exaclty single row from query.
@@ -613,7 +615,7 @@ class Transaction:
     async def fetch_val(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> Any | None:
         """Execute the query and return first value of the first row.
@@ -814,7 +816,7 @@ class Transaction:
     def cursor(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         fetch_number: int | None = None,
         scroll: bool | None = None,
         prepared: bool = True,
@@ -906,7 +908,7 @@ class Connection:
     async def execute(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Execute the query.
@@ -990,7 +992,7 @@ class Connection:
     async def fetch(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> QueryResult:
         """Fetch the result from database.
@@ -1010,7 +1012,7 @@ class Connection:
     async def fetch_row(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> SingleQueryResult:
         """Fetch exaclty single row from query.
@@ -1046,7 +1048,7 @@ class Connection:
     async def fetch_val(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         prepared: bool = True,
     ) -> Any:
         """Execute the query and return first value of the first row.
@@ -1100,7 +1102,7 @@ class Connection:
     def cursor(
         self: Self,
         querystring: str,
-        parameters: Sequence[Any] | None = None,
+        parameters: ParamsT = None,
         fetch_number: int | None = None,
         scroll: bool | None = None,
         prepared: bool = True,
@@ -1708,10 +1710,13 @@ class ConnectionPoolBuilder:
         self: Self,
         keepalives_retries: int,
     ) -> Self:
-        """
-        Set the maximum number of TCP keepalive probes that will be sent before dropping a connection.
+        """Keepalives Retries.
 
-        This is ignored for Unix domain sockets, or if the `keepalives` option is disabled.
+        Set the maximum number of TCP keepalive probes
+        that will be sent before dropping a connection.
+
+        This is ignored for Unix domain sockets,
+        or if the `keepalives` option is disabled.
 
         ### Parameters:
         - `keepalives_retries`: number of retries.

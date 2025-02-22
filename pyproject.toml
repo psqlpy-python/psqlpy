@@ -38,6 +38,12 @@ maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]
 description = "Async PostgreSQL driver for Python written in Rust"
 dynamic = ["version"]
 
+# [tool.poetry.group.querybuilder]
+# optional = true
+
+# [tool.poetry.group.querybuilder.dependencies]
+# pypika = "*"
+
 [tool.maturin]
 python-source = "python"
 module-name = "psqlpy._internal"
@@ -64,7 +70,7 @@ warn_unused_ignores = false
 [tool.ruff]
 fix = true
 unsafe-fixes = true
-line-length = 120
+line-length = 89
 exclude = [".venv/", "psqlpy-stress"]
 
 [tool.ruff.format]
