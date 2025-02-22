@@ -134,8 +134,7 @@ async def test_as_class(
         ("TEXT", "Some String", "Some String"),
         (
             "XML",
-            """<?xml version="1.0"?><book><title>Manual
-            </title><chapter>...</chapter></book>""",
+            """<?xml version="1.0"?><book><title>Manual</title><chapter>...</chapter></book>""",  # noqa: E501
             """<book><title>Manual</title><chapter>...</chapter></book>""",
         ),
         ("BOOL", True, True),
