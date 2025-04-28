@@ -1,7 +1,10 @@
 use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
 use tokio_postgres::Row;
 
-use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};
+use crate::{
+    exceptions::rust_errors::RustPSQLDriverPyResult,
+    value_converter::funcs::to_python::postgres_to_py,
+};
 
 /// Convert postgres `Row` into Python Dict.
 ///

@@ -13,8 +13,10 @@ use crate::{
     additional_types::{Circle as RustCircle, Line as RustLine},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     value_converter::{
-        build_flat_geo_coords, build_geo_coords, build_serde_value,
-        py_sequence_into_postgres_array, PythonDTO,
+        funcs::from_python::{
+            build_flat_geo_coords, build_geo_coords, py_sequence_into_postgres_array,
+        },
+        models::{dto::PythonDTO, serde_value::build_serde_value},
     },
 };
 
