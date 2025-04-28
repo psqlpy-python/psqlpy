@@ -1,4 +1,3 @@
-pub mod additional_types;
 pub mod common;
 pub mod driver;
 pub mod exceptions;

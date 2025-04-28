@@ -14,8 +14,10 @@ use pyo3::{PyObject, Python, ToPyObject};
 use tokio_postgres::types::{to_sql_checked, Type};
 
 use crate::{
-    additional_types::{Circle, Line, RustLineSegment, RustLineString, RustPoint, RustRect},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    value_converter::additional_types::{
+        Circle, Line, RustLineSegment, RustLineString, RustPoint, RustRect,
+    },
 };
 use pgvector::Vector as PgVector;
 use postgres_array::{array::Array, Dimension};

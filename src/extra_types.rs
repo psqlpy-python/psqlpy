@@ -10,9 +10,9 @@ use pyo3::{
 use serde_json::Value;
 
 use crate::{
-    additional_types::{Circle as RustCircle, Line as RustLine},
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     value_converter::{
+        additional_types::{Circle as RustCircle, Line as RustLine},
         funcs::from_python::{
             build_flat_geo_coords, build_geo_coords, py_sequence_into_postgres_array,
         },

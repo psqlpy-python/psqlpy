@@ -4,33 +4,24 @@ use geo_types::{coord, Coord};
 use itertools::Itertools;
 use pg_interval::Interval;
 use postgres_array::{Array, Dimension};
-use postgres_types::{Field, FromSql, Kind, Type};
 use rust_decimal::Decimal;
 use serde_json::{json, Map, Value};
 use std::net::IpAddr;
-use tokio_postgres::{Column, Row};
 use uuid::Uuid;
 
 use pyo3::{
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyDictMethods, PyFloat,
-        PyInt, PyList, PyListMethods, PyMapping, PySequence, PySet, PyString, PyTime, PyTuple,
-        PyTypeMethods,
+        PyInt, PyList, PyMapping, PySequence, PySet, PyString, PyTime, PyTuple, PyTypeMethods,
     },
-    Bound, FromPyObject, IntoPy, Py, PyAny, Python, ToPyObject,
+    Bound, FromPyObject, Py, PyAny, Python,
 };
 
 use crate::{
-    additional_types::{
-        Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
-        RustRect,
-    },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{self},
     value_converter::{consts::KWARGS_QUERYSTRINGS, models::dto::PythonDTO},
 };
-
-use pgvector::Vector as PgVector;
 
 /// Convert single python parameter to `PythonDTO` enum.
 ///

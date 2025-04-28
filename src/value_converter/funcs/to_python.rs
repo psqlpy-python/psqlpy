@@ -1,5 +1,4 @@
-use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
-use chrono_tz::Tz;
+use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use pg_interval::Interval;
 use postgres_array::{Array, Dimension};
 use postgres_types::{Field, FromSql, Kind, Type};
@@ -14,16 +13,16 @@ use pyo3::{
         PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyList, PyListMethods, PySet, PyString,
         PyTuple,
     },
-    Bound, FromPyObject, IntoPy, Py, PyAny, Python, ToPyObject,
+    Bound, IntoPy, Py, PyAny, Python, ToPyObject,
 };
 
 use crate::{
-    additional_types::{
-        Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
-        RustRect,
-    },
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     value_converter::{
+        additional_types::{
+            Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
+            RustRect,
+        },
         consts::KWARGS_QUERYSTRINGS,
         models::{
             decimal::InnerDecimal, interval::InnerInterval, serde_value::InternalSerdeValue,
