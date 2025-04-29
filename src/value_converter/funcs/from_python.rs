@@ -14,13 +14,16 @@ use pyo3::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyDictMethods, PyFloat,
         PyInt, PyList, PyMapping, PySequence, PySet, PyString, PyTime, PyTuple, PyTypeMethods,
     },
-    Bound, FromPyObject, Py, PyAny, Python,
+    Bound, Py, PyAny, Python,
 };
 
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{self},
-    value_converter::{consts::KWARGS_QUERYSTRINGS, models::dto::PythonDTO},
+    value_converter::{
+        consts::KWARGS_QUERYSTRINGS, models::dto::PythonDTO,
+        utils::extract_value_from_python_object_or_raise,
+    },
 };
 
 /// Convert single python parameter to `PythonDTO` enum.
@@ -449,28 +452,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
     )))
 }
 
-/// Extract a value from a Python object, raising an error if missing or invalid
-///
-/// # Errors
-/// This function will return `Err` in the following cases:
-/// - The Python object does not have the specified attribute
-/// - The attribute exists but cannot be extracted into the specified Rust type
-fn extract_value_from_python_object_or_raise<'py, T>(
-    parameter: &'py pyo3::Bound<'_, PyAny>,
-    attr_name: &str,
-) -> Result<T, RustPSQLDriverError>
-where
-    T: FromPyObject<'py>,
-{
-    parameter
-        .getattr(attr_name)
-        .ok()
-        .and_then(|attr| attr.extract::<T>().ok())
-        .ok_or_else(|| {
-            RustPSQLDriverError::PyToRustValueConversionError("Invalid attribute".into())
-        })
-}
-
 /// Extract a timezone-aware datetime from a Python object.
 /// This function retrieves various datetime components (`year`, `month`, `day`, etc.)
 /// from a Python object and constructs a `DateTime<FixedOffset>`
@@ -552,7 +533,7 @@ pub fn py_sequence_into_postgres_array(
             lower_bound: 1,
         });
 
-        let first_seq_elem = py_seq.iter()?.next();
+        let first_seq_elem = py_seq.try_iter()?.next();
         match first_seq_elem {
             Some(first_seq_elem) => {
                 if let Ok(first_seq_elem) = first_seq_elem {
@@ -602,7 +583,7 @@ pub fn py_sequence_into_flat_vec(
 
     let mut final_vec: Vec<PythonDTO> = vec![];
 
-    for seq_elem in py_seq.iter()? {
+    for seq_elem in py_seq.try_iter()? {
         let ok_seq_elem = seq_elem?;
 
         // Check for the string because it's sequence too,
