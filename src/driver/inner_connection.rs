@@ -10,8 +10,8 @@ use crate::{
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     value_converter::{
         consts::QueryParameter,
+        dto::enums::PythonDTO,
         funcs::{from_python::convert_parameters_and_qs, to_python::postgres_to_py},
-        models::dto::PythonDTO,
     },
 };
 

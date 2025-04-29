@@ -13,12 +13,18 @@ use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     value_converter::{
         additional_types::{Circle as RustCircle, Line as RustLine},
+        dto::enums::PythonDTO,
         funcs::from_python::{
             build_flat_geo_coords, build_geo_coords, py_sequence_into_postgres_array,
         },
-        models::{dto::PythonDTO, serde_value::build_serde_value},
+        models::serde_value::build_serde_value,
     },
 };
+
+pub struct PythonArray;
+pub struct PythonDecimal;
+pub struct PythonUUID;
+pub struct PythonEnum;
 
 #[pyclass]
 #[derive(Clone)]
@@ -34,7 +40,7 @@ impl PgVector {
 
 impl PgVector {
     #[must_use]
-    pub fn inner_value(self) -> Vec<f32> {
+    pub fn inner(self) -> Vec<f32> {
         self.0
     }
 }
@@ -49,7 +55,7 @@ macro_rules! build_python_type {
 
         impl $st_name {
             #[must_use]
-            pub fn retrieve_value(&self) -> $rust_type {
+            pub fn inner(&self) -> $rust_type {
                 self.inner_value
             }
         }
@@ -135,7 +141,12 @@ macro_rules! build_json_py_type {
 
         impl $st_name {
             #[must_use]
-            pub fn inner(&self) -> &$rust_type {
+            pub fn inner(&self) -> $rust_type {
+                self.inner.clone()
+            }
+
+            #[must_use]
+            pub fn inner_ref(&self) -> &$rust_type {
                 &self.inner
             }
         }
@@ -144,7 +155,7 @@ macro_rules! build_json_py_type {
         impl $st_name {
             #[new]
             #[allow(clippy::missing_errors_doc)]
-            pub fn new_class(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+            pub fn new_class(value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<Self> {
                 Ok(Self {
                     inner: build_serde_value(value)?,
                 })
@@ -223,7 +234,7 @@ macro_rules! build_geo_type {
 
         impl $st_name {
             #[must_use]
-            pub fn retrieve_value(&self) -> $rust_type {
+            pub fn inner(&self) -> $rust_type {
                 self.inner.clone()
             }
         }

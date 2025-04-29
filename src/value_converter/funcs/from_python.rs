@@ -5,7 +5,7 @@ use itertools::Itertools;
 use pg_interval::Interval;
 use postgres_array::{Array, Dimension};
 use rust_decimal::Decimal;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use std::net::IpAddr;
 use uuid::Uuid;
 
@@ -21,7 +21,7 @@ use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     extra_types::{self},
     value_converter::{
-        consts::KWARGS_QUERYSTRINGS, models::dto::PythonDTO,
+        consts::KWARGS_QUERYSTRINGS, dto::enums::PythonDTO,
         utils::extract_value_from_python_object_or_raise,
     },
 };
@@ -74,45 +74,37 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 
     if parameter.is_instance_of::<extra_types::Float32>() {
         return Ok(PythonDTO::PyFloat32(
-            parameter
-                .extract::<extra_types::Float32>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::Float32>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::Float64>() {
         return Ok(PythonDTO::PyFloat64(
-            parameter
-                .extract::<extra_types::Float64>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::Float64>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::SmallInt>() {
         return Ok(PythonDTO::PyIntI16(
-            parameter
-                .extract::<extra_types::SmallInt>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::SmallInt>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::Integer>() {
         return Ok(PythonDTO::PyIntI32(
-            parameter
-                .extract::<extra_types::Integer>()?
-                .retrieve_value(),
+            parameter.extract::<extra_types::Integer>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::BigInt>() {
         return Ok(PythonDTO::PyIntI64(
-            parameter.extract::<extra_types::BigInt>()?.retrieve_value(),
+            parameter.extract::<extra_types::BigInt>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::Money>() {
         return Ok(PythonDTO::PyMoney(
-            parameter.extract::<extra_types::Money>()?.retrieve_value(),
+            parameter.extract::<extra_types::Money>()?.inner(),
         ));
     }
 
@@ -192,13 +184,13 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 
     if parameter.is_instance_of::<extra_types::JSONB>() {
         return Ok(PythonDTO::PyJsonb(
-            parameter.extract::<extra_types::JSONB>()?.inner().clone(),
+            parameter.extract::<extra_types::JSONB>()?.inner(),
         ));
     }
 
     if parameter.is_instance_of::<extra_types::JSON>() {
         return Ok(PythonDTO::PyJson(
-            parameter.extract::<extra_types::JSON>()?.inner().clone(),
+            parameter.extract::<extra_types::JSON>()?.inner(),
         ));
     }
 
@@ -214,6 +206,42 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         ));
     }
 
+    if parameter.is_instance_of::<extra_types::Point>() {
+        return Ok(PythonDTO::PyPoint(
+            parameter.extract::<extra_types::Point>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<extra_types::Box>() {
+        return Ok(PythonDTO::PyBox(
+            parameter.extract::<extra_types::Box>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<extra_types::Path>() {
+        return Ok(PythonDTO::PyPath(
+            parameter.extract::<extra_types::Path>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<extra_types::Line>() {
+        return Ok(PythonDTO::PyLine(
+            parameter.extract::<extra_types::Line>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<extra_types::LineSegment>() {
+        return Ok(PythonDTO::PyLineSegment(
+            parameter.extract::<extra_types::LineSegment>()?.inner(),
+        ));
+    }
+
+    if parameter.is_instance_of::<extra_types::Circle>() {
+        return Ok(PythonDTO::PyCircle(
+            parameter.extract::<extra_types::Circle>()?.inner(),
+        ));
+    }
+
     if parameter.get_type().name()? == "UUID" {
         return Ok(PythonDTO::PyUUID(Uuid::parse_str(
             parameter.str()?.extract::<&str>()?,
@@ -226,44 +254,6 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
         return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             parameter.str()?.extract::<&str>()?,
         )?));
-    }
-
-    if parameter.is_instance_of::<extra_types::Point>() {
-        return Ok(PythonDTO::PyPoint(
-            parameter.extract::<extra_types::Point>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Box>() {
-        return Ok(PythonDTO::PyBox(
-            parameter.extract::<extra_types::Box>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Path>() {
-        return Ok(PythonDTO::PyPath(
-            parameter.extract::<extra_types::Path>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Line>() {
-        return Ok(PythonDTO::PyLine(
-            parameter.extract::<extra_types::Line>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::LineSegment>() {
-        return Ok(PythonDTO::PyLineSegment(
-            parameter
-                .extract::<extra_types::LineSegment>()?
-                .retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Circle>() {
-        return Ok(PythonDTO::PyCircle(
-            parameter.extract::<extra_types::Circle>()?.retrieve_value(),
-        ));
     }
 
     if parameter.is_instance_of::<extra_types::BoolArray>() {
@@ -430,7 +420,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 
     if parameter.is_instance_of::<extra_types::PgVector>() {
         return Ok(PythonDTO::PyPgVector(
-            parameter.extract::<extra_types::PgVector>()?.inner_value(),
+            parameter.extract::<extra_types::PgVector>()?.inner(),
         ));
     }
 
@@ -462,7 +452,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 /// - The retrieved values are invalid for constructing a date, time, or datetime (e.g., invalid month or day)
 /// - The timezone information (`tzinfo`) is not available or cannot be parsed
 /// - The resulting datetime is ambiguous or invalid (e.g., due to DST transitions)
-fn extract_datetime_from_python_object_attrs(
+pub fn extract_datetime_from_python_object_attrs(
     parameter: &pyo3::Bound<'_, PyAny>,
 ) -> Result<DateTime<FixedOffset>, RustPSQLDriverError> {
     let year = extract_value_from_python_object_or_raise::<i32>(parameter, "year")?;
@@ -684,44 +674,6 @@ pub fn convert_seq_parameters(
     })?;
 
     Ok(result_vec)
-}
-
-/// Convert python List of Dict type or just Dict into serde `Value`.
-///
-/// # Errors
-/// May return error if cannot convert Python type into Rust one.
-#[allow(clippy::needless_pass_by_value)]
-pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
-    Python::with_gil(|gil| {
-        let bind_value = value.bind(gil);
-        if bind_value.is_instance_of::<PyList>() {
-            let mut result_vec: Vec<Value> = vec![];
-
-            let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
-
-            for inner in params {
-                let inner_bind = inner.bind(gil);
-                if inner_bind.is_instance_of::<PyDict>() {
-                    let python_dto = py_to_rust(inner_bind)?;
-                    result_vec.push(python_dto.to_serde_value()?);
-                } else if inner_bind.is_instance_of::<PyList>() {
-                    let serde_value = build_serde_value(inner)?;
-                    result_vec.push(serde_value);
-                } else {
-                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "PyJSON must have dicts.".to_string(),
-                    ));
-                }
-            }
-            Ok(json!(result_vec))
-        } else if bind_value.is_instance_of::<PyDict>() {
-            return py_to_rust(bind_value)?.to_serde_value();
-        } else {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must be dict value.".to_string(),
-            ));
-        }
-    })
 }
 
 /// Convert two python parameters(x and y) to Coord from `geo_type`.

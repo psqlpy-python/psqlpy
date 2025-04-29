@@ -13,6 +13,8 @@ use pyo3::{
 use serde::{Deserialize, Serialize};
 use tokio_postgres::types::{FromSql, Type};
 
+pub struct NonePyType;
+
 macro_rules! build_additional_rust_type {
     ($st_name:ident, $rust_type:ty) => {
         #[derive(Debug)]
