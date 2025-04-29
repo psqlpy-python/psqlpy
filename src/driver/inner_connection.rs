@@ -8,7 +8,11 @@ use tokio_postgres::{Client, CopyInSink, Row, Statement, ToStatement};
 use crate::{
     exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    value_converter::{convert_parameters_and_qs, postgres_to_py, PythonDTO, QueryParameter},
+    value_converter::{
+        consts::QueryParameter,
+        funcs::{from_python::convert_parameters_and_qs, to_python::postgres_to_py},
+        models::dto::PythonDTO,
+    },
 };
 
 #[allow(clippy::module_name_repetitions)]
