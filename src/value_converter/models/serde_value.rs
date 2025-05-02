@@ -1,7 +1,6 @@
 use postgres_array::{Array, Dimension};
 use postgres_types::FromSql;
 use serde_json::{json, Map, Value};
-use uuid::Uuid;
 
 use pyo3::{
     types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyTuple},
@@ -10,10 +9,9 @@ use pyo3::{
 use tokio_postgres::types::Type;
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     value_converter::{
-        dto::enums::PythonDTO,
-        funcs::{from_python::py_to_rust, to_python::build_python_from_serde_value},
+        dto::enums::PythonDTO, from_python::py_to_rust, to_python::build_python_from_serde_value,
     },
 };
 
@@ -54,10 +52,7 @@ impl<'a> FromSql<'a> for InternalSerdeValue {
     }
 }
 
-fn serde_value_from_list(
-    gil: Python<'_>,
-    bind_value: &Bound<'_, PyAny>,
-) -> RustPSQLDriverPyResult<Value> {
+fn serde_value_from_list(gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     let mut result_vec: Vec<Value> = vec![];
 
     let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
@@ -79,7 +74,7 @@ fn serde_value_from_list(
     Ok(json!(result_vec))
 }
 
-fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<Value> {
+fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     let dict = bind_value.downcast::<PyDict>().map_err(|error| {
         RustPSQLDriverError::PyToRustValueConversionError(format!(
             "Can't cast to inner dict: {error}"
@@ -109,7 +104,7 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResul
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
 #[allow(clippy::needless_pass_by_value)]
-pub fn build_serde_value(value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<Value> {
+pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     Python::with_gil(|gil| {
         if value.is_instance_of::<PyList>() {
             return serde_value_from_list(gil, value);
@@ -126,7 +121,7 @@ pub fn build_serde_value(value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<Val
 /// Convert Array of `PythonDTO`s to serde `Value`.
 ///
 /// It can convert multidimensional arrays.
-pub fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> RustPSQLDriverPyResult<Value> {
+pub fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> PSQLPyResult<Value> {
     match array {
         Some(array) => inner_pythondto_array_to_serde(
             array.dimensions(),
@@ -145,7 +140,7 @@ fn inner_pythondto_array_to_serde(
     data: &[&PythonDTO],
     dimension_index: usize,
     mut lower_bound: usize,
-) -> RustPSQLDriverPyResult<Value> {
+) -> PSQLPyResult<Value> {
     let current_dimension = dimensions.get(dimension_index);
 
     if let Some(current_dimension) = current_dimension {

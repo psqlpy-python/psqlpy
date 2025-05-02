@@ -6,7 +6,7 @@ use tokio_postgres::Notification;
 
 use crate::{
     driver::connection::Connection,
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     runtime::tokio_runtime,
 };
 
@@ -126,7 +126,7 @@ impl ListenerCallback {
         &self,
         lister_notification: ListenerNotification,
         connection: Connection,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (callback, task_locals) =
             Python::with_gil(|py| (self.callback.clone(), self.task_locals.clone_ref(py)));
 

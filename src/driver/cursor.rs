@@ -6,7 +6,7 @@ use pyo3::{
 use tokio_postgres::{config::Host, Config};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     query_result::PSQLDriverPyQueryResult,
     runtime::rustdriver_future,
 };
@@ -23,9 +23,9 @@ trait CursorObjectTrait {
         querystring: &str,
         prepared: &Option<bool>,
         parameters: &Option<Py<PyAny>>,
-    ) -> RustPSQLDriverPyResult<()>;
+    ) -> PSQLPyResult<()>;
 
-    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()>;
+    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> PSQLPyResult<()>;
 }
 
 impl CursorObjectTrait for PsqlpyConnection {
@@ -43,7 +43,7 @@ impl CursorObjectTrait for PsqlpyConnection {
         querystring: &str,
         prepared: &Option<bool>,
         parameters: &Option<Py<PyAny>>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let mut cursor_init_query = format!("DECLARE {cursor_name}");
         if let Some(scroll) = scroll {
             if *scroll {
@@ -70,7 +70,7 @@ impl CursorObjectTrait for PsqlpyConnection {
     ///
     /// # Errors
     /// May return Err Result if cannot execute querystring.
-    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()> {
+    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> PSQLPyResult<()> {
         if *closed {
             return Err(RustPSQLDriverError::CursorCloseError(
                 "Cursor is already closed".into(),
@@ -232,7 +232,7 @@ impl Cursor {
         slf
     }
 
-    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+    async fn __aenter__<'a>(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         let (db_transaction, cursor_name, scroll, querystring, prepared, parameters) =
             Python::with_gil(|gil| {
                 let self_ = slf.borrow(gil);
@@ -265,7 +265,7 @@ impl Cursor {
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (db_transaction, closed, cursor_name, is_exception_none, py_err) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = slf.borrow(gil);
@@ -307,7 +307,7 @@ impl Cursor {
     /// we didn't find any solution how to implement it without
     /// # Errors
     /// May return Err Result if can't execute querystring.
-    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<PyObject>> {
+    fn __anext__(&self) -> PSQLPyResult<Option<PyObject>> {
         let db_transaction = self.db_transaction.clone();
         let fetch_number = self.fetch_number;
         let cursor_name = self.cursor_name.clone();
@@ -343,7 +343,7 @@ impl Cursor {
     /// # Errors
     /// May return Err Result
     /// if cannot execute querystring for cursor declaration.
-    pub async fn start(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub async fn start(&mut self) -> PSQLPyResult<()> {
         let db_transaction_arc = self.db_transaction.clone();
 
         if let Some(db_transaction) = db_transaction_arc {
@@ -370,7 +370,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn close(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub async fn close(&mut self) -> PSQLPyResult<()> {
         let db_transaction_arc = self.db_transaction.clone();
 
         if let Some(db_transaction) = db_transaction_arc {
@@ -396,7 +396,7 @@ impl Cursor {
     pub async fn fetch<'a>(
         slf: Py<Self>,
         fetch_number: Option<usize>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, inner_fetch_number, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (
@@ -437,7 +437,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_next<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_next<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -464,7 +464,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_prior<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_prior<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -491,7 +491,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_first<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_first<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -518,7 +518,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_last<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_last<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -548,7 +548,7 @@ impl Cursor {
     pub async fn fetch_absolute<'a>(
         slf: Py<Self>,
         absolute_number: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -582,7 +582,7 @@ impl Cursor {
     pub async fn fetch_relative<'a>(
         slf: Py<Self>,
         relative_number: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -613,9 +613,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_forward_all<'a>(
-        slf: Py<Self>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_forward_all<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -649,7 +647,7 @@ impl Cursor {
     pub async fn fetch_backward<'a>(
         slf: Py<Self>,
         backward_count: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())
@@ -680,9 +678,7 @@ impl Cursor {
     ///
     /// # Errors
     /// May return Err Result if cannot execute query.
-    pub async fn fetch_backward_all<'a>(
-        slf: Py<Self>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    pub async fn fetch_backward_all<'a>(slf: Py<Self>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (db_transaction, cursor_name) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (self_.db_transaction.clone(), self_.cursor_name.clone())

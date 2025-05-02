@@ -3,6 +3,7 @@ use std::str::FromStr;
 use geo_types::{Line as RustLineSegment, LineString, Point as RustPoint, Rect as RustRect};
 use macaddr::{MacAddr6 as RustMacAddr6, MacAddr8 as RustMacAddr8};
 use pyo3::{
+    conversion::FromPyObjectBound,
     pyclass, pymethods,
     types::{PyModule, PyModuleMethods},
     Bound, Py, PyAny, PyResult, Python,
@@ -10,13 +11,11 @@ use pyo3::{
 use serde_json::Value;
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     value_converter::{
         additional_types::{Circle as RustCircle, Line as RustLine},
         dto::enums::PythonDTO,
-        funcs::from_python::{
-            build_flat_geo_coords, build_geo_coords, py_sequence_into_postgres_array,
-        },
+        from_python::{build_flat_geo_coords, build_geo_coords, py_sequence_into_postgres_array},
         models::serde_value::build_serde_value,
     },
 };
@@ -155,7 +154,7 @@ macro_rules! build_json_py_type {
         impl $st_name {
             #[new]
             #[allow(clippy::missing_errors_doc)]
-            pub fn new_class(value: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<Self> {
+            pub fn new_class(value: &Bound<'_, PyAny>) -> PSQLPyResult<Self> {
                 Ok(Self {
                     inner: build_serde_value(value)?,
                 })
@@ -191,7 +190,7 @@ macro_rules! build_macaddr_type {
         impl $st_name {
             #[new]
             #[allow(clippy::missing_errors_doc)]
-            pub fn new_class(value: &str) -> RustPSQLDriverPyResult<Self> {
+            pub fn new_class(value: &str) -> PSQLPyResult<Self> {
                 Ok(Self {
                     inner: <$rust_type>::from_str(value)?,
                 })
@@ -252,7 +251,7 @@ build_geo_type!(Circle, RustCircle);
 impl Point {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_point(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_point(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let point_coords = build_geo_coords(value, Some(1))?;
 
         Ok(Self {
@@ -265,7 +264,7 @@ impl Point {
 impl Box {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_box(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_box(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let box_coords = build_geo_coords(value, Some(2))?;
 
         Ok(Self {
@@ -278,7 +277,7 @@ impl Box {
 impl Path {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_path(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_path(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let path_coords = build_geo_coords(value, None)?;
 
         Ok(Self {
@@ -291,7 +290,7 @@ impl Path {
 impl Line {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_line(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_line(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let line_coords = build_flat_geo_coords(value, Some(3))?;
 
         Ok(Self {
@@ -304,7 +303,7 @@ impl Line {
 impl LineSegment {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_line_segment(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_line_segment(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let line_segment_coords = build_geo_coords(value, Some(2))?;
 
         Ok(Self {
@@ -317,7 +316,7 @@ impl LineSegment {
 impl Circle {
     #[new]
     #[allow(clippy::missing_errors_doc)]
-    pub fn new_circle(value: Py<PyAny>) -> RustPSQLDriverPyResult<Self> {
+    pub fn new_circle(value: Py<PyAny>) -> PSQLPyResult<Self> {
         let circle_coords = build_flat_geo_coords(value, Some(3))?;
         Ok(Self {
             inner: RustCircle::new(circle_coords[0], circle_coords[1], circle_coords[2]),
@@ -352,7 +351,7 @@ macro_rules! build_array_type {
             ///
             /// # Errors
             /// May return Err Result if cannot convert sequence to array.
-            pub fn _convert_to_python_dto(&self) -> RustPSQLDriverPyResult<PythonDTO> {
+            pub fn _convert_to_python_dto(&self) -> PSQLPyResult<PythonDTO> {
                 return Python::with_gil(|gil| {
                     let binding = &self.inner;
                     let bound_inner = Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(

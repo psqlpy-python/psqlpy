@@ -4,7 +4,7 @@ use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::sync::Arc;
 use tokio_postgres::Config;
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
 use super::{
     common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
@@ -75,7 +75,7 @@ pub fn connect(
     ca_file: Option<String>,
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
-) -> RustPSQLDriverPyResult<ConnectionPool> {
+) -> PSQLPyResult<ConnectionPool> {
     if let Some(max_db_pool_size) = max_db_pool_size {
         if max_db_pool_size < 2 {
             return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
@@ -289,7 +289,7 @@ impl ConnectionPool {
         conn_recycling_method: Option<ConnRecyclingMethod>,
         ssl_mode: Option<SslMode>,
         ca_file: Option<String>,
-    ) -> RustPSQLDriverPyResult<Self> {
+    ) -> PSQLPyResult<Self> {
         connect(
             dsn,
             username,
@@ -382,7 +382,7 @@ impl ConnectionPool {
     ///
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
-    pub async fn connection(self_: pyo3::Py<Self>) -> RustPSQLDriverPyResult<Connection> {
+    pub async fn connection(self_: pyo3::Py<Self>) -> PSQLPyResult<Connection> {
         let (db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
             let slf = self_.borrow(gil);
             (slf.pool.clone(), slf.pg_config.clone())

@@ -3,7 +3,7 @@ use std::{net::IpAddr, time::Duration};
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, Py, Python};
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
 use super::{
     common_options,
@@ -38,7 +38,7 @@ impl ConnectionPoolBuilder {
     ///
     /// # Errors
     /// May return error if cannot build new connection pool.
-    fn build(&self) -> RustPSQLDriverPyResult<ConnectionPool> {
+    fn build(&self) -> PSQLPyResult<ConnectionPool> {
         let mgr_config: ManagerConfig;
         if let Some(conn_recycling_method) = self.conn_recycling_method.as_ref() {
             mgr_config = ManagerConfig {
@@ -84,7 +84,7 @@ impl ConnectionPoolBuilder {
     ///
     /// # Error
     /// If size more than 2.
-    fn max_pool_size(self_: Py<Self>, pool_size: usize) -> RustPSQLDriverPyResult<Py<Self>> {
+    fn max_pool_size(self_: Py<Self>, pool_size: usize) -> PSQLPyResult<Py<Self>> {
         if pool_size < 2 {
             return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
                 "Maximum database pool size must be more than 1".into(),

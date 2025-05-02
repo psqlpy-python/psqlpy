@@ -17,7 +17,7 @@ use pyo3::{
 };
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     value_converter::{
         additional_types::{
             Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
@@ -35,10 +35,7 @@ use pgvector::Vector as PgVector;
 /// Convert serde `Value` into Python object.
 /// # Errors
 /// May return Err Result if cannot add new value to Python Dict.
-pub fn build_python_from_serde_value(
-    py: Python<'_>,
-    value: Value,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+pub fn build_python_from_serde_value(py: Python<'_>, value: Value) -> PSQLPyResult<Py<PyAny>> {
     match value {
         Value::Array(massive) => {
             let mut result_vec: Vec<Py<PyAny>> = vec![];
@@ -112,7 +109,7 @@ fn composite_field_postgres_to_py<'a, T: FromSql<'a>>(
     type_: &Type,
     buf: &mut &'a [u8],
     is_simple: bool,
-) -> RustPSQLDriverPyResult<T> {
+) -> PSQLPyResult<T> {
     if is_simple {
         return T::from_sql_nullable(type_, Some(buf)).map_err(|err| {
             RustPSQLDriverError::RustToPyValueConversionError(format!(
@@ -196,7 +193,7 @@ fn postgres_bytes_to_py(
     type_: &Type,
     buf: &mut &[u8],
     is_simple: bool,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+) -> PSQLPyResult<Py<PyAny>> {
     match *type_ {
         // ---------- Bytes Types ----------
         // Convert BYTEA type into Vector<u8>, then into PyBytes
@@ -524,7 +521,7 @@ pub fn other_postgres_bytes_to_py(
     type_: &Type,
     buf: &mut &[u8],
     is_simple: bool,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+) -> PSQLPyResult<Py<PyAny>> {
     if type_.name() == "vector" {
         let vector = composite_field_postgres_to_py::<Option<PgVector>>(type_, buf, is_simple)?;
         match vector {
@@ -550,7 +547,7 @@ pub fn composite_postgres_to_py(
     fields: &Vec<Field>,
     buf: &mut &[u8],
     custom_decoders: &Option<Py<PyDict>>,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+) -> PSQLPyResult<Py<PyAny>> {
     let result_py_dict: Bound<'_, PyDict> = PyDict::new_bound(py);
 
     let num_fields = postgres_types::private::read_be_i32(buf).map_err(|err| {
@@ -619,7 +616,7 @@ pub fn raw_bytes_data_process(
     column_name: &str,
     column_type: &Type,
     custom_decoders: &Option<Py<PyDict>>,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+) -> PSQLPyResult<Py<PyAny>> {
     if let Some(custom_decoders) = custom_decoders {
         let py_encoder_func = custom_decoders
             .bind(py)
@@ -658,7 +655,7 @@ pub fn postgres_to_py(
     column: &Column,
     column_i: usize,
     custom_decoders: &Option<Py<PyDict>>,
-) -> RustPSQLDriverPyResult<Py<PyAny>> {
+) -> PSQLPyResult<Py<PyAny>> {
     let raw_bytes_data = row.col_buffer(column_i);
     if let Some(mut raw_bytes_data) = raw_bytes_data {
         return raw_bytes_data_process(
@@ -679,7 +676,7 @@ pub fn postgres_to_py(
 ///
 /// May return error if cannot convert Python type into Rust one.
 /// May return error if parameters type isn't correct.
-fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> RustPSQLDriverPyResult<Vec<Py<PyAny>>> {
+fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> PSQLPyResult<Vec<Py<PyAny>>> {
     let mut coord_values_sequence_vec: Vec<Py<PyAny>> = vec![];
 
     if bind_parameters.is_instance_of::<PySet>() {

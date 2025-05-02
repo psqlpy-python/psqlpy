@@ -10,30 +10,28 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     extra_types::{self, PythonDecimal, PythonUUID},
     value_converter::{
         additional_types::NonePyType,
-        funcs::from_python::{
-            extract_datetime_from_python_object_attrs, py_sequence_into_postgres_array,
-        },
+        from_python::{extract_datetime_from_python_object_attrs, py_sequence_into_postgres_array},
         models::serde_value::build_serde_value,
-        traits::PythonToDTO,
+        traits::ToPythonDTO,
     },
 };
 
 use super::enums::PythonDTO;
 
-impl PythonToDTO for NonePyType {
-    fn to_python_dto(_python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for NonePyType {
+    fn to_python_dto(_python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         Ok(PythonDTO::PyNone)
     }
 }
 
 macro_rules! construct_simple_type_matcher {
     ($match_type:ty, $kind:path) => {
-        impl PythonToDTO for $match_type {
-            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+        impl ToPythonDTO for $match_type {
+            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
                 Ok($kind(python_param.extract::<$match_type>()?))
             }
         }
@@ -51,8 +49,8 @@ construct_simple_type_matcher!(i64, PythonDTO::PyIntI64);
 construct_simple_type_matcher!(NaiveDate, PythonDTO::PyDate);
 construct_simple_type_matcher!(NaiveTime, PythonDTO::PyTime);
 
-impl PythonToDTO for PyDateTime {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for PyDateTime {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         let timestamp_tz = python_param.extract::<DateTime<FixedOffset>>();
         if let Ok(pydatetime_tz) = timestamp_tz {
             return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
@@ -74,8 +72,8 @@ impl PythonToDTO for PyDateTime {
     }
 }
 
-impl PythonToDTO for PyDelta {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for PyDelta {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         let duration = python_param.extract::<chrono::Duration>()?;
         if let Some(interval) = Interval::from_duration(duration) {
             return Ok(PythonDTO::PyInterval(interval));
@@ -86,8 +84,8 @@ impl PythonToDTO for PyDelta {
     }
 }
 
-impl PythonToDTO for PyDict {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for PyDict {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         let serde_value = build_serde_value(python_param)?;
 
         return Ok(PythonDTO::PyJsonb(serde_value));
@@ -96,14 +94,22 @@ impl PythonToDTO for PyDict {
 
 macro_rules! construct_extra_type_matcher {
     ($match_type:ty, $kind:path) => {
-        impl PythonToDTO for $match_type {
-            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+        impl ToPythonDTO for $match_type {
+            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
                 Ok($kind(python_param.extract::<$match_type>()?.inner()))
             }
         }
     };
 }
 
+construct_extra_type_matcher!(extra_types::Text, PythonDTO::PyText);
+construct_extra_type_matcher!(extra_types::VarChar, PythonDTO::PyVarChar);
+construct_extra_type_matcher!(extra_types::SmallInt, PythonDTO::PyIntI16);
+construct_extra_type_matcher!(extra_types::Integer, PythonDTO::PyIntI32);
+construct_extra_type_matcher!(extra_types::BigInt, PythonDTO::PyIntI64);
+construct_extra_type_matcher!(extra_types::Float32, PythonDTO::PyFloat32);
+construct_extra_type_matcher!(extra_types::Float64, PythonDTO::PyFloat64);
+construct_extra_type_matcher!(extra_types::Money, PythonDTO::PyMoney);
 construct_extra_type_matcher!(extra_types::JSONB, PythonDTO::PyJsonb);
 construct_extra_type_matcher!(extra_types::JSON, PythonDTO::PyJson);
 construct_extra_type_matcher!(extra_types::MacAddr6, PythonDTO::PyMacAddr6);
@@ -114,33 +120,34 @@ construct_extra_type_matcher!(extra_types::Path, PythonDTO::PyPath);
 construct_extra_type_matcher!(extra_types::Line, PythonDTO::PyLine);
 construct_extra_type_matcher!(extra_types::LineSegment, PythonDTO::PyLineSegment);
 construct_extra_type_matcher!(extra_types::Circle, PythonDTO::PyCircle);
+construct_extra_type_matcher!(extra_types::PgVector, PythonDTO::PyPgVector);
 
-impl PythonToDTO for PythonDecimal {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for PythonDecimal {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
             python_param.str()?.extract::<&str>()?,
         )?))
     }
 }
 
-impl PythonToDTO for PythonUUID {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for PythonUUID {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         Ok(PythonDTO::PyUUID(Uuid::parse_str(
             python_param.str()?.extract::<&str>()?,
         )?))
     }
 }
 
-impl PythonToDTO for extra_types::PythonArray {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for extra_types::PythonArray {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         Ok(PythonDTO::PyArray(py_sequence_into_postgres_array(
             python_param,
         )?))
     }
 }
 
-impl PythonToDTO for IpAddr {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for IpAddr {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         if let Ok(id_address) = python_param.extract::<IpAddr>() {
             return Ok(PythonDTO::PyIpAddress(id_address));
         }
@@ -151,8 +158,8 @@ impl PythonToDTO for IpAddr {
     }
 }
 
-impl PythonToDTO for extra_types::PythonEnum {
-    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+impl ToPythonDTO for extra_types::PythonEnum {
+    fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         let string = python_param.extract::<String>()?;
         return Ok(PythonDTO::PyString(string));
     }
@@ -160,8 +167,8 @@ impl PythonToDTO for extra_types::PythonEnum {
 
 macro_rules! construct_array_type_matcher {
     ($match_type:ty) => {
-        impl PythonToDTO for $match_type {
-            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+        impl ToPythonDTO for $match_type {
+            fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
                 python_param
                     .extract::<$match_type>()?
                     ._convert_to_python_dto()

@@ -9,7 +9,7 @@ use pyo3::{
 use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
 };
@@ -29,9 +29,9 @@ pub trait TransactionObjectTrait {
         read_variant: Option<ReadVariant>,
         defferable: Option<bool>,
         synchronous_commit: Option<SynchronousCommit>,
-    ) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
-    fn commit(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
-    fn rollback(&self) -> impl std::future::Future<Output = RustPSQLDriverPyResult<()>> + Send;
+    ) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
+    fn commit(&self) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
+    fn rollback(&self) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
 }
 
 impl TransactionObjectTrait for PsqlpyConnection {
@@ -41,7 +41,7 @@ impl TransactionObjectTrait for PsqlpyConnection {
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
         synchronous_commit: Option<SynchronousCommit>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let mut querystring = "START TRANSACTION".to_string();
 
         if let Some(level) = isolation_level {
@@ -84,7 +84,7 @@ impl TransactionObjectTrait for PsqlpyConnection {
 
         Ok(())
     }
-    async fn commit(&self) -> RustPSQLDriverPyResult<()> {
+    async fn commit(&self) -> PSQLPyResult<()> {
         self.batch_execute("COMMIT;").await.map_err(|err| {
             RustPSQLDriverError::TransactionCommitError(format!(
                 "Cannot execute COMMIT statement, error - {err}"
@@ -92,7 +92,7 @@ impl TransactionObjectTrait for PsqlpyConnection {
         })?;
         Ok(())
     }
-    async fn rollback(&self) -> RustPSQLDriverPyResult<()> {
+    async fn rollback(&self) -> PSQLPyResult<()> {
         self.batch_execute("ROLLBACK;").await.map_err(|err| {
             RustPSQLDriverError::TransactionRollbackError(format!(
                 "Cannot execute ROLLBACK statement, error - {err}"
@@ -144,7 +144,7 @@ impl Transaction {
         }
     }
 
-    fn check_is_transaction_ready(&self) -> RustPSQLDriverPyResult<()> {
+    fn check_is_transaction_ready(&self) -> PSQLPyResult<()> {
         if !self.is_started {
             return Err(RustPSQLDriverError::TransactionBeginError(
                 "Transaction is not started, please call begin() on transaction".into(),
@@ -242,7 +242,7 @@ impl Transaction {
         self_
     }
 
-    async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+    async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
         let (
             is_started,
             is_done,
@@ -302,7 +302,7 @@ impl Transaction {
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (is_transaction_ready, is_exception_none, py_err, db_client) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = self_.borrow(gil);
@@ -345,7 +345,7 @@ impl Transaction {
     /// 1) Transaction is not started
     /// 2) Transaction is done
     /// 3) Cannot execute `COMMIT` command
-    pub async fn commit(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub async fn commit(&mut self) -> PSQLPyResult<()> {
         self.check_is_transaction_ready()?;
         if let Some(db_client) = &self.db_client {
             db_client.commit().await?;
@@ -366,7 +366,7 @@ impl Transaction {
     /// 1) Transaction is not started
     /// 2) Transaction is done
     /// 3) Can not execute ROLLBACK command
-    pub async fn rollback(&mut self) -> RustPSQLDriverPyResult<()> {
+    pub async fn rollback(&mut self) -> PSQLPyResult<()> {
         self.check_is_transaction_ready()?;
         if let Some(db_client) = &self.db_client {
             db_client.rollback().await?;
@@ -394,7 +394,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -419,7 +419,7 @@ impl Transaction {
     /// May return Err Result if:
     /// 1) Transaction is closed.
     /// 2) Cannot execute querystring.
-    pub async fn execute_batch(self_: Py<Self>, querystring: String) -> RustPSQLDriverPyResult<()> {
+    pub async fn execute_batch(self_: Py<Self>, querystring: String) -> PSQLPyResult<()> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -448,7 +448,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -481,7 +481,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverSinglePyQueryResult> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -511,7 +511,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    ) -> PSQLPyResult<Py<PyAny>> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -539,7 +539,7 @@ impl Transaction {
         querystring: String,
         parameters: Option<Vec<Py<PyAny>>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (self_.check_is_transaction_ready(), self_.db_client.clone())
@@ -564,7 +564,7 @@ impl Transaction {
     /// 1) Transaction is already started.
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
-    pub async fn begin(self_: Py<Self>) -> RustPSQLDriverPyResult<()> {
+    pub async fn begin(self_: Py<Self>) -> PSQLPyResult<()> {
         let (
             is_started,
             is_done,
@@ -629,10 +629,7 @@ impl Transaction {
     /// 2) Transaction is done
     /// 3) Specified savepoint name is exists
     /// 4) Can not execute SAVEPOINT command
-    pub async fn create_savepoint(
-        self_: Py<Self>,
-        savepoint_name: String,
-    ) -> RustPSQLDriverPyResult<()> {
+    pub async fn create_savepoint(self_: Py<Self>, savepoint_name: String) -> PSQLPyResult<()> {
         let (is_transaction_ready, is_savepoint_name_exists, db_client) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = self_.borrow(gil);
@@ -673,10 +670,7 @@ impl Transaction {
     /// 2) Transaction is done
     /// 3) Specified savepoint name doesn't exists
     /// 4) Can not execute RELEASE SAVEPOINT command
-    pub async fn release_savepoint(
-        self_: Py<Self>,
-        savepoint_name: String,
-    ) -> RustPSQLDriverPyResult<()> {
+    pub async fn release_savepoint(self_: Py<Self>, savepoint_name: String) -> PSQLPyResult<()> {
         let (is_transaction_ready, is_savepoint_name_exists, db_client) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = self_.borrow(gil);
@@ -717,10 +711,7 @@ impl Transaction {
     /// 2) Transaction is done
     /// 3) Specified savepoint name doesn't exist
     /// 4) Can not execute ROLLBACK TO SAVEPOINT command
-    pub async fn rollback_savepoint(
-        self_: Py<Self>,
-        savepoint_name: String,
-    ) -> RustPSQLDriverPyResult<()> {
+    pub async fn rollback_savepoint(self_: Py<Self>, savepoint_name: String) -> PSQLPyResult<()> {
         let (is_transaction_ready, is_savepoint_name_exists, db_client) =
             pyo3::Python::with_gil(|gil| {
                 let self_ = self_.borrow(gil);
@@ -765,7 +756,7 @@ impl Transaction {
         self_: Py<Self>,
         queries: Option<Py<PyList>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Vec<PSQLDriverPyQueryResult>> {
+    ) -> PSQLPyResult<Vec<PSQLDriverPyQueryResult>> {
         let (is_transaction_ready, db_client) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
 
@@ -827,7 +818,7 @@ impl Transaction {
         fetch_number: Option<usize>,
         scroll: Option<bool>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Cursor> {
+    ) -> PSQLPyResult<Cursor> {
         if let Some(db_client) = &self.db_client {
             return Ok(Cursor::new(
                 db_client.clone(),
@@ -857,7 +848,7 @@ impl Transaction {
         table_name: String,
         columns: Option<Vec<String>>,
         schema_name: Option<String>,
-    ) -> RustPSQLDriverPyResult<u64> {
+    ) -> PSQLPyResult<u64> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         let mut table_name = quote_ident(&table_name);
         if let Some(schema_name) = schema_name {

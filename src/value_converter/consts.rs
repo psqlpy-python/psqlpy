@@ -8,6 +8,8 @@ use pyo3::{
     Bound, Py, PyResult, Python,
 };
 
+pub static KWARGS_PARAMS_REGEXP: &str = r"\$\(([^)]+)\)p";
+
 pub static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 pub static TIMEDELTA_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 pub static KWARGS_QUERYSTRINGS: Lazy<RwLock<HashMap<String, (String, Vec<String>)>>> =

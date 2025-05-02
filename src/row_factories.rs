@@ -4,11 +4,11 @@ use pyo3::{
     wrap_pyfunction, Bound, Py, PyAny, PyResult, Python, ToPyObject,
 };
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
 #[pyfunction]
 #[allow(clippy::needless_pass_by_value)]
-fn tuple_row(py: Python<'_>, dict_: Py<PyAny>) -> RustPSQLDriverPyResult<Py<PyAny>> {
+fn tuple_row(py: Python<'_>, dict_: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
     let dict_ = dict_.downcast_bound::<PyDict>(py).map_err(|_| {
         RustPSQLDriverError::RustToPyValueConversionError(
             "as_tuple accepts only dict as a parameter".into(),
@@ -29,7 +29,7 @@ impl class_row {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn __call__(&self, py: Python<'_>, dict_: Py<PyAny>) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    fn __call__(&self, py: Python<'_>, dict_: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
         let dict_ = dict_.downcast_bound::<PyDict>(py).map_err(|_| {
             RustPSQLDriverError::RustToPyValueConversionError(
                 "as_tuple accepts only dict as a parameter".into(),

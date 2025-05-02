@@ -14,7 +14,7 @@ use super::python_errors::{
     TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
 };
 
-pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
+pub type PSQLPyResult<T> = Result<T, RustPSQLDriverError>;
 
 #[derive(Error, Debug)]
 pub enum RustPSQLDriverError {
@@ -29,9 +29,9 @@ pub enum RustPSQLDriverError {
     ConnectionPoolExecuteError(String),
 
     // Connection Errors
-    #[error("Connection error: {0}.")]
+    #[error("{0}")]
     BaseConnectionError(String),
-    #[error("Connection execute error: {0}.")]
+    #[error("{0}")]
     ConnectionExecuteError(String),
     #[error("Underlying connection is returned to the pool")]
     ConnectionClosedError,
@@ -81,7 +81,7 @@ pub enum RustPSQLDriverError {
 
     #[error("Python exception: {0}.")]
     RustPyError(#[from] pyo3::PyErr),
-    #[error("Database engine exception: {0}.")]
+    #[error("{0}")]
     RustDriverError(#[from] deadpool_postgres::tokio_postgres::Error),
     #[error("Database engine pool exception: {0}")]
     RustConnectionPoolError(#[from] deadpool_postgres::PoolError),

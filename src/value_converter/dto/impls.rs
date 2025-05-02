@@ -12,7 +12,7 @@ use pyo3::{Bound, IntoPyObject, PyAny, Python};
 use tokio_postgres::types::{to_sql_checked, Type};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     value_converter::{
         additional_types::{Circle, Line, RustLineSegment, RustLineString, RustPoint, RustRect},
         models::serde_value::pythondto_array_to_serde,
@@ -53,7 +53,7 @@ impl PythonDTO {
     ///
     /// # Errors
     /// May return Err Result if there is no support for passed python type.
-    pub fn array_type(&self) -> RustPSQLDriverPyResult<tokio_postgres::types::Type> {
+    pub fn array_type(&self) -> PSQLPyResult<tokio_postgres::types::Type> {
         match self {
             PythonDTO::PyBool(_) => Ok(tokio_postgres::types::Type::BOOL_ARRAY),
             PythonDTO::PyUUID(_) => Ok(tokio_postgres::types::Type::UUID_ARRAY),
@@ -96,7 +96,7 @@ impl PythonDTO {
     ///
     /// # Errors
     /// May return Err Result if cannot convert python type into rust.
-    pub fn to_serde_value(&self) -> RustPSQLDriverPyResult<Value> {
+    pub fn to_serde_value(&self) -> PSQLPyResult<Value> {
         match self {
             PythonDTO::PyNone => Ok(Value::Null),
             PythonDTO::PyBool(pybool) => Ok(json!(pybool)),
