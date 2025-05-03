@@ -9,7 +9,10 @@ use pyo3::{
 
 use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
-    value_converter::{dto::enums::PythonDTO, from_python::py_to_rust},
+    value_converter::{
+        dto::enums::PythonDTO,
+        from_python::{from_python_typed, from_python_untyped},
+    },
 };
 
 pub type QueryParameter = (dyn ToSql + Sync);
@@ -137,7 +140,7 @@ impl MappingParametersBuilder {
         let converted_parameters = self
             .extract_parameters(gil, parameters_names)?
             .iter()
-            .map(|parameter| py_to_rust(parameter.bind(gil)))
+            .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
@@ -151,7 +154,7 @@ impl MappingParametersBuilder {
         let converted_parameters = self
             .extract_parameters(gil, parameters_names)?
             .iter()
-            .map(|parameter| py_to_rust(parameter.bind(gil)))
+            .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
@@ -193,30 +196,29 @@ impl SequenceParametersBuilder {
     }
 
     fn prepare(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
-        if self.types.is_some() {
-            return self.prepare_typed(gil);
+        let types = self.types.clone();
+
+        if types.is_some() {
+            return self.prepare_typed(gil, types.clone().unwrap());
         }
 
         self.prepare_not_typed(gil)
     }
 
-    fn prepare_typed(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
-        let converted_parameters = self
-            .seq_parameters
-            .iter()
-            .map(|parameter| py_to_rust(parameter.bind(gil)))
+    fn prepare_typed(self, gil: Python<'_>, types: Vec<Type>) -> PSQLPyResult<PreparedParameters> {
+        let zipped_params_types = zip(self.seq_parameters, &types);
+        let converted_parameters = zipped_params_types
+            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
-
-        // Ok(prepared_parameters) // TODO: put there normal convert with types
+        Ok(PreparedParameters::new(converted_parameters, types))
     }
 
     fn prepare_not_typed(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
         let converted_parameters = self
             .seq_parameters
             .iter()
-            .map(|parameter| py_to_rust(parameter.bind(gil)))
+            .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.

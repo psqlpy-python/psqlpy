@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use postgres_types::ToSql;
 use std::{collections::HashMap, sync::RwLock};
 
 use pyo3::{
@@ -35,5 +34,3 @@ pub fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
         })
         .map(|ty| ty.bind(py))
 }
-
-pub type QueryParameter = (dyn ToSql + Sync);

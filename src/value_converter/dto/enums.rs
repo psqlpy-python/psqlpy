@@ -2,6 +2,7 @@ use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::{Line as LineSegment, LineString, Point, Rect};
 use macaddr::{MacAddr6, MacAddr8};
 use pg_interval::Interval;
+use postgres_types::Type;
 use rust_decimal::Decimal;
 use serde_json::Value;
 use std::{fmt::Debug, net::IpAddr};
@@ -34,9 +35,9 @@ pub enum PythonDTO {
     PyDateTimeTz(DateTime<FixedOffset>),
     PyInterval(Interval),
     PyIpAddress(IpAddr),
-    PyList(Vec<PythonDTO>),
-    PyArray(Array<PythonDTO>),
-    PyTuple(Vec<PythonDTO>),
+    PyList(Vec<PythonDTO>, Type),
+    PyArray(Array<PythonDTO>, Type),
+    PyTuple(Vec<PythonDTO>, Type),
     PyJsonb(Value),
     PyJson(Value),
     PyMacAddr6(MacAddr6),

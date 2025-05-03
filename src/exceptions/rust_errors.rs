@@ -76,7 +76,7 @@ pub enum RustPSQLDriverError {
 
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
-    #[error("Can't convert value from python to rust type: {0}")]
+    #[error("{0}")]
     PyToRustValueConversionError(String),
 
     #[error("Python exception: {0}.")]

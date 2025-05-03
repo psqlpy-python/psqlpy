@@ -39,7 +39,9 @@ impl<'py> IntoPyObject<'py> for PythonDTO {
             PythonDTO::PyIntU64(pyint) => Ok(pyint.into_pyobject(py)?.into_any()),
             PythonDTO::PyFloat32(pyfloat) => Ok(pyfloat.into_pyobject(py)?.into_any()),
             PythonDTO::PyFloat64(pyfloat) => Ok(pyfloat.into_pyobject(py)?.into_any()),
-            _ => unreachable!(),
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
@@ -108,7 +110,7 @@ impl PythonDTO {
             PythonDTO::PyIntU64(pyint) => Ok(json!(pyint)),
             PythonDTO::PyFloat32(pyfloat) => Ok(json!(pyfloat)),
             PythonDTO::PyFloat64(pyfloat) => Ok(json!(pyfloat)),
-            PythonDTO::PyList(pylist) => {
+            PythonDTO::PyList(pylist, _) => {
                 let mut vec_serde_values: Vec<Value> = vec![];
 
                 for py_object in pylist {
@@ -117,7 +119,9 @@ impl PythonDTO {
 
                 Ok(json!(vec_serde_values))
             }
-            PythonDTO::PyArray(array) => Ok(json!(pythondto_array_to_serde(Some(array.clone()))?)),
+            PythonDTO::PyArray(array, _) => {
+                Ok(json!(pythondto_array_to_serde(Some(array.clone()))?))
+            }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert your type into Rust type".into(),
@@ -238,30 +242,32 @@ impl ToSql for PythonDTO {
             PythonDTO::PyCircle(pycircle) => {
                 <&Circle as ToSql>::to_sql(&pycircle, ty, out)?;
             }
-            PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
-                let mut items = Vec::new();
-                for inner in py_iterable {
-                    items.push(inner);
-                }
-                if items.is_empty() {
-                    return_is_null_true = true;
-                } else {
-                    items.to_sql(&items[0].array_type()?, out)?;
-                }
+            PythonDTO::PyList(py_iterable, type_) | PythonDTO::PyTuple(py_iterable, type_) => {
+                return py_iterable.to_sql(type_, out);
+                // let mut items = Vec::new();
+                // for inner in py_iterable {
+                //     items.push(inner);
+                // }
+                // if items.is_empty() {
+                //     return_is_null_true = true;
+                // } else {
+                //     items.to_sql(&items[0].array_type()?, out)?;
+                // }
             }
-            PythonDTO::PyArray(array) => {
-                if let Some(first_elem) = array.iter().nth(0) {
-                    match first_elem.array_type() {
-                        Ok(ok_type) => {
-                            array.to_sql(&ok_type, out)?;
-                        }
-                        Err(_) => {
-                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                                "Cannot define array type.".into(),
-                            ))?
-                        }
-                    }
-                }
+            PythonDTO::PyArray(array, type_) => {
+                return array.to_sql(type_, out);
+                // if let Some(first_elem) = array.iter().nth(0) {
+                //     match first_elem.array_type() {
+                //         Ok(ok_type) => {
+                //             array.to_sql(&ok_type, out)?;
+                //         }
+                //         Err(_) => {
+                //             return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                //                 "Cannot define array type.".into(),
+                //             ))?
+                //         }
+                //     }
+                // }
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;

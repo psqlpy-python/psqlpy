@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use geo_types::{Line as RustLineSegment, LineString, Point as RustPoint, Rect as RustRect};
 use macaddr::{MacAddr6 as RustMacAddr6, MacAddr8 as RustMacAddr8};
+use postgres_types::Type;
 use pyo3::{
-    conversion::FromPyObjectBound,
     pyclass, pymethods,
     types::{PyModule, PyModuleMethods},
     Bound, Py, PyAny, PyResult, Python,
@@ -325,7 +325,7 @@ impl Circle {
 }
 
 macro_rules! build_array_type {
-    ($st_name:ident, $kind:path) => {
+    ($st_name:ident, $kind:path, $elem_kind:path) => {
         #[pyclass]
         #[derive(Clone)]
         pub struct $st_name {
@@ -347,11 +347,15 @@ macro_rules! build_array_type {
                 self.inner.clone()
             }
 
+            pub fn element_type() -> Type {
+                $elem_kind
+            }
+
             /// Convert incoming sequence from python to internal `PythonDTO`.
             ///
             /// # Errors
             /// May return Err Result if cannot convert sequence to array.
-            pub fn _convert_to_python_dto(&self) -> PSQLPyResult<PythonDTO> {
+            pub fn _convert_to_python_dto(&self, elem_type: &Type) -> PSQLPyResult<PythonDTO> {
                 return Python::with_gil(|gil| {
                     let binding = &self.inner;
                     let bound_inner = Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(
@@ -359,6 +363,7 @@ macro_rules! build_array_type {
                     )?;
                     Ok::<PythonDTO, RustPSQLDriverError>($kind(py_sequence_into_postgres_array(
                         bound_inner,
+                        elem_type,
                     )?))
                 });
             }
@@ -366,33 +371,37 @@ macro_rules! build_array_type {
     };
 }
 
-build_array_type!(BoolArray, PythonDTO::PyBoolArray);
-build_array_type!(UUIDArray, PythonDTO::PyUuidArray);
-build_array_type!(VarCharArray, PythonDTO::PyVarCharArray);
-build_array_type!(TextArray, PythonDTO::PyTextArray);
-build_array_type!(Int16Array, PythonDTO::PyInt16Array);
-build_array_type!(Int32Array, PythonDTO::PyInt32Array);
-build_array_type!(Int64Array, PythonDTO::PyInt64Array);
-build_array_type!(Float32Array, PythonDTO::PyFloat32Array);
-build_array_type!(Float64Array, PythonDTO::PyFloat64Array);
-build_array_type!(MoneyArray, PythonDTO::PyMoneyArray);
-build_array_type!(IpAddressArray, PythonDTO::PyIpAddressArray);
-build_array_type!(JSONBArray, PythonDTO::PyJSONBArray);
-build_array_type!(JSONArray, PythonDTO::PyJSONArray);
-build_array_type!(DateArray, PythonDTO::PyDateArray);
-build_array_type!(TimeArray, PythonDTO::PyTimeArray);
-build_array_type!(DateTimeArray, PythonDTO::PyDateTimeArray);
-build_array_type!(DateTimeTZArray, PythonDTO::PyDateTimeTZArray);
-build_array_type!(MacAddr6Array, PythonDTO::PyMacAddr6Array);
-build_array_type!(MacAddr8Array, PythonDTO::PyMacAddr8Array);
-build_array_type!(NumericArray, PythonDTO::PyNumericArray);
-build_array_type!(PointArray, PythonDTO::PyPointArray);
-build_array_type!(BoxArray, PythonDTO::PyBoxArray);
-build_array_type!(PathArray, PythonDTO::PyPathArray);
-build_array_type!(LineArray, PythonDTO::PyLineArray);
-build_array_type!(LsegArray, PythonDTO::PyLsegArray);
-build_array_type!(CircleArray, PythonDTO::PyCircleArray);
-build_array_type!(IntervalArray, PythonDTO::PyIntervalArray);
+build_array_type!(BoolArray, PythonDTO::PyBoolArray, Type::BOOL);
+build_array_type!(UUIDArray, PythonDTO::PyUuidArray, Type::UUID);
+build_array_type!(VarCharArray, PythonDTO::PyVarCharArray, Type::VARCHAR);
+build_array_type!(TextArray, PythonDTO::PyTextArray, Type::TEXT);
+build_array_type!(Int16Array, PythonDTO::PyInt16Array, Type::INT2);
+build_array_type!(Int32Array, PythonDTO::PyInt32Array, Type::INT4);
+build_array_type!(Int64Array, PythonDTO::PyInt64Array, Type::INT8);
+build_array_type!(Float32Array, PythonDTO::PyFloat32Array, Type::FLOAT4);
+build_array_type!(Float64Array, PythonDTO::PyFloat64Array, Type::FLOAT8);
+build_array_type!(MoneyArray, PythonDTO::PyMoneyArray, Type::MONEY);
+build_array_type!(IpAddressArray, PythonDTO::PyIpAddressArray, Type::INET);
+build_array_type!(JSONBArray, PythonDTO::PyJSONBArray, Type::JSONB);
+build_array_type!(JSONArray, PythonDTO::PyJSONArray, Type::JSON);
+build_array_type!(DateArray, PythonDTO::PyDateArray, Type::DATE);
+build_array_type!(TimeArray, PythonDTO::PyTimeArray, Type::TIME);
+build_array_type!(DateTimeArray, PythonDTO::PyDateTimeArray, Type::TIMESTAMP);
+build_array_type!(
+    DateTimeTZArray,
+    PythonDTO::PyDateTimeTZArray,
+    Type::TIMESTAMPTZ
+);
+build_array_type!(MacAddr6Array, PythonDTO::PyMacAddr6Array, Type::MACADDR);
+build_array_type!(MacAddr8Array, PythonDTO::PyMacAddr8Array, Type::MACADDR8);
+build_array_type!(NumericArray, PythonDTO::PyNumericArray, Type::NUMERIC);
+build_array_type!(PointArray, PythonDTO::PyPointArray, Type::POINT);
+build_array_type!(BoxArray, PythonDTO::PyBoxArray, Type::BOX);
+build_array_type!(PathArray, PythonDTO::PyPathArray, Type::PATH);
+build_array_type!(LineArray, PythonDTO::PyLineArray, Type::LINE);
+build_array_type!(LsegArray, PythonDTO::PyLsegArray, Type::LSEG);
+build_array_type!(CircleArray, PythonDTO::PyCircleArray, Type::CIRCLE);
+build_array_type!(IntervalArray, PythonDTO::PyIntervalArray, Type::INTERVAL);
 
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::missing_errors_doc)]

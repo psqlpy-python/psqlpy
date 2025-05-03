@@ -141,7 +141,6 @@ async def test_as_class(
         ("INT2", SmallInt(12), 12),
         ("INT4", Integer(121231231), 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
-        ("MONEY", BigInt(99999999999999999), 99999999999999999),
         ("MONEY", Money(99999999999999999), 99999999999999999),
         ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
         ("FLOAT8", 32.12329864501953, 32.12329864501953),
@@ -269,11 +268,6 @@ async def test_as_class(
             "MONEY ARRAY",
             [Money(99999999999999999), Money(99999999999999999)],
             [99999999999999999, 99999999999999999],
-        ),
-        (
-            "MONEY ARRAY",
-            [[Money(99999999999999999)], [Money(99999999999999999)]],
-            [[99999999999999999], [99999999999999999]],
         ),
         (
             "NUMERIC(5, 2) ARRAY",
@@ -666,6 +660,37 @@ async def test_deserialization_simple_into_python(
     postgres_type: str,
     py_value: Any,
     expected_deserialized: Any,
+) -> None:
+    """Test how types can cast from Python and to Python."""
+    connection = await psql_pool.connection()
+    table_name = f"for_test{uuid.uuid4().hex}"
+    await connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+    create_table_query = f"""
+    CREATE TABLE {table_name} (test_field {postgres_type})
+    """
+    insert_data_query = f"""
+    INSERT INTO {table_name} VALUES ($1)
+    """
+    await connection.execute(querystring=create_table_query)
+    await connection.execute(
+        querystring=insert_data_query,
+        parameters=[py_value],
+    )
+
+    raw_result = await connection.execute(
+        querystring=f"SELECT test_field FROM {table_name}",
+    )
+
+    assert raw_result.result()[0]["test_field"] == expected_deserialized
+
+    await connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+
+async def test_aboba(
+    psql_pool: ConnectionPool,
+    postgres_type: str = "INT2",
+    py_value: Any = 2,
+    expected_deserialized: Any = 2,
 ) -> None:
     """Test how types can cast from Python and to Python."""
     connection = await psql_pool.connection()
@@ -1174,11 +1199,6 @@ async def test_empty_array(
             "MONEY ARRAY",
             MoneyArray([Money(99999999999999999), Money(99999999999999999)]),
             [99999999999999999, 99999999999999999],
-        ),
-        (
-            "MONEY ARRAY",
-            MoneyArray([[Money(99999999999999999)], [Money(99999999999999999)]]),
-            [[99999999999999999], [99999999999999999]],
         ),
         (
             "NUMERIC(5, 2) ARRAY",

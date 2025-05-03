@@ -73,38 +73,6 @@ pub fn build_python_from_serde_value(py: Python<'_>, value: Value) -> PSQLPyResu
     }
 }
 
-fn parse_kwargs_qs(querystring: &str) -> (String, Vec<String>) {
-    let re = regex::Regex::new(r"\$\(([^)]+)\)p").unwrap();
-
-    {
-        let kq_read = KWARGS_QUERYSTRINGS.read().unwrap();
-        let qs = kq_read.get(querystring);
-
-        if let Some(qs) = qs {
-            return qs.clone();
-        }
-    };
-
-    let mut counter = 0;
-    let mut sequence = Vec::new();
-
-    let result = re.replace_all(querystring, |caps: &regex::Captures| {
-        let account_id = caps[1].to_string();
-
-        sequence.push(account_id.clone());
-        counter += 1;
-
-        format!("${}", &counter)
-    });
-
-    let mut kq_write = KWARGS_QUERYSTRINGS.write().unwrap();
-    kq_write.insert(
-        querystring.to_string(),
-        (result.clone().into(), sequence.clone()),
-    );
-    (result.into(), sequence)
-}
-
 fn composite_field_postgres_to_py<'a, T: FromSql<'a>>(
     type_: &Type,
     buf: &mut &'a [u8],
@@ -667,42 +635,4 @@ pub fn postgres_to_py(
         );
     }
     Ok(py.None())
-}
-
-/// Convert Python sequence to Rust vector.
-/// Also it checks that sequence has set/list/tuple type.
-///
-/// # Errors
-///
-/// May return error if cannot convert Python type into Rust one.
-/// May return error if parameters type isn't correct.
-fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> PSQLPyResult<Vec<Py<PyAny>>> {
-    let mut coord_values_sequence_vec: Vec<Py<PyAny>> = vec![];
-
-    if bind_parameters.is_instance_of::<PySet>() {
-        let bind_pyset_parameters = bind_parameters.downcast::<PySet>().unwrap();
-
-        for one_parameter in bind_pyset_parameters {
-            let extracted_parameter = one_parameter.extract::<Py<PyAny>>().map_err(|_| {
-                RustPSQLDriverError::PyToRustValueConversionError(
-                    format!("Error on sequence type extraction, please use correct list/tuple/set, {bind_parameters}")
-                )
-            })?;
-            coord_values_sequence_vec.push(extracted_parameter);
-        }
-    } else if bind_parameters.is_instance_of::<PyList>()
-        | bind_parameters.is_instance_of::<PyTuple>()
-    {
-        coord_values_sequence_vec = bind_parameters.extract::<Vec<Py<PyAny>>>().map_err(|_| {
-            RustPSQLDriverError::PyToRustValueConversionError(
-                format!("Error on sequence type extraction, please use correct list/tuple/set, {bind_parameters}")
-            )
-        })?;
-    } else {
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "Invalid sequence type, please use list/tuple/set, {bind_parameters}"
-        )));
-    };
-
-    Ok::<Vec<Py<PyAny>>, RustPSQLDriverError>(coord_values_sequence_vec)
 }

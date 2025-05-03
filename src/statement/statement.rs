@@ -9,7 +9,7 @@ pub struct PsqlpyStatement {
 }
 
 impl PsqlpyStatement {
-    pub fn new(query: QueryString, prepared_parameters: PreparedParameters) -> Self {
+    pub(crate) fn new(query: QueryString, prepared_parameters: PreparedParameters) -> Self {
         Self {
             query,
             prepared_parameters,

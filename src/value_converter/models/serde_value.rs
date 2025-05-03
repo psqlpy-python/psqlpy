@@ -11,7 +11,8 @@ use tokio_postgres::types::Type;
 use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     value_converter::{
-        dto::enums::PythonDTO, from_python::py_to_rust, to_python::build_python_from_serde_value,
+        dto::enums::PythonDTO, from_python::from_python_untyped,
+        to_python::build_python_from_serde_value,
     },
 };
 
@@ -60,7 +61,7 @@ fn serde_value_from_list(gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQL
     for inner in params {
         let inner_bind = inner.bind(gil);
         if inner_bind.is_instance_of::<PyDict>() {
-            let python_dto = py_to_rust(inner_bind)?;
+            let python_dto = from_python_untyped(inner_bind)?;
             result_vec.push(python_dto.to_serde_value()?);
         } else if inner_bind.is_instance_of::<PyList>() {
             let serde_value = build_serde_value(inner.bind(gil))?;
@@ -91,7 +92,7 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
         })?;
 
         let key = py_list.get_item(0)?.extract::<String>()?;
-        let value = py_to_rust(&py_list.get_item(1)?)?;
+        let value = from_python_untyped(&py_list.get_item(1)?)?;
 
         serde_map.insert(key, value.to_serde_value()?);
     }
