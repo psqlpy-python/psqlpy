@@ -36,6 +36,7 @@ jobs:
     strategy:
       matrix:
         py_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        postgres_version: ["14", "15", "16", "17"]
         job:
             - os: ubuntu-latest
               ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
@@ -43,12 +44,13 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Setup Postgres
-      uses: ./.github/actions/setup_postgres/
+      uses: ikalnytskyi/action-setup-postgres@v7
       with:
         username: postgres
         password: postgres
         database: psqlpy_test
-        ssl_on: "on"
+        ssl: true
+        postgres-version: ${{ matrix.postgres_version }}
       id: postgres
     - uses: actions-rs/toolchain@v1
       with:
