@@ -35,10 +35,8 @@ jobs:
     name: ${{matrix.job.os}}-${{matrix.py_version}}-${{ matrix.postgres_version }}
     strategy:
       matrix:
-        # py_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        py_version: ["3.9"]
-        # postgres_version: ["14", "15", "16", "17"]
-        postgres_version: ["14"]
+        py_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        postgres_version: ["14", "15", "16", "17"]
         job:
             - os: ubuntu-latest
               ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
