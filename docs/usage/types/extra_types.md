@@ -5,15 +5,22 @@ title: Extra Types
 PSQLPy has additional types due to the inability to accurately recognize the type passed from Python.
 
 All extra types available from Python with mapping to PostgreSQL type and Rust type.
+
+::: important
+Some of the types are deprecated.
+
+Use standard python types instead of deprecated ones.
+:::
+
 | PSQLPy type | PostgreSQL type | Rust Type |
 | :---: | :---: | :---: |
-| BigInt | BigInt | i64 |
-| Integer | Integer | i32 |
-| SmallInt | SmallInt | i16 |
-| Float32 | FLOAT4 | f32 |
-| Float64 | FLOAT8 | f64 |
-| VarChar | VarChar | String |
-| Text | Text | String |
+| BigInt (Deprecated) | BigInt | i64 |
+| Integer (Deprecated) | Integer | i32 |
+| SmallInt (Deprecated) | SmallInt | i16 |
+| Float32 (Deprecated) | FLOAT4 | f32 |
+| Float64 (Deprecated) | FLOAT8 | f64 |
+| VarChar (Deprecated) | VarChar | String |
+| Text (Deprecated) | Text | String |
 | JSON | JSON | serde::Value |
 | JSONB | JSONB | serde::Value |
 | MacAddr6 | MacAddr | MacAddr6 |
