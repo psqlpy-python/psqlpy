@@ -1,5 +1,6 @@
 use crate::runtime::tokio_runtime;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
+use postgres_types::Type;
 use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::sync::Arc;
 use tokio_postgres::Config;
@@ -46,6 +47,7 @@ use super::{
     ca_file=None,
     max_db_pool_size=None,
     conn_recycling_method=None,
+    prepare=None,
 ))]
 #[allow(clippy::too_many_arguments)]
 pub fn connect(
@@ -75,6 +77,7 @@ pub fn connect(
     ca_file: Option<String>,
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<ConnRecyclingMethod>,
+    prepare: Option<bool>,
 ) -> PSQLPyResult<ConnectionPool> {
     if let Some(max_db_pool_size) = max_db_pool_size {
         if max_db_pool_size < 2 {
@@ -139,6 +142,7 @@ pub fn connect(
         pg_config: Arc::new(pg_config),
         ca_file: ca_file,
         ssl_mode: ssl_mode,
+        prepare: prepare.unwrap_or(true),
     })
 }
 
@@ -207,6 +211,7 @@ pub struct ConnectionPool {
     pg_config: Arc<Config>,
     ca_file: Option<String>,
     ssl_mode: Option<SslMode>,
+    prepare: bool,
 }
 
 impl ConnectionPool {
@@ -216,13 +221,19 @@ impl ConnectionPool {
         pg_config: Config,
         ca_file: Option<String>,
         ssl_mode: Option<SslMode>,
+        prepare: Option<bool>,
     ) -> Self {
         ConnectionPool {
             pool: pool,
             pg_config: Arc::new(pg_config),
             ca_file: ca_file,
             ssl_mode: ssl_mode,
+            prepare: prepare.unwrap_or(true),
         }
+    }
+
+    pub fn remove_prepared_stmt(&mut self, query: &str, types: &[Type]) {
+        self.pool.manager().statement_caches.remove(query, types);
     }
 }
 
@@ -260,6 +271,7 @@ impl ConnectionPool {
         conn_recycling_method=None,
         ssl_mode=None,
         ca_file=None,
+        prepare=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -289,6 +301,7 @@ impl ConnectionPool {
         conn_recycling_method: Option<ConnRecyclingMethod>,
         ssl_mode: Option<SslMode>,
         ca_file: Option<String>,
+        prepare: Option<bool>,
     ) -> PSQLPyResult<Self> {
         connect(
             dsn,
@@ -317,6 +330,7 @@ impl ConnectionPool {
             ca_file,
             max_db_pool_size,
             conn_recycling_method,
+            prepare,
         )
     }
 
@@ -360,22 +374,28 @@ impl ConnectionPool {
 
     #[must_use]
     pub fn acquire(&self) -> Connection {
-        Connection::new(None, Some(self.pool.clone()), self.pg_config.clone())
+        Connection::new(
+            None,
+            Some(self.pool.clone()),
+            self.pg_config.clone(),
+            self.prepare,
+        )
     }
 
     #[must_use]
     #[allow(clippy::needless_pass_by_value)]
     pub fn listener(self_: pyo3::Py<Self>) -> Listener {
-        let (pg_config, ca_file, ssl_mode) = pyo3::Python::with_gil(|gil| {
+        let (pg_config, ca_file, ssl_mode, prepare) = pyo3::Python::with_gil(|gil| {
             let b_gil = self_.borrow(gil);
             (
                 b_gil.pg_config.clone(),
                 b_gil.ca_file.clone(),
                 b_gil.ssl_mode,
+                b_gil.prepare,
             )
         });
 
-        Listener::new(pg_config, ca_file, ssl_mode)
+        Listener::new(pg_config, ca_file, ssl_mode, prepare)
     }
 
     /// Return new single connection.
@@ -383,10 +403,11 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> PSQLPyResult<Connection> {
-        let (db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
+        let (db_pool, pg_config, prepare) = pyo3::Python::with_gil(|gil| {
             let slf = self_.borrow(gil);
-            (slf.pool.clone(), slf.pg_config.clone())
+            (slf.pool.clone(), slf.pg_config.clone(), slf.prepare)
         });
+        let db_pool_2 = db_pool.clone();
         let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -394,9 +415,14 @@ impl ConnectionPool {
             .await??;
 
         Ok(Connection::new(
-            Some(Arc::new(PsqlpyConnection::PoolConn(db_connection))),
+            Some(Arc::new(PsqlpyConnection::PoolConn(
+                db_connection,
+                db_pool_2.clone(),
+                prepare,
+            ))),
             None,
             pg_config,
+            prepare,
         ))
     }
 

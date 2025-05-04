@@ -195,7 +195,6 @@ pub fn from_python_typed(
     parameter: &pyo3::Bound<'_, PyAny>,
     type_: &Type,
 ) -> PSQLPyResult<PythonDTO> {
-    println!("{:?} {:?}", type_, parameter);
     if parameter.is_instance_of::<extra_types::CustomType>() {
         return <extra_types::CustomType as ToPythonDTO>::to_python_dto(parameter);
     }

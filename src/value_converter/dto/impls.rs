@@ -244,30 +244,9 @@ impl ToSql for PythonDTO {
             }
             PythonDTO::PyList(py_iterable, type_) | PythonDTO::PyTuple(py_iterable, type_) => {
                 return py_iterable.to_sql(type_, out);
-                // let mut items = Vec::new();
-                // for inner in py_iterable {
-                //     items.push(inner);
-                // }
-                // if items.is_empty() {
-                //     return_is_null_true = true;
-                // } else {
-                //     items.to_sql(&items[0].array_type()?, out)?;
-                // }
             }
             PythonDTO::PyArray(array, type_) => {
                 return array.to_sql(type_, out);
-                // if let Some(first_elem) = array.iter().nth(0) {
-                //     match first_elem.array_type() {
-                //         Ok(ok_type) => {
-                //             array.to_sql(&ok_type, out)?;
-                //         }
-                //         Err(_) => {
-                //             return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                //                 "Cannot define array type.".into(),
-                //             ))?
-                //         }
-                //     }
-                // }
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;

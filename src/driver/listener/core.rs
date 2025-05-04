@@ -42,14 +42,19 @@ pub struct Listener {
 
 impl Listener {
     #[must_use]
-    pub fn new(pg_config: Arc<Config>, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
+    pub fn new(
+        pg_config: Arc<Config>,
+        ca_file: Option<String>,
+        ssl_mode: Option<SslMode>,
+        prepare: bool,
+    ) -> Self {
         Listener {
             pg_config: pg_config.clone(),
             ca_file,
             ssl_mode,
             channel_callbacks: Arc::default(),
             listen_abort_handler: Option::default(),
-            connection: Connection::new(None, None, pg_config.clone()),
+            connection: Connection::new(None, None, pg_config.clone(), prepare),
             receiver: Option::default(),
             listen_query: Arc::default(),
             is_listened: Arc::new(RwLock::new(false)),
@@ -222,6 +227,7 @@ impl Listener {
             Some(Arc::new(PsqlpyConnection::SingleConn(client))),
             None,
             self.pg_config.clone(),
+            false,
         );
 
         self.is_started = true;

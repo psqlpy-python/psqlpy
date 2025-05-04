@@ -25,6 +25,7 @@ pub struct Connection {
     db_client: Option<Arc<PsqlpyConnection>>,
     db_pool: Option<Pool>,
     pg_config: Arc<Config>,
+    prepare: bool,
 }
 
 impl Connection {
@@ -33,11 +34,13 @@ impl Connection {
         db_client: Option<Arc<PsqlpyConnection>>,
         db_pool: Option<Pool>,
         pg_config: Arc<Config>,
+        prepare: bool,
     ) -> Self {
         Connection {
             db_client,
             db_pool,
             pg_config,
+            prepare,
         }
     }
 
@@ -54,7 +57,7 @@ impl Connection {
 
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new(None, None, Arc::new(Config::default()))
+        Connection::new(None, None, Arc::new(Config::default()), true)
     }
 }
 
@@ -138,11 +141,16 @@ impl Connection {
     }
 
     async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
+        let (db_client, db_pool, prepare) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
-            (self_.db_client.clone(), self_.db_pool.clone())
+            (
+                self_.db_client.clone(),
+                self_.db_pool.clone(),
+                self_.prepare,
+            )
         });
 
+        let db_pool_2 = db_pool.clone();
         if db_client.is_some() {
             return Ok(self_);
         }
@@ -155,7 +163,11 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(PsqlpyConnection::PoolConn(db_connection)));
+                self_.db_client = Some(Arc::new(PsqlpyConnection::PoolConn(
+                    db_connection,
+                    db_pool_2.unwrap(),
+                    prepare,
+                )));
             });
             return Ok(self_);
         }
@@ -209,7 +221,8 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.execute(querystring, parameters, prepared).await;
+            let res = db_client.execute(querystring, parameters, prepared).await;
+            return res;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)

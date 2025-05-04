@@ -1,5 +1,5 @@
 use postgres_types::{FromSql, Type};
-use pyo3::{types::PyAnyMethods, PyObject, Python, ToPyObject};
+use pyo3::{types::PyAnyMethods, Bound, IntoPyObject, PyAny, PyObject, Python, ToPyObject};
 use rust_decimal::Decimal;
 
 use crate::value_converter::consts::get_decimal_cls;

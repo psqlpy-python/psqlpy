@@ -18,6 +18,7 @@ pub struct ConnectionPoolBuilder {
     conn_recycling_method: Option<RecyclingMethod>,
     ca_file: Option<String>,
     ssl_mode: Option<common_options::SslMode>,
+    prepare: Option<bool>,
 }
 
 #[pymethods]
@@ -31,6 +32,7 @@ impl ConnectionPoolBuilder {
             conn_recycling_method: None,
             ca_file: None,
             ssl_mode: None,
+            prepare: None,
         }
     }
 
@@ -68,6 +70,7 @@ impl ConnectionPoolBuilder {
             self.config.clone(),
             self.ca_file.clone(),
             self.ssl_mode,
+            self.prepare,
         ))
     }
 
@@ -76,6 +79,15 @@ impl ConnectionPoolBuilder {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.ca_file = Some(ca_file);
+        });
+        self_
+    }
+
+    /// Set ca_file for ssl_mode in PostgreSQL.
+    fn prepare(self_: Py<Self>, prepare: bool) -> Py<Self> {
+        Python::with_gil(|gil| {
+            let mut self_ = self_.borrow_mut(gil);
+            self_.prepare = Some(prepare);
         });
         self_
     }

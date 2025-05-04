@@ -139,13 +139,18 @@ async def test_as_class(
         ),
         ("BOOL", True, True),
         ("INT2", SmallInt(12), 12),
+        ("INT2", 12, 12),
         ("INT4", Integer(121231231), 121231231),
+        ("INT4", 121231231, 121231231),
         ("INT8", BigInt(99999999999999999), 99999999999999999),
+        ("INT8", 99999999999999999, 99999999999999999),
         ("MONEY", Money(99999999999999999), 99999999999999999),
+        ("MONEY", 99999999999999999, 99999999999999999),
         ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
-        ("FLOAT8", 32.12329864501953, 32.12329864501953),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
+        ("FLOAT4", 32.12329864501953, 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
+        ("FLOAT8", 32.12329864501953, 32.12329864501953),
         ("DATE", now_datetime.date(), now_datetime.date()),
         ("TIME", now_datetime.time(), now_datetime.time()),
         ("TIMESTAMP", now_datetime, now_datetime),
@@ -424,6 +429,29 @@ async def test_as_class(
             [
                 [[{"array": "json"}], [{"one more": "test"}]],
                 [[{"array": "json"}], [{"one more": "test"}]],
+            ],
+        ),
+        (
+            "JSON ARRAY",
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+            ],
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
             ],
         ),
         (

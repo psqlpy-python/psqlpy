@@ -5,7 +5,7 @@ use postgres_types::Type;
 use tokio::sync::RwLock;
 use tokio_postgres::Statement;
 
-use super::{query::QueryString, traits::hash_str};
+use super::{query::QueryString, utils::hash_str};
 
 #[derive(Default)]
 pub(crate) struct StatementsCache(HashMap<u64, StatementCacheInfo>);

@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::value_converter::consts::KWARGS_PARAMS_REGEXP;
 
-use super::traits::hash_str;
+use super::utils::hash_str;
 
 #[derive(Clone)]
 pub struct QueryString {

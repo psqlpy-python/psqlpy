@@ -8,7 +8,6 @@ use pyo3::{
     Bound, PyAny,
 };
 use rust_decimal::Decimal;
-use serde::de::IntoDeserializer;
 use uuid::Uuid;
 
 use crate::{
