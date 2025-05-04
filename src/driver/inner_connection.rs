@@ -1,5 +1,5 @@
 use bytes::Buf;
-use deadpool_postgres::{Object, Pool};
+use deadpool_postgres::Object;
 use postgres_types::{ToSql, Type};
 use pyo3::{Py, PyAny, Python};
 use std::vec;
