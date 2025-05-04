@@ -32,7 +32,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         args: -p psqlpy --all-features -- -W clippy::all -W clippy::pedantic
   pytest:
-    name: ${{matrix.job.os}}-${{matrix.py_version}}
+    name: ${{matrix.job.os}}-${{matrix.py_version}}-${{ matrix.postgres_version }}
     strategy:
       matrix:
         py_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
