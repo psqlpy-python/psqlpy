@@ -52,7 +52,6 @@ jobs:
         database: psqlpy_test
         ssl: true
         postgres-version: ${{ matrix.postgres_version }}
-      id: postgres
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
