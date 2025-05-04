@@ -78,6 +78,11 @@ export default sidebar({
       ],
     },
     {
+      text: "External connection pools",
+      prefix: "/extra_conn_pools",
+      link: "/external_connection_pools.md"
+    },
+    {
       text: "Contribution guide",
       prefix: "/contribution_guide",
       link: "/contribute.md"
