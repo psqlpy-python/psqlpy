@@ -44,6 +44,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Setup Postgres
+      id: postgres
       uses: ikalnytskyi/action-setup-postgres@v7
       with:
         username: postgres
@@ -66,4 +67,6 @@ jobs:
     - name: Install tox
       run: pip install "tox-gh>=1.2,<2"
     - name: Run pytest
+      env:
+        POSTGRES_CERT_FILE: "${{ steps.postgres.outputs.certificate-path }}"
       run: tox -v -c tox.ini
