@@ -1188,6 +1188,11 @@ async def test_empty_array(
             [],
         ),
         (
+            "VARCHAR ARRAY",
+            [],
+            [],
+        ),
+        (
             "TEXT ARRAY",
             TextArray([]),
             [],

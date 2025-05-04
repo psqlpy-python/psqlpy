@@ -29,10 +29,8 @@ impl PsqlpyConnection {
                 if prepared {
                     return Ok(pconn.prepare_cached(query).await?);
                 } else {
-                    pconn.batch_execute("BEGIN").await?;
                     let prepared = pconn.prepare(query).await?;
                     self.drop_prepared(&prepared).await?;
-                    pconn.batch_execute("COMMIT").await?;
                     return Ok(prepared);
                 }
             }
