@@ -202,14 +202,8 @@ impl PsqlpyConnection {
                         "Cannot prepare statement, error - {err}"
                     ))
                 })?,
-            // false => {
-            //     self
-            //     .query_typed(statement.raw_query(), &statement.params_typed())
-            //     .await
-            //     .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?
-            // },
             false => self
-                .query_typed("SELECT * FROM users", &[])
+                .query_typed(statement.raw_query(), &statement.params_typed())
                 .await
                 .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?,
         };
