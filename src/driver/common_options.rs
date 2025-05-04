@@ -64,7 +64,7 @@ impl TargetSessionAttrs {
 }
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SslMode {
     /// Do not use TLS.
     Disable,

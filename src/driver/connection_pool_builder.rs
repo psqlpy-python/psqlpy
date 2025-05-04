@@ -83,15 +83,6 @@ impl ConnectionPoolBuilder {
         self_
     }
 
-    /// Set ca_file for ssl_mode in PostgreSQL.
-    fn prepare(self_: Py<Self>, prepare: bool) -> Py<Self> {
-        Python::with_gil(|gil| {
-            let mut self_ = self_.borrow_mut(gil);
-            self_.prepare = Some(prepare);
-        });
-        self_
-    }
-
     /// Set size to the connection pool.
     ///
     /// # Error

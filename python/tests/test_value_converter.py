@@ -239,448 +239,6 @@ async def test_as_class(
             datetime.timedelta(days=100, microseconds=100),
             datetime.timedelta(days=100, microseconds=100),
         ),
-        (
-            "VARCHAR ARRAY",
-            ["Some String", "Some String"],
-            ["Some String", "Some String"],
-        ),
-        (
-            "TEXT ARRAY",
-            [Text("Some String"), Text("Some String")],
-            ["Some String", "Some String"],
-        ),
-        ("BOOL ARRAY", [True, False], [True, False]),
-        ("BOOL ARRAY", [[True], [False]], [[True], [False]]),
-        ("INT2 ARRAY", [SmallInt(12), SmallInt(100)], [12, 100]),
-        ("INT2 ARRAY", [[SmallInt(12)], [SmallInt(100)]], [[12], [100]]),
-        ("INT4 ARRAY", [Integer(121231231), Integer(121231231)], [121231231, 121231231]),
-        (
-            "INT4 ARRAY",
-            [[Integer(121231231)], [Integer(121231231)]],
-            [[121231231], [121231231]],
-        ),
-        (
-            "INT8 ARRAY",
-            [BigInt(99999999999999999), BigInt(99999999999999999)],
-            [99999999999999999, 99999999999999999],
-        ),
-        (
-            "INT8 ARRAY",
-            [[BigInt(99999999999999999)], [BigInt(99999999999999999)]],
-            [[99999999999999999], [99999999999999999]],
-        ),
-        (
-            "MONEY ARRAY",
-            [Money(99999999999999999), Money(99999999999999999)],
-            [99999999999999999, 99999999999999999],
-        ),
-        (
-            "NUMERIC(5, 2) ARRAY",
-            [Decimal("121.23"), Decimal("188.99")],
-            [Decimal("121.23"), Decimal("188.99")],
-        ),
-        (
-            "NUMERIC(5, 2) ARRAY",
-            [[Decimal("121.23")], [Decimal("188.99")]],
-            [[Decimal("121.23")], [Decimal("188.99")]],
-        ),
-        (
-            "FLOAT8 ARRAY",
-            [32.12329864501953, 32.12329864501953],
-            [32.12329864501953, 32.12329864501953],
-        ),
-        (
-            "FLOAT8 ARRAY",
-            [[32.12329864501953], [32.12329864501953]],
-            [[32.12329864501953], [32.12329864501953]],
-        ),
-        (
-            "DATE ARRAY",
-            [now_datetime.date(), now_datetime.date()],
-            [now_datetime.date(), now_datetime.date()],
-        ),
-        (
-            "DATE ARRAY",
-            [[now_datetime.date()], [now_datetime.date()]],
-            [[now_datetime.date()], [now_datetime.date()]],
-        ),
-        (
-            "TIME ARRAY",
-            [now_datetime.time(), now_datetime.time()],
-            [now_datetime.time(), now_datetime.time()],
-        ),
-        (
-            "TIME ARRAY",
-            [[now_datetime.time()], [now_datetime.time()]],
-            [[now_datetime.time()], [now_datetime.time()]],
-        ),
-        ("TIMESTAMP ARRAY", [now_datetime, now_datetime], [now_datetime, now_datetime]),
-        (
-            "TIMESTAMP ARRAY",
-            [[now_datetime], [now_datetime]],
-            [[now_datetime], [now_datetime]],
-        ),
-        (
-            "TIMESTAMPTZ ARRAY",
-            [now_datetime_with_tz, now_datetime_with_tz],
-            [now_datetime_with_tz, now_datetime_with_tz],
-        ),
-        (
-            "TIMESTAMPTZ ARRAY",
-            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
-            [now_datetime_with_tz, now_datetime_with_tz_in_asia_jakarta],
-        ),
-        (
-            "TIMESTAMPTZ ARRAY",
-            [[now_datetime_with_tz], [now_datetime_with_tz]],
-            [[now_datetime_with_tz], [now_datetime_with_tz]],
-        ),
-        (
-            "UUID ARRAY",
-            [uuid_, uuid_],
-            [str(uuid_), str(uuid_)],
-        ),
-        (
-            "UUID ARRAY",
-            [[uuid_], [uuid_]],
-            [[str(uuid_)], [str(uuid_)]],
-        ),
-        (
-            "INET ARRAY",
-            [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
-            [IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")],
-        ),
-        (
-            "INET ARRAY",
-            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
-            [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
-        ),
-        (
-            "JSONB ARRAY",
-            [
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-            ],
-            [
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-            ],
-        ),
-        (
-            "JSONB ARRAY",
-            [
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-            ],
-            [
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-            ],
-        ),
-        (
-            "JSONB ARRAY",
-            [
-                JSONB([{"array": "json"}, {"one more": "test"}]),
-                JSONB([{"array": "json"}, {"one more": "test"}]),
-            ],
-            [
-                [{"array": "json"}, {"one more": "test"}],
-                [{"array": "json"}, {"one more": "test"}],
-            ],
-        ),
-        (
-            "JSONB ARRAY",
-            [
-                JSONB([[{"array": "json"}], [{"one more": "test"}]]),
-                JSONB([[{"array": "json"}], [{"one more": "test"}]]),
-            ],
-            [
-                [[{"array": "json"}], [{"one more": "test"}]],
-                [[{"array": "json"}], [{"one more": "test"}]],
-            ],
-        ),
-        (
-            "JSON ARRAY",
-            [
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-            ],
-            [
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-            ],
-        ),
-        (
-            "JSON ARRAY",
-            [
-                JSON(
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ),
-                JSON(
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ),
-            ],
-            [
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-                {
-                    "test": ["something", 123, "here"],
-                    "nested": ["JSON"],
-                },
-            ],
-        ),
-        (
-            "JSON ARRAY",
-            [
-                [
-                    JSON(
-                        {
-                            "test": ["something", 123, "here"],
-                            "nested": ["JSON"],
-                        },
-                    ),
-                ],
-                [
-                    JSON(
-                        {
-                            "test": ["something", 123, "here"],
-                            "nested": ["JSON"],
-                        },
-                    ),
-                ],
-            ],
-            [
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-                [
-                    {
-                        "test": ["something", 123, "here"],
-                        "nested": ["JSON"],
-                    },
-                ],
-            ],
-        ),
-        (
-            "JSON ARRAY",
-            [
-                JSON([{"array": "json"}, {"one more": "test"}]),
-                JSON([{"array": "json"}, {"one more": "test"}]),
-            ],
-            [
-                [{"array": "json"}, {"one more": "test"}],
-                [{"array": "json"}, {"one more": "test"}],
-            ],
-        ),
-        (
-            "JSON ARRAY",
-            [
-                JSON([[{"array": "json"}], [{"one more": "test"}]]),
-                JSON([[{"array": "json"}], [{"one more": "test"}]]),
-            ],
-            [
-                [[{"array": "json"}], [{"one more": "test"}]],
-                [[{"array": "json"}], [{"one more": "test"}]],
-            ],
-        ),
-        (
-            "POINT ARRAY",
-            [
-                Point([1.5, 2]),
-                Point([2, 3]),
-            ],
-            [
-                (1.5, 2.0),
-                (2.0, 3.0),
-            ],
-        ),
-        (
-            "POINT ARRAY",
-            [
-                [Point([1.5, 2])],
-                [Point([2, 3])],
-            ],
-            [
-                [(1.5, 2.0)],
-                [(2.0, 3.0)],
-            ],
-        ),
-        (
-            "BOX ARRAY",
-            [
-                Box([3.5, 3, 9, 9]),
-                Box([8.5, 8, 9, 9]),
-            ],
-            [
-                ((9.0, 9.0), (3.5, 3.0)),
-                ((9.0, 9.0), (8.5, 8.0)),
-            ],
-        ),
-        (
-            "BOX ARRAY",
-            [
-                [Box([3.5, 3, 9, 9])],
-                [Box([8.5, 8, 9, 9])],
-            ],
-            [
-                [((9.0, 9.0), (3.5, 3.0))],
-                [((9.0, 9.0), (8.5, 8.0))],
-            ],
-        ),
-        (
-            "PATH ARRAY",
-            [
-                Path([(3.5, 3), (9, 9), (8, 8)]),
-                Path([(3.5, 3), (6, 6), (3.5, 3)]),
-            ],
-            [
-                [(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)],
-                ((3.5, 3.0), (6.0, 6.0), (3.5, 3.0)),
-            ],
-        ),
-        (
-            "PATH ARRAY",
-            [
-                [Path([(3.5, 3), (9, 9), (8, 8)])],
-                [Path([(3.5, 3), (6, 6), (3.5, 3)])],
-            ],
-            [
-                [[(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)]],
-                [((3.5, 3.0), (6.0, 6.0), (3.5, 3.0))],
-            ],
-        ),
-        (
-            "LINE ARRAY",
-            [
-                Line([-2, 1, 2]),
-                Line([1, -2, 3]),
-            ],
-            [
-                (-2.0, 1.0, 2.0),
-                (1.0, -2.0, 3.0),
-            ],
-        ),
-        (
-            "LINE ARRAY",
-            [
-                [Line([-2, 1, 2])],
-                [Line([1, -2, 3])],
-            ],
-            [
-                [(-2.0, 1.0, 2.0)],
-                [(1.0, -2.0, 3.0)],
-            ],
-        ),
-        (
-            "LSEG ARRAY",
-            [
-                LineSegment({(1, 2), (9, 9)}),
-                LineSegment([(5.6, 3.1), (4, 5)]),
-            ],
-            [
-                [(1.0, 2.0), (9.0, 9.0)],
-                [(5.6, 3.1), (4.0, 5.0)],
-            ],
-        ),
-        (
-            "LSEG ARRAY",
-            [
-                [LineSegment({(1, 2), (9, 9)})],
-                [LineSegment([(5.6, 3.1), (4, 5)])],
-            ],
-            [
-                [[(1.0, 2.0), (9.0, 9.0)]],
-                [[(5.6, 3.1), (4.0, 5.0)]],
-            ],
-        ),
-        (
-            "CIRCLE ARRAY",
-            [
-                Circle([1.7, 2.8, 3]),
-                Circle([5, 1.8, 10]),
-            ],
-            [
-                ((1.7, 2.8), 3.0),
-                ((5.0, 1.8), 10.0),
-            ],
-        ),
-        (
-            "CIRCLE ARRAY",
-            [
-                [Circle([1.7, 2.8, 3])],
-                [Circle([5, 1.8, 10])],
-            ],
-            [
-                [((1.7, 2.8), 3.0)],
-                [((5.0, 1.8), 10.0)],
-            ],
-        ),
-        (
-            "INTERVAL ARRAY",
-            [
-                datetime.timedelta(days=100, microseconds=100),
-                datetime.timedelta(days=100, microseconds=100),
-            ],
-            [
-                datetime.timedelta(days=100, microseconds=100),
-                datetime.timedelta(days=100, microseconds=100),
-            ],
-        ),
     ],
 )
 async def test_deserialization_simple_into_python(
@@ -1177,37 +735,29 @@ async def test_empty_array(
 @pytest.mark.parametrize(
     ("postgres_type", "py_value", "expected_deserialized"),
     [
+        ("VARCHAR ARRAY", [], []),
         (
             "VARCHAR ARRAY",
             VarCharArray(["Some String", "Some String"]),
             ["Some String", "Some String"],
         ),
-        (
-            "VARCHAR ARRAY",
-            VarCharArray([]),
-            [],
-        ),
-        (
-            "VARCHAR ARRAY",
-            [],
-            [],
-        ),
-        (
-            "TEXT ARRAY",
-            TextArray([]),
-            [],
-        ),
+        ("VARCHAR ARRAY", VarCharArray([]), []),
+        ("TEXT ARRAY", [], []),
+        ("TEXT ARRAY", TextArray([]), []),
         (
             "TEXT ARRAY",
             TextArray([Text("Some String"), Text("Some String")]),
             ["Some String", "Some String"],
         ),
+        ("BOOL ARRAY", [], []),
         ("BOOL ARRAY", BoolArray([]), []),
         ("BOOL ARRAY", BoolArray([True, False]), [True, False]),
         ("BOOL ARRAY", BoolArray([[True], [False]]), [[True], [False]]),
+        ("INT2 ARRAY", [], []),
         ("INT2 ARRAY", Int16Array([]), []),
         ("INT2 ARRAY", Int16Array([SmallInt(12), SmallInt(100)]), [12, 100]),
         ("INT2 ARRAY", Int16Array([[SmallInt(12)], [SmallInt(100)]]), [[12], [100]]),
+        ("INT4 ARRAY", [], []),
         (
             "INT4 ARRAY",
             Int32Array([Integer(121231231), Integer(121231231)]),
@@ -1218,6 +768,7 @@ async def test_empty_array(
             Int32Array([[Integer(121231231)], [Integer(121231231)]]),
             [[121231231], [121231231]],
         ),
+        ("INT8 ARRAY", [], []),
         (
             "INT8 ARRAY",
             Int64Array([BigInt(99999999999999999), BigInt(99999999999999999)]),
@@ -1228,11 +779,13 @@ async def test_empty_array(
             Int64Array([[BigInt(99999999999999999)], [BigInt(99999999999999999)]]),
             [[99999999999999999], [99999999999999999]],
         ),
+        ("MONEY ARRAY", [], []),
         (
             "MONEY ARRAY",
             MoneyArray([Money(99999999999999999), Money(99999999999999999)]),
             [99999999999999999, 99999999999999999],
         ),
+        ("NUMERIC(5, 2) ARRAY", [], []),
         (
             "NUMERIC(5, 2) ARRAY",
             NumericArray([Decimal("121.23"), Decimal("188.99")]),
@@ -1243,6 +796,13 @@ async def test_empty_array(
             NumericArray([[Decimal("121.23")], [Decimal("188.99")]]),
             [[Decimal("121.23")], [Decimal("188.99")]],
         ),
+        ("FLOAT4 ARRAY", [], []),
+        (
+            "FLOAT4 ARRAY",
+            [32.12329864501953, 32.12329864501953],
+            [32.12329864501953, 32.12329864501953],
+        ),
+        ("FLOAT8 ARRAY", [], []),
         (
             "FLOAT8 ARRAY",
             Float64Array([32.12329864501953, 32.12329864501953]),
@@ -1253,6 +813,7 @@ async def test_empty_array(
             Float64Array([[32.12329864501953], [32.12329864501953]]),
             [[32.12329864501953], [32.12329864501953]],
         ),
+        ("DATE ARRAY", [], []),
         (
             "DATE ARRAY",
             DateArray([now_datetime.date(), now_datetime.date()]),
@@ -1263,6 +824,7 @@ async def test_empty_array(
             DateArray([[now_datetime.date()], [now_datetime.date()]]),
             [[now_datetime.date()], [now_datetime.date()]],
         ),
+        ("TIME ARRAY", [], []),
         (
             "TIME ARRAY",
             TimeArray([now_datetime.time(), now_datetime.time()]),
@@ -1273,6 +835,7 @@ async def test_empty_array(
             TimeArray([[now_datetime.time()], [now_datetime.time()]]),
             [[now_datetime.time()], [now_datetime.time()]],
         ),
+        ("TIMESTAMP ARRAY", [], []),
         (
             "TIMESTAMP ARRAY",
             DateTimeArray([now_datetime, now_datetime]),
@@ -1283,6 +846,7 @@ async def test_empty_array(
             DateTimeArray([[now_datetime], [now_datetime]]),
             [[now_datetime], [now_datetime]],
         ),
+        ("TIMESTAMPTZ ARRAY", [], []),
         (
             "TIMESTAMPTZ ARRAY",
             DateTimeTZArray([now_datetime_with_tz, now_datetime_with_tz]),
@@ -1293,16 +857,13 @@ async def test_empty_array(
             DateTimeTZArray([[now_datetime_with_tz], [now_datetime_with_tz]]),
             [[now_datetime_with_tz], [now_datetime_with_tz]],
         ),
-        (
-            "UUID ARRAY",
-            UUIDArray([uuid_, uuid_]),
-            [str(uuid_), str(uuid_)],
-        ),
+        ("UUID ARRAY", [], []),
         (
             "UUID ARRAY",
             UUIDArray([[uuid_], [uuid_]]),
             [[str(uuid_)], [str(uuid_)]],
         ),
+        ("INET ARRAY", [], []),
         (
             "INET ARRAY",
             IpAddressArray([IPv4Address("192.0.0.1"), IPv4Address("192.0.0.1")]),
@@ -1313,6 +874,30 @@ async def test_empty_array(
             IpAddressArray([[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]]),
             [[IPv4Address("192.0.0.1")], [IPv4Address("192.0.0.1")]],
         ),
+        ("JSONB ARRAY", [], []),
+        (
+            "JSONB ARRAY",
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+            ],
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+            ],
+        ),
         (
             "JSONB ARRAY",
             JSONBArray(
@@ -1395,6 +980,55 @@ async def test_empty_array(
             [
                 [[{"array": "json"}], [{"one more": "test"}]],
                 [[{"array": "json"}], [{"one more": "test"}]],
+            ],
+        ),
+        ("JSON ARRAY", [], []),
+        (
+            "JSON ARRAY",
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+            ],
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+            ],
+        ),
+        (
+            "JSON ARRAY",
+            JSONArray(
+                [
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                    {
+                        "test": ["something", 123, "here"],
+                        "nested": ["JSON"],
+                    },
+                ],
+            ),
+            [
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
+                {
+                    "test": ["something", 123, "here"],
+                    "nested": ["JSON"],
+                },
             ],
         ),
         (
@@ -1487,6 +1121,17 @@ async def test_empty_array(
             [
                 [[{"array": "json"}], [{"one more": "test"}]],
                 [[{"array": "json"}], [{"one more": "test"}]],
+            ],
+        ),
+        (
+            "POINT ARRAY",
+            [
+                Point([1.5, 2]),
+                Point([2, 3]),
+            ],
+            [
+                (1.5, 2.0),
+                (2.0, 3.0),
             ],
         ),
         (
@@ -1504,6 +1149,17 @@ async def test_empty_array(
         ),
         (
             "POINT ARRAY",
+            [
+                [Point([1.5, 2])],
+                [Point([2, 3])],
+            ],
+            [
+                [(1.5, 2.0)],
+                [(2.0, 3.0)],
+            ],
+        ),
+        (
+            "POINT ARRAY",
             PointArray(
                 [
                     [Point([1.5, 2])],
@@ -1513,6 +1169,18 @@ async def test_empty_array(
             [
                 [(1.5, 2.0)],
                 [(2.0, 3.0)],
+            ],
+        ),
+        ("BOX ARRAY", [], []),
+        (
+            "BOX ARRAY",
+            [
+                Box([3.5, 3, 9, 9]),
+                Box([8.5, 8, 9, 9]),
+            ],
+            [
+                ((9.0, 9.0), (3.5, 3.0)),
+                ((9.0, 9.0), (8.5, 8.0)),
             ],
         ),
         (
@@ -1541,6 +1209,18 @@ async def test_empty_array(
                 [((9.0, 9.0), (8.5, 8.0))],
             ],
         ),
+        ("PATH ARRAY", [], []),
+        (
+            "PATH ARRAY",
+            [
+                Path([(3.5, 3), (9, 9), (8, 8)]),
+                Path([(3.5, 3), (6, 6), (3.5, 3)]),
+            ],
+            [
+                [(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)],
+                ((3.5, 3.0), (6.0, 6.0), (3.5, 3.0)),
+            ],
+        ),
         (
             "PATH ARRAY",
             PathArray(
@@ -1556,6 +1236,17 @@ async def test_empty_array(
         ),
         (
             "PATH ARRAY",
+            [
+                [Path([(3.5, 3), (9, 9), (8, 8)])],
+                [Path([(3.5, 3), (6, 6), (3.5, 3)])],
+            ],
+            [
+                [[(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)]],
+                [((3.5, 3.0), (6.0, 6.0), (3.5, 3.0))],
+            ],
+        ),
+        (
+            "PATH ARRAY",
             PathArray(
                 [
                     [Path([(3.5, 3), (9, 9), (8, 8)])],
@@ -1565,6 +1256,18 @@ async def test_empty_array(
             [
                 [[(3.5, 3.0), (9.0, 9.0), (8.0, 8.0)]],
                 [((3.5, 3.0), (6.0, 6.0), (3.5, 3.0))],
+            ],
+        ),
+        ("LINE ARRAY", [], []),
+        (
+            "LINE ARRAY",
+            [
+                Line([-2, 1, 2]),
+                Line([1, -2, 3]),
+            ],
+            [
+                (-2.0, 1.0, 2.0),
+                (1.0, -2.0, 3.0),
             ],
         ),
         (
@@ -1582,6 +1285,17 @@ async def test_empty_array(
         ),
         (
             "LINE ARRAY",
+            [
+                [Line([-2, 1, 2])],
+                [Line([1, -2, 3])],
+            ],
+            [
+                [(-2.0, 1.0, 2.0)],
+                [(1.0, -2.0, 3.0)],
+            ],
+        ),
+        (
+            "LINE ARRAY",
             LineArray(
                 [
                     [Line([-2, 1, 2])],
@@ -1591,6 +1305,18 @@ async def test_empty_array(
             [
                 [(-2.0, 1.0, 2.0)],
                 [(1.0, -2.0, 3.0)],
+            ],
+        ),
+        ("LSEG ARRAY", [], []),
+        (
+            "LSEG ARRAY",
+            [
+                LineSegment({(1, 2), (9, 9)}),
+                LineSegment([(5.6, 3.1), (4, 5)]),
+            ],
+            [
+                [(1.0, 2.0), (9.0, 9.0)],
+                [(5.6, 3.1), (4.0, 5.0)],
             ],
         ),
         (
@@ -1608,6 +1334,17 @@ async def test_empty_array(
         ),
         (
             "LSEG ARRAY",
+            [
+                [LineSegment({(1, 2), (9, 9)})],
+                [LineSegment([(5.6, 3.1), (4, 5)])],
+            ],
+            [
+                [[(1.0, 2.0), (9.0, 9.0)]],
+                [[(5.6, 3.1), (4.0, 5.0)]],
+            ],
+        ),
+        (
+            "LSEG ARRAY",
             LsegArray(
                 [
                     [LineSegment({(1, 2), (9, 9)})],
@@ -1617,6 +1354,18 @@ async def test_empty_array(
             [
                 [[(1.0, 2.0), (9.0, 9.0)]],
                 [[(5.6, 3.1), (4.0, 5.0)]],
+            ],
+        ),
+        ("CIRCLE ARRAY", [], []),
+        (
+            "CIRCLE ARRAY",
+            [
+                Circle([1.7, 2.8, 3]),
+                Circle([5, 1.8, 10]),
+            ],
+            [
+                ((1.7, 2.8), 3.0),
+                ((5.0, 1.8), 10.0),
             ],
         ),
         (
@@ -1643,6 +1392,18 @@ async def test_empty_array(
             [
                 [((1.7, 2.8), 3.0)],
                 [((5.0, 1.8), 10.0)],
+            ],
+        ),
+        ("INTERVAL ARRAY", [], []),
+        (
+            "INTERVAL ARRAY",
+            [
+                [datetime.timedelta(days=100, microseconds=100)],
+                [datetime.timedelta(days=100, microseconds=100)],
+            ],
+            [
+                [datetime.timedelta(days=100, microseconds=100)],
+                [datetime.timedelta(days=100, microseconds=100)],
             ],
         ),
         (
