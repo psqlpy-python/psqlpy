@@ -5,7 +5,7 @@ use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
 use super::{parameters::PreparedParameters, query::QueryString};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PsqlpyStatement {
     query: QueryString,
     prepared_parameters: PreparedParameters,

@@ -6,7 +6,7 @@ use crate::value_converter::consts::KWARGS_PARAMS_REGEXP;
 
 use super::utils::hash_str;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QueryString {
     pub(crate) initial_qs: String,
     // This field are used when kwargs passed
@@ -68,7 +68,7 @@ impl QueryString {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ConvertedQueryString {
     converted_qs: String,
     params_names: Vec<String>,

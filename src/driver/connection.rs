@@ -150,7 +150,6 @@ impl Connection {
             )
         });
 
-        let db_pool_2 = db_pool.clone();
         if db_client.is_some() {
             return Ok(self_);
         }
@@ -163,11 +162,8 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(PsqlpyConnection::PoolConn(
-                    db_connection,
-                    db_pool_2.unwrap(),
-                    prepare,
-                )));
+                self_.db_client =
+                    Some(Arc::new(PsqlpyConnection::PoolConn(db_connection, prepare)));
             });
             return Ok(self_);
         }

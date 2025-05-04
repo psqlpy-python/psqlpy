@@ -407,7 +407,6 @@ impl ConnectionPool {
             let slf = self_.borrow(gil);
             (slf.pool.clone(), slf.pg_config.clone(), slf.prepare)
         });
-        let db_pool_2 = db_pool.clone();
         let db_connection = tokio_runtime()
             .spawn(async move {
                 Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -415,11 +414,7 @@ impl ConnectionPool {
             .await??;
 
         Ok(Connection::new(
-            Some(Arc::new(PsqlpyConnection::PoolConn(
-                db_connection,
-                db_pool_2.clone(),
-                prepare,
-            ))),
+            Some(Arc::new(PsqlpyConnection::PoolConn(db_connection, prepare))),
             None,
             pg_config,
             prepare,

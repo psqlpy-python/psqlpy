@@ -93,10 +93,8 @@ impl<'a> StatementBuilder<'a> {
                 ))
             }
             false => {
-                {
-                    self.write_to_cache(cache_guard, &querystring, &prepared_stmt)
-                        .await;
-                }
+                self.write_to_cache(cache_guard, &querystring, &prepared_stmt)
+                    .await;
                 return Ok(PsqlpyStatement::new(querystring, prepared_parameters, None));
             }
         }

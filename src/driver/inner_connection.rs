@@ -14,7 +14,7 @@ use crate::{
 
 #[allow(clippy::module_name_repetitions)]
 pub enum PsqlpyConnection {
-    PoolConn(Object, Pool, bool),
+    PoolConn(Object, bool),
     SingleConn(Client),
 }
 
@@ -25,13 +25,14 @@ impl PsqlpyConnection {
     /// May return Err if cannot prepare statement.
     pub async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
+            PsqlpyConnection::PoolConn(pconn, _) => {
                 if prepared {
                     return Ok(pconn.prepare_cached(query).await?);
                 } else {
-                    println!("999999");
+                    pconn.batch_execute("BEGIN").await?;
                     let prepared = pconn.prepare(query).await?;
                     self.drop_prepared(&prepared).await?;
+                    pconn.batch_execute("COMMIT").await?;
                     return Ok(prepared);
                 }
             }
@@ -46,8 +47,9 @@ impl PsqlpyConnection {
     pub async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
         let deallocate_query = format!("DEALLOCATE PREPARE {}", stmt.name());
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
-                return Ok(pconn.batch_execute(&deallocate_query).await?)
+            PsqlpyConnection::PoolConn(pconn, _) => {
+                let res = Ok(pconn.batch_execute(&deallocate_query).await?);
+                res
             }
             PsqlpyConnection::SingleConn(sconn) => {
                 return Ok(sconn.batch_execute(&deallocate_query).await?)
@@ -68,7 +70,7 @@ impl PsqlpyConnection {
         T: ?Sized + ToStatement,
     {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
+            PsqlpyConnection::PoolConn(pconn, _) => {
                 return Ok(pconn.query(statement, params).await?)
             }
             PsqlpyConnection::SingleConn(sconn) => {
@@ -87,7 +89,7 @@ impl PsqlpyConnection {
         params: &[(&(dyn ToSql + Sync), Type)],
     ) -> PSQLPyResult<Vec<Row>> {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
+            PsqlpyConnection::PoolConn(pconn, _) => {
                 return Ok(pconn.query_typed(statement, params).await?)
             }
             PsqlpyConnection::SingleConn(sconn) => {
@@ -102,9 +104,7 @@ impl PsqlpyConnection {
     /// May return Err if cannot execute statement.
     pub async fn batch_execute(&self, query: &str) -> PSQLPyResult<()> {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
-                return Ok(pconn.batch_execute(query).await?)
-            }
+            PsqlpyConnection::PoolConn(pconn, _) => return Ok(pconn.batch_execute(query).await?),
             PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.batch_execute(query).await?),
         }
     }
@@ -119,7 +119,7 @@ impl PsqlpyConnection {
         U: Buf + 'static + Send,
     {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => return Ok(pconn.copy_in(statement).await?),
+            PsqlpyConnection::PoolConn(pconn, _) => return Ok(pconn.copy_in(statement).await?),
             PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.copy_in(statement).await?),
         }
     }
@@ -137,7 +137,7 @@ impl PsqlpyConnection {
         T: ?Sized + ToStatement,
     {
         match self {
-            PsqlpyConnection::PoolConn(pconn, _, _) => {
+            PsqlpyConnection::PoolConn(pconn, _) => {
                 return Ok(pconn.query_one(statement, params).await?)
             }
             PsqlpyConnection::SingleConn(sconn) => {
@@ -202,8 +202,14 @@ impl PsqlpyConnection {
                         "Cannot prepare statement, error - {err}"
                     ))
                 })?,
+            // false => {
+            //     self
+            //     .query_typed(statement.raw_query(), &statement.params_typed())
+            //     .await
+            //     .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?
+            // },
             false => self
-                .query_typed(statement.raw_query(), &statement.params_typed())
+                .query_typed("SELECT * FROM users", &[])
                 .await
                 .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?,
         };

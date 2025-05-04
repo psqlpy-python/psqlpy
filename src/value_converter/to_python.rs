@@ -23,7 +23,6 @@ use crate::{
             Circle, Line, RustLineSegment, RustLineString, RustMacAddr6, RustMacAddr8, RustPoint,
             RustRect,
         },
-        consts::KWARGS_QUERYSTRINGS,
         models::{
             decimal::InnerDecimal, interval::InnerInterval, serde_value::InternalSerdeValue,
             uuid::InternalUuid,
