@@ -881,7 +881,7 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 [[package]]
 name = "postgres-derive"
 version = "0.4.5"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#5780895bfa8a0b9142df225b65bc6e59f7dbee61"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -892,7 +892,7 @@ dependencies = [
 [[package]]
 name = "postgres-openssl"
 version = "0.5.0"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#5780895bfa8a0b9142df225b65bc6e59f7dbee61"
 dependencies = [
  "openssl",
  "tokio",
@@ -903,7 +903,7 @@ dependencies = [
 [[package]]
 name = "postgres-protocol"
 version = "0.6.7"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#5780895bfa8a0b9142df225b65bc6e59f7dbee61"
 dependencies = [
  "base64",
  "byteorder",
@@ -920,7 +920,7 @@ dependencies = [
 [[package]]
 name = "postgres-types"
 version = "0.2.7"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#5780895bfa8a0b9142df225b65bc6e59f7dbee61"
 dependencies = [
  "array-init",
  "bytes",
@@ -1540,7 +1540,7 @@ dependencies = [
 [[package]]
 name = "tokio-postgres"
 version = "0.7.11"
-source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#e4e1047e701318b31c61330e428ebd8ade7ed1cb"
+source = "git+https://github.com/chandr-andr/rust-postgres.git?branch=psqlpy#5780895bfa8a0b9142df225b65bc6e59f7dbee61"
 dependencies = [
  "async-trait",
  "byteorder",

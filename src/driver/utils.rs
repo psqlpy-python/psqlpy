@@ -6,7 +6,7 @@ use postgres_openssl::MakeTlsConnector;
 use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
 use tokio_postgres::{Config, NoTls};
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
 use super::common_options::{self, LoadBalanceHosts, SslMode, TargetSessionAttrs};
 
@@ -40,7 +40,7 @@ pub fn build_connection_config(
     keepalives_retries: Option<u32>,
     load_balance_hosts: Option<LoadBalanceHosts>,
     ssl_mode: Option<SslMode>,
-) -> RustPSQLDriverPyResult<tokio_postgres::Config> {
+) -> PSQLPyResult<tokio_postgres::Config> {
     if tcp_user_timeout_nanosec.is_some() && tcp_user_timeout_sec.is_none() {
         return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
             "tcp_user_timeout_nanosec must be used with tcp_user_timeout_sec param.".into(),
@@ -182,7 +182,7 @@ pub enum ConfiguredTLS {
 pub fn build_tls(
     ca_file: &Option<String>,
     ssl_mode: &Option<SslMode>,
-) -> RustPSQLDriverPyResult<ConfiguredTLS> {
+) -> PSQLPyResult<ConfiguredTLS> {
     if let Some(ca_file) = ca_file {
         let mut builder = SslConnector::builder(SslMethod::tls())?;
         builder.set_ca_file(ca_file)?;
@@ -224,7 +224,7 @@ pub fn build_manager(
 /// May return Err Result if cannot
 /// 1) import inspect
 /// 2) extract boolean
-pub fn is_coroutine_function(function: Py<PyAny>) -> RustPSQLDriverPyResult<bool> {
+pub fn is_coroutine_function(function: Py<PyAny>) -> PSQLPyResult<bool> {
     let is_coroutine_function: bool = Python::with_gil(|py| {
         let inspect = py.import("inspect")?;
 

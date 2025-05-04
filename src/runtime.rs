@@ -1,7 +1,7 @@
 use futures_util::Future;
 use pyo3::{IntoPyObject, Py, PyAny, Python};
 
-use crate::exceptions::rust_errors::RustPSQLDriverPyResult;
+use crate::exceptions::rust_errors::PSQLPyResult;
 
 #[allow(clippy::missing_panics_doc)]
 #[allow(clippy::module_name_repetitions)]
@@ -18,9 +18,9 @@ pub fn tokio_runtime() -> &'static tokio::runtime::Runtime {
 /// # Errors
 ///
 /// May return Err Result if future acts incorrect.
-pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> RustPSQLDriverPyResult<Py<PyAny>>
+pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> PSQLPyResult<Py<PyAny>>
 where
-    F: Future<Output = RustPSQLDriverPyResult<T>> + Send + 'static,
+    F: Future<Output = PSQLPyResult<T>> + Send + 'static,
     T: for<'py> IntoPyObject<'py>,
 {
     let res =

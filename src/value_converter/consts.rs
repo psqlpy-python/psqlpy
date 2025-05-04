@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use postgres_types::ToSql;
 use std::{collections::HashMap, sync::RwLock};
 
 use pyo3::{
@@ -7,6 +6,8 @@ use pyo3::{
     types::{PyAnyMethods, PyType},
     Bound, Py, PyResult, Python,
 };
+
+pub static KWARGS_PARAMS_REGEXP: &str = r"\$\(([^)]+)\)p";
 
 pub static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 pub static TIMEDELTA_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -33,5 +34,3 @@ pub fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
         })
         .map(|ty| ty.bind(py))
 }
-
-pub type QueryParameter = (dyn ToSql + Sync);

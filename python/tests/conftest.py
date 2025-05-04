@@ -85,7 +85,10 @@ def number_database_records() -> int:
 
 @pytest.fixture
 def ssl_cert_file() -> str:
-    return os.environ.get("POSTGRES_CERT_FILE", "./root.crt")
+    return os.environ.get(
+        "POSTGRES_CERT_FILE",
+        "/home/runner/work/_temp/pgdata/server.crt",
+    )
 
 
 @pytest.fixture

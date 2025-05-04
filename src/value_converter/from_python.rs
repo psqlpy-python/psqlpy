@@ -2,28 +2,27 @@ use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, T
 use chrono_tz::Tz;
 use geo_types::{coord, Coord};
 use itertools::Itertools;
-use pg_interval::Interval;
 use postgres_array::{Array, Dimension};
-use rust_decimal::Decimal;
-use serde_json::{json, Map, Value};
+use postgres_types::Type;
 use std::net::IpAddr;
-use uuid::Uuid;
 
 use pyo3::{
     types::{
-        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyDictMethods, PyFloat,
-        PyInt, PyList, PyMapping, PySequence, PySet, PyString, PyTime, PyTuple, PyTypeMethods,
+        PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyFloat, PyInt, PyList,
+        PySequence, PySet, PyString, PyTime, PyTuple, PyTypeMethods,
     },
     Bound, Py, PyAny, Python,
 };
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     extra_types::{self},
-    value_converter::{
-        consts::KWARGS_QUERYSTRINGS, models::dto::PythonDTO,
-        utils::extract_value_from_python_object_or_raise,
-    },
+    value_converter::{dto::enums::PythonDTO, utils::extract_value_from_python_object_or_raise},
+};
+
+use super::{
+    additional_types::NonePyType,
+    traits::{ToPythonDTO, ToPythonDTOArray},
 };
 
 /// Convert single python parameter to `PythonDTO` enum.
@@ -33,422 +32,402 @@ use crate::{
 /// May return Err Result if python type doesn't have support yet
 /// or value of the type is incorrect.
 #[allow(clippy::too_many_lines)]
-pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<PythonDTO> {
+pub fn from_python_untyped(parameter: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
     if parameter.is_none() {
-        return Ok(PythonDTO::PyNone);
-    }
-
-    if parameter.is_instance_of::<extra_types::CustomType>() {
-        return Ok(PythonDTO::PyCustomType(
-            parameter.extract::<extra_types::CustomType>()?.inner(),
-        ));
+        return <NonePyType as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyBool>() {
-        return Ok(PythonDTO::PyBool(parameter.extract::<bool>()?));
+        return <bool as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyBytes>() {
-        return Ok(PythonDTO::PyBytes(parameter.extract::<Vec<u8>>()?));
+        return <Vec<u8> as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::Text>() {
-        return Ok(PythonDTO::PyText(
-            parameter.extract::<extra_types::Text>()?.inner(),
-        ));
+        return <extra_types::Text as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::VarChar>() {
-        return Ok(PythonDTO::PyVarChar(
-            parameter.extract::<extra_types::VarChar>()?.inner(),
-        ));
+        return <extra_types::VarChar as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyString>() {
-        return Ok(PythonDTO::PyString(parameter.extract::<String>()?));
+        return <String as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyFloat>() {
-        return Ok(PythonDTO::PyFloat64(parameter.extract::<f64>()?));
+        return <f64 as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::Float32>() {
-        return Ok(PythonDTO::PyFloat32(
-            parameter
-                .extract::<extra_types::Float32>()?
-                .retrieve_value(),
-        ));
+        return <extra_types::Float32 as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::Float64>() {
-        return Ok(PythonDTO::PyFloat64(
-            parameter
-                .extract::<extra_types::Float64>()?
-                .retrieve_value(),
-        ));
+        return <extra_types::Float64 as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::SmallInt>() {
-        return Ok(PythonDTO::PyIntI16(
-            parameter
-                .extract::<extra_types::SmallInt>()?
-                .retrieve_value(),
-        ));
+        return <extra_types::SmallInt as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::Integer>() {
-        return Ok(PythonDTO::PyIntI32(
-            parameter
-                .extract::<extra_types::Integer>()?
-                .retrieve_value(),
-        ));
+        return <extra_types::Integer as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::BigInt>() {
-        return Ok(PythonDTO::PyIntI64(
-            parameter.extract::<extra_types::BigInt>()?.retrieve_value(),
-        ));
+        return <extra_types::BigInt as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::Money>() {
-        return Ok(PythonDTO::PyMoney(
-            parameter.extract::<extra_types::Money>()?.retrieve_value(),
-        ));
+        return <extra_types::Money as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyInt>() {
-        return Ok(PythonDTO::PyIntI32(parameter.extract::<i32>()?));
+        return <i32 as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyDateTime>() {
-        let timestamp_tz = parameter.extract::<DateTime<FixedOffset>>();
-        if let Ok(pydatetime_tz) = timestamp_tz {
-            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
-        }
-
-        let timestamp_no_tz = parameter.extract::<NaiveDateTime>();
-        if let Ok(pydatetime_no_tz) = timestamp_no_tz {
-            return Ok(PythonDTO::PyDateTime(pydatetime_no_tz));
-        }
-
-        let timestamp_tz = extract_datetime_from_python_object_attrs(parameter);
-        if let Ok(pydatetime_tz) = timestamp_tz {
-            return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
-        }
-
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "Can not convert you datetime to rust type".into(),
-        ));
+        return <PyDateTime as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyDate>() {
-        return Ok(PythonDTO::PyDate(parameter.extract::<NaiveDate>()?));
+        return <NaiveDate as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyTime>() {
-        return Ok(PythonDTO::PyTime(parameter.extract::<NaiveTime>()?));
+        return <NaiveTime as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyDelta>() {
-        let duration = parameter.extract::<chrono::Duration>()?;
-        if let Some(interval) = Interval::from_duration(duration) {
-            return Ok(PythonDTO::PyInterval(interval));
-        }
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "Cannot convert timedelta from Python to inner Rust type.".to_string(),
-        ));
+        return <PyDelta as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
-        return Ok(PythonDTO::PyArray(py_sequence_into_postgres_array(
-            parameter,
-        )?));
+        return <extra_types::PythonArray as ToPythonDTOArray>::to_python_dto(parameter, Type::ANY);
     }
 
     if parameter.is_instance_of::<PyDict>() {
-        let dict = parameter.downcast::<PyDict>().map_err(|error| {
-            RustPSQLDriverError::PyToRustValueConversionError(format!(
-                "Can't cast to inner dict: {error}"
-            ))
-        })?;
-
-        let mut serde_map: Map<String, Value> = Map::new();
-
-        for dict_item in dict.items() {
-            let py_list = dict_item.downcast::<PyTuple>().map_err(|error| {
-                RustPSQLDriverError::PyToRustValueConversionError(format!(
-                    "Cannot cast to list: {error}"
-                ))
-            })?;
-
-            let key = py_list.get_item(0)?.extract::<String>()?;
-            let value = py_to_rust(&py_list.get_item(1)?)?;
-
-            serde_map.insert(key, value.to_serde_value()?);
-        }
-
-        return Ok(PythonDTO::PyJsonb(Value::Object(serde_map)));
+        return <PyDict as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::JSONB>() {
-        return Ok(PythonDTO::PyJsonb(
-            parameter.extract::<extra_types::JSONB>()?.inner().clone(),
-        ));
+        return <extra_types::JSONB as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::JSON>() {
-        return Ok(PythonDTO::PyJson(
-            parameter.extract::<extra_types::JSON>()?.inner().clone(),
-        ));
+        return <extra_types::JSON as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::MacAddr6>() {
-        return Ok(PythonDTO::PyMacAddr6(
-            parameter.extract::<extra_types::MacAddr6>()?.inner(),
-        ));
+        return <extra_types::MacAddr6 as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.is_instance_of::<extra_types::MacAddr8>() {
-        return Ok(PythonDTO::PyMacAddr8(
-            parameter.extract::<extra_types::MacAddr8>()?.inner(),
-        ));
+        return <extra_types::MacAddr8 as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Point>() {
+        return <extra_types::Point as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Box>() {
+        return <extra_types::Box as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Path>() {
+        return <extra_types::Path as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Line>() {
+        return <extra_types::Line as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::LineSegment>() {
+        return <extra_types::LineSegment as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Circle>() {
+        return <extra_types::Circle as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.get_type().name()? == "UUID" {
-        return Ok(PythonDTO::PyUUID(Uuid::parse_str(
-            parameter.str()?.extract::<&str>()?,
-        )?));
+        return <extra_types::PythonUUID as ToPythonDTO>::to_python_dto(parameter);
     }
 
     if parameter.get_type().name()? == "decimal.Decimal"
         || parameter.get_type().name()? == "Decimal"
     {
-        return Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
-            parameter.str()?.extract::<&str>()?,
-        )?));
+        return <extra_types::PythonDecimal as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    if parameter.is_instance_of::<extra_types::Point>() {
-        return Ok(PythonDTO::PyPoint(
-            parameter.extract::<extra_types::Point>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Box>() {
-        return Ok(PythonDTO::PyBox(
-            parameter.extract::<extra_types::Box>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Path>() {
-        return Ok(PythonDTO::PyPath(
-            parameter.extract::<extra_types::Path>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Line>() {
-        return Ok(PythonDTO::PyLine(
-            parameter.extract::<extra_types::Line>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::LineSegment>() {
-        return Ok(PythonDTO::PyLineSegment(
-            parameter
-                .extract::<extra_types::LineSegment>()?
-                .retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::Circle>() {
-        return Ok(PythonDTO::PyCircle(
-            parameter.extract::<extra_types::Circle>()?.retrieve_value(),
-        ));
-    }
-
-    if parameter.is_instance_of::<extra_types::BoolArray>() {
-        return parameter
-            .extract::<extra_types::BoolArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::UUIDArray>() {
-        return parameter
-            .extract::<extra_types::UUIDArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::VarCharArray>() {
-        return parameter
-            .extract::<extra_types::VarCharArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::TextArray>() {
-        return parameter
-            .extract::<extra_types::TextArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::Int16Array>() {
-        return parameter
-            .extract::<extra_types::Int16Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::Int32Array>() {
-        return parameter
-            .extract::<extra_types::Int32Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::Int64Array>() {
-        return parameter
-            .extract::<extra_types::Int64Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::Float32Array>() {
-        return parameter
-            .extract::<extra_types::Float32Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::Float64Array>() {
-        return parameter
-            .extract::<extra_types::Float64Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::MoneyArray>() {
-        return parameter
-            .extract::<extra_types::MoneyArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::IpAddressArray>() {
-        return parameter
-            .extract::<extra_types::IpAddressArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::JSONBArray>() {
-        return parameter
-            .extract::<extra_types::JSONBArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::JSONArray>() {
-        return parameter
-            .extract::<extra_types::JSONArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::DateArray>() {
-        return parameter
-            .extract::<extra_types::DateArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::TimeArray>() {
-        return parameter
-            .extract::<extra_types::TimeArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::DateTimeArray>() {
-        return parameter
-            .extract::<extra_types::DateTimeArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::DateTimeTZArray>() {
-        return parameter
-            .extract::<extra_types::DateTimeTZArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::MacAddr6Array>() {
-        return parameter
-            .extract::<extra_types::MacAddr6Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::MacAddr8Array>() {
-        return parameter
-            .extract::<extra_types::MacAddr8Array>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::NumericArray>() {
-        return parameter
-            .extract::<extra_types::NumericArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::PointArray>() {
-        return parameter
-            .extract::<extra_types::PointArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::BoxArray>() {
-        return parameter
-            .extract::<extra_types::BoxArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::PathArray>() {
-        return parameter
-            .extract::<extra_types::PathArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::LineArray>() {
-        return parameter
-            .extract::<extra_types::LineArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::LsegArray>() {
-        return parameter
-            .extract::<extra_types::LsegArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::CircleArray>() {
-        return parameter
-            .extract::<extra_types::CircleArray>()?
-            ._convert_to_python_dto();
-    }
-
-    if parameter.is_instance_of::<extra_types::IntervalArray>() {
-        return parameter
-            .extract::<extra_types::IntervalArray>()?
-            ._convert_to_python_dto();
+    if let Ok(converted_array) = from_python_array_typed(parameter) {
+        return Ok(converted_array);
     }
 
     if parameter.is_instance_of::<extra_types::PgVector>() {
-        return Ok(PythonDTO::PyPgVector(
-            parameter.extract::<extra_types::PgVector>()?.inner_value(),
-        ));
+        return <extra_types::PgVector as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    if let Ok(id_address) = parameter.extract::<IpAddr>() {
-        return Ok(PythonDTO::PyIpAddress(id_address));
+    if parameter.extract::<IpAddr>().is_ok() {
+        return <IpAddr as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    // It's used for Enum.
-    // If StrEnum is used on Python side,
-    // we simply stop at the `is_instance_of::<PyString>``.
-    if let Ok(value_attr) = parameter.getattr("value") {
-        if let Ok(possible_string) = value_attr.extract::<String>() {
-            return Ok(PythonDTO::PyString(possible_string));
-        }
+    if parameter.getattr("value").is_ok() {
+        return <extra_types::PythonEnum as ToPythonDTO>::to_python_dto(parameter);
     }
 
     Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
         "Can not covert you type {parameter} into inner one",
+    )))
+}
+
+/// Convert single python parameter to `PythonDTO` enum.
+///
+/// # Errors
+///
+/// May return Err Result if python type doesn't have support yet
+/// or value of the type is incorrect.
+#[allow(clippy::too_many_lines)]
+pub fn from_python_typed(
+    parameter: &pyo3::Bound<'_, PyAny>,
+    type_: &Type,
+) -> PSQLPyResult<PythonDTO> {
+    if parameter.is_instance_of::<extra_types::CustomType>() {
+        return <extra_types::CustomType as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_none() {
+        return <NonePyType as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.get_type().name()? == "UUID" {
+        return <extra_types::PythonUUID as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.get_type().name()? == "decimal.Decimal"
+        || parameter.get_type().name()? == "Decimal"
+    {
+        return <extra_types::PythonDecimal as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
+        return <extra_types::PythonArray as ToPythonDTOArray>::to_python_dto(
+            parameter,
+            type_.clone(),
+        );
+    }
+
+    if let Ok(converted_array) = from_python_array_typed(parameter) {
+        return Ok(converted_array);
+    }
+
+    match *type_ {
+        Type::BYTEA => return <Vec<u8> as ToPythonDTO>::to_python_dto(parameter),
+        Type::TEXT => {
+            if parameter.is_instance_of::<extra_types::Text>() {
+                return <extra_types::Text as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <String as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::VARCHAR => {
+            if parameter.is_instance_of::<extra_types::VarChar>() {
+                return <extra_types::VarChar as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <String as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::XML => return <String as ToPythonDTO>::to_python_dto(parameter),
+        Type::BOOL => return <bool as ToPythonDTO>::to_python_dto(parameter),
+        Type::INT2 => {
+            if parameter.is_instance_of::<extra_types::SmallInt>() {
+                return <extra_types::SmallInt as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <i16 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::INT4 => {
+            if parameter.is_instance_of::<extra_types::Integer>() {
+                return <extra_types::Integer as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <i32 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::INT8 => {
+            if parameter.is_instance_of::<extra_types::BigInt>() {
+                return <extra_types::BigInt as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <i64 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::MONEY => {
+            if parameter.is_instance_of::<extra_types::Money>() {
+                return <extra_types::Money as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <i64 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::FLOAT4 => {
+            if parameter.is_instance_of::<extra_types::Float32>() {
+                return <extra_types::Float32 as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <f32 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::FLOAT8 => {
+            if parameter.is_instance_of::<extra_types::Float64>() {
+                return <extra_types::Float64 as ToPythonDTO>::to_python_dto(parameter);
+            }
+            return <f64 as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::INET => return <IpAddr as ToPythonDTO>::to_python_dto(parameter),
+        Type::DATE => return <NaiveDate as ToPythonDTO>::to_python_dto(parameter),
+        Type::TIME => return <NaiveTime as ToPythonDTO>::to_python_dto(parameter),
+        Type::TIMESTAMP | Type::TIMESTAMPTZ => {
+            return <PyDateTime as ToPythonDTO>::to_python_dto(parameter)
+        }
+        Type::INTERVAL => return <PyDelta as ToPythonDTO>::to_python_dto(parameter),
+        Type::JSONB => {
+            if parameter.is_instance_of::<extra_types::JSONB>() {
+                return <extra_types::JSONB as ToPythonDTO>::to_python_dto(parameter);
+            }
+
+            return <PyDict as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::JSON => {
+            if parameter.is_instance_of::<extra_types::JSON>() {
+                return <extra_types::JSON as ToPythonDTO>::to_python_dto(parameter);
+            }
+
+            return <PyDict as ToPythonDTO>::to_python_dto(parameter);
+        }
+        Type::MACADDR => return <extra_types::MacAddr6 as ToPythonDTO>::to_python_dto(parameter),
+        Type::MACADDR8 => return <extra_types::MacAddr8 as ToPythonDTO>::to_python_dto(parameter),
+        Type::POINT => return <extra_types::Point as ToPythonDTO>::to_python_dto(parameter),
+        Type::BOX => return <extra_types::Box as ToPythonDTO>::to_python_dto(parameter),
+        Type::PATH => return <extra_types::Path as ToPythonDTO>::to_python_dto(parameter),
+        Type::LINE => return <extra_types::Line as ToPythonDTO>::to_python_dto(parameter),
+        Type::LSEG => return <extra_types::LineSegment as ToPythonDTO>::to_python_dto(parameter),
+        Type::CIRCLE => return <extra_types::Circle as ToPythonDTO>::to_python_dto(parameter),
+        _ => {}
+    }
+
+    if let Ok(converted_value) = from_python_untyped(parameter) {
+        return Ok(converted_value);
+    }
+
+    Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+        "Can not covert you type {parameter} into {type_}",
+    )))
+}
+
+fn from_python_array_typed(parameter: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
+    if parameter.is_instance_of::<extra_types::BoolArray>() {
+        return <extra_types::BoolArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::UUIDArray>() {
+        return <extra_types::UUIDArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::VarCharArray>() {
+        return <extra_types::VarCharArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::TextArray>() {
+        return <extra_types::TextArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Int16Array>() {
+        return <extra_types::Int16Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Int32Array>() {
+        return <extra_types::Int32Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Int64Array>() {
+        return <extra_types::Int64Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Float32Array>() {
+        return <extra_types::Float32Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::Float64Array>() {
+        return <extra_types::Float64Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::MoneyArray>() {
+        return <extra_types::MoneyArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::IpAddressArray>() {
+        return <extra_types::IpAddressArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::JSONBArray>() {
+        return <extra_types::JSONBArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::JSONArray>() {
+        return <extra_types::JSONArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::DateArray>() {
+        return <extra_types::DateArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::TimeArray>() {
+        return <extra_types::TimeArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::DateTimeArray>() {
+        return <extra_types::DateTimeArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::DateTimeTZArray>() {
+        return <extra_types::DateTimeTZArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::MacAddr6Array>() {
+        return <extra_types::MacAddr6Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::MacAddr8Array>() {
+        return <extra_types::MacAddr8Array as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::NumericArray>() {
+        return <extra_types::NumericArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::PointArray>() {
+        return <extra_types::PointArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::BoxArray>() {
+        return <extra_types::BoxArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::PathArray>() {
+        return <extra_types::PathArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::LineArray>() {
+        return <extra_types::LineArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::LsegArray>() {
+        return <extra_types::LsegArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::CircleArray>() {
+        return <extra_types::CircleArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    if parameter.is_instance_of::<extra_types::IntervalArray>() {
+        return <extra_types::IntervalArray as ToPythonDTO>::to_python_dto(parameter);
+    }
+
+    Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+        "Cannot convert parameter in extra types Array",
     )))
 }
 
@@ -462,7 +441,7 @@ pub fn py_to_rust(parameter: &pyo3::Bound<'_, PyAny>) -> RustPSQLDriverPyResult<
 /// - The retrieved values are invalid for constructing a date, time, or datetime (e.g., invalid month or day)
 /// - The timezone information (`tzinfo`) is not available or cannot be parsed
 /// - The resulting datetime is ambiguous or invalid (e.g., due to DST transitions)
-fn extract_datetime_from_python_object_attrs(
+pub fn extract_datetime_from_python_object_attrs(
     parameter: &pyo3::Bound<'_, PyAny>,
 ) -> Result<DateTime<FixedOffset>, RustPSQLDriverError> {
     let year = extract_value_from_python_object_or_raise::<i32>(parameter, "year")?;
@@ -514,7 +493,8 @@ fn extract_datetime_from_python_object_attrs(
 #[allow(clippy::cast_possible_wrap)]
 pub fn py_sequence_into_postgres_array(
     parameter: &Bound<PyAny>,
-) -> RustPSQLDriverPyResult<Array<PythonDTO>> {
+    type_: &Type,
+) -> PSQLPyResult<Array<PythonDTO>> {
     let mut py_seq = parameter
         .downcast::<PySequence>()
         .map_err(|_| {
@@ -559,7 +539,7 @@ pub fn py_sequence_into_postgres_array(
         }
     }
 
-    let array_data = py_sequence_into_flat_vec(parameter)?;
+    let array_data = py_sequence_into_flat_vec(parameter, type_)?;
     match postgres_array::Array::from_parts_no_panic(array_data, dimensions) {
         Ok(result_array) => Ok(result_array),
         Err(err) => Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
@@ -574,7 +554,8 @@ pub fn py_sequence_into_postgres_array(
 /// May return Err Result if cannot convert element into Rust one.
 pub fn py_sequence_into_flat_vec(
     parameter: &Bound<PyAny>,
-) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
+    type_: &Type,
+) -> PSQLPyResult<Vec<PythonDTO>> {
     let py_seq = parameter.downcast::<PySequence>().map_err(|_| {
         RustPSQLDriverError::PyToRustValueConversionError(
             "PostgreSQL ARRAY type can be made only from python Sequence".into(),
@@ -589,139 +570,22 @@ pub fn py_sequence_into_flat_vec(
         // Check for the string because it's sequence too,
         // and in the most cases it should be array type, not new dimension.
         if ok_seq_elem.is_instance_of::<PyString>() {
-            final_vec.push(py_to_rust(&ok_seq_elem)?);
+            final_vec.push(from_python_typed(&ok_seq_elem, type_)?);
             continue;
         }
 
         let possible_next_seq = ok_seq_elem.downcast::<PySequence>();
 
         if let Ok(next_seq) = possible_next_seq {
-            let mut next_vec = py_sequence_into_flat_vec(next_seq)?;
+            let mut next_vec = py_sequence_into_flat_vec(next_seq, type_)?;
             final_vec.append(&mut next_vec);
         } else {
-            final_vec.push(py_to_rust(&ok_seq_elem)?);
+            final_vec.push(from_python_typed(&ok_seq_elem, type_)?);
             continue;
         }
     }
 
     Ok(final_vec)
-}
-
-/// Convert parameters come from python.
-///
-/// Parameters for `execute()` method can be either
-/// a list or a tuple or a set.
-///
-/// We parse every parameter from python object and return
-/// Vector of out `PythonDTO`.
-///
-/// # Errors
-///
-/// May return Err Result if can't convert python object.
-#[allow(clippy::needless_pass_by_value)]
-pub fn convert_parameters_and_qs(
-    querystring: String,
-    parameters: Option<Py<PyAny>>,
-) -> RustPSQLDriverPyResult<(String, Vec<PythonDTO>)> {
-    let Some(parameters) = parameters else {
-        return Ok((querystring, vec![]));
-    };
-
-    let res = Python::with_gil(|gil| {
-        let params = parameters.extract::<Vec<Py<PyAny>>>(gil).map_err(|_| {
-            RustPSQLDriverError::PyToRustValueConversionError(
-                "Cannot convert you parameters argument into Rust type, please use List/Tuple"
-                    .into(),
-            )
-        });
-        if let Ok(params) = params {
-            return Ok((querystring, convert_seq_parameters(params)?));
-        }
-
-        let kw_params = parameters.downcast_bound::<PyMapping>(gil);
-        if let Ok(kw_params) = kw_params {
-            return convert_kwargs_parameters(kw_params, &querystring);
-        }
-
-        Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "Parameters must be sequence or mapping".into(),
-        ))
-    })?;
-
-    Ok(res)
-}
-
-pub fn convert_kwargs_parameters<'a>(
-    kw_params: &Bound<'_, PyMapping>,
-    querystring: &'a str,
-) -> RustPSQLDriverPyResult<(String, Vec<PythonDTO>)> {
-    let mut result_vec: Vec<PythonDTO> = vec![];
-    let (changed_string, params_names) = parse_kwargs_qs(querystring);
-
-    for param_name in params_names {
-        match kw_params.get_item(&param_name) {
-            Ok(param) => result_vec.push(py_to_rust(&param)?),
-            Err(_) => {
-                return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    format!("Cannot find parameter with name <{param_name}> in parameters").into(),
-                ))
-            }
-        }
-    }
-
-    Ok((changed_string, result_vec))
-}
-
-pub fn convert_seq_parameters(
-    seq_params: Vec<Py<PyAny>>,
-) -> RustPSQLDriverPyResult<Vec<PythonDTO>> {
-    let mut result_vec: Vec<PythonDTO> = vec![];
-    Python::with_gil(|gil| {
-        for parameter in seq_params {
-            result_vec.push(py_to_rust(parameter.bind(gil))?);
-        }
-        Ok::<(), RustPSQLDriverError>(())
-    })?;
-
-    Ok(result_vec)
-}
-
-/// Convert python List of Dict type or just Dict into serde `Value`.
-///
-/// # Errors
-/// May return error if cannot convert Python type into Rust one.
-#[allow(clippy::needless_pass_by_value)]
-pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
-    Python::with_gil(|gil| {
-        let bind_value = value.bind(gil);
-        if bind_value.is_instance_of::<PyList>() {
-            let mut result_vec: Vec<Value> = vec![];
-
-            let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
-
-            for inner in params {
-                let inner_bind = inner.bind(gil);
-                if inner_bind.is_instance_of::<PyDict>() {
-                    let python_dto = py_to_rust(inner_bind)?;
-                    result_vec.push(python_dto.to_serde_value()?);
-                } else if inner_bind.is_instance_of::<PyList>() {
-                    let serde_value = build_serde_value(inner)?;
-                    result_vec.push(serde_value);
-                } else {
-                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        "PyJSON must have dicts.".to_string(),
-                    ));
-                }
-            }
-            Ok(json!(result_vec))
-        } else if bind_value.is_instance_of::<PyDict>() {
-            return py_to_rust(bind_value)?.to_serde_value();
-        } else {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must be dict value.".to_string(),
-            ));
-        }
-    })
 }
 
 /// Convert two python parameters(x and y) to Coord from `geo_type`.
@@ -731,7 +595,7 @@ pub fn build_serde_value(value: Py<PyAny>) -> RustPSQLDriverPyResult<Value> {
 ///
 /// May return error if cannot convert Python type into Rust one.
 /// May return error if parameters type isn't correct.
-fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriverPyResult<Vec<f64>> {
+fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> PSQLPyResult<Vec<f64>> {
     Python::with_gil(|gil| {
         let mut coord_values_vec: Vec<f64> = vec![];
 
@@ -746,7 +610,7 @@ fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriver
                 ));
             }
 
-            let python_dto = py_to_rust(parameter_bind)?;
+            let python_dto = from_python_untyped(parameter_bind)?;
             match python_dto {
                 PythonDTO::PyIntI16(pyint) => coord_values_vec.push(f64::from(pyint)),
                 PythonDTO::PyIntI32(pyint) => coord_values_vec.push(f64::from(pyint)),
@@ -785,7 +649,7 @@ fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> RustPSQLDriver
 pub fn build_geo_coords(
     py_parameters: Py<PyAny>,
     allowed_length_option: Option<usize>,
-) -> RustPSQLDriverPyResult<Vec<Coord>> {
+) -> PSQLPyResult<Vec<Coord>> {
     let mut result_vec: Vec<Coord> = vec![];
 
     result_vec = Python::with_gil(|gil| {
@@ -859,7 +723,7 @@ pub fn build_geo_coords(
 pub fn build_flat_geo_coords(
     py_parameters: Py<PyAny>,
     allowed_length_option: Option<usize>,
-) -> RustPSQLDriverPyResult<Vec<f64>> {
+) -> PSQLPyResult<Vec<f64>> {
     Python::with_gil(|gil| {
         let allowed_length = allowed_length_option.unwrap_or_default();
 
@@ -893,7 +757,7 @@ pub fn build_flat_geo_coords(
 ///
 /// May return error if cannot convert Python type into Rust one.
 /// May return error if parameters type isn't correct.
-fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> RustPSQLDriverPyResult<Vec<Py<PyAny>>> {
+fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> PSQLPyResult<Vec<Py<PyAny>>> {
     let mut coord_values_sequence_vec: Vec<Py<PyAny>> = vec![];
 
     if bind_parameters.is_instance_of::<PySet>() {
@@ -922,36 +786,4 @@ fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> RustPSQLDriverPyResult
     };
 
     Ok::<Vec<Py<PyAny>>, RustPSQLDriverError>(coord_values_sequence_vec)
-}
-
-fn parse_kwargs_qs(querystring: &str) -> (String, Vec<String>) {
-    let re = regex::Regex::new(r"\$\(([^)]+)\)p").unwrap();
-
-    {
-        let kq_read = KWARGS_QUERYSTRINGS.read().unwrap();
-        let qs = kq_read.get(querystring);
-
-        if let Some(qs) = qs {
-            return qs.clone();
-        }
-    };
-
-    let mut counter = 0;
-    let mut sequence = Vec::new();
-
-    let result = re.replace_all(querystring, |caps: &regex::Captures| {
-        let account_id = caps[1].to_string();
-
-        sequence.push(account_id.clone());
-        counter += 1;
-
-        format!("${}", &counter)
-    });
-
-    let mut kq_write = KWARGS_QUERYSTRINGS.write().unwrap();
-    kq_write.insert(
-        querystring.to_string(),
-        (result.clone().into(), sequence.clone()),
-    );
-    (result.into(), sequence)
 }

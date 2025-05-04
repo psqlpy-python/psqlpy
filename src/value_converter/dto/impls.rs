@@ -1,112 +1,47 @@
 use chrono::{self, DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use geo_types::{Line as LineSegment, LineString, Point, Rect};
-use macaddr::{MacAddr6, MacAddr8};
 use pg_interval::Interval;
 use postgres_types::ToSql;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use std::{fmt::Debug, net::IpAddr};
+use std::net::IpAddr;
 use uuid::Uuid;
 
 use bytes::{BufMut, BytesMut};
 use postgres_protocol::types;
-use pyo3::{PyObject, Python, ToPyObject};
+use pyo3::{Bound, IntoPyObject, PyAny, Python};
 use tokio_postgres::types::{to_sql_checked, Type};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
-    value_converter::additional_types::{
-        Circle, Line, RustLineSegment, RustLineString, RustPoint, RustRect,
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    value_converter::{
+        additional_types::{Circle, Line, RustLineSegment, RustLineString, RustPoint, RustRect},
+        models::serde_value::pythondto_array_to_serde,
     },
 };
 use pgvector::Vector as PgVector;
-use postgres_array::{array::Array, Dimension};
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum PythonDTO {
-    // Primitive
-    PyNone,
-    PyBytes(Vec<u8>),
-    PyBool(bool),
-    PyUUID(Uuid),
-    PyVarChar(String),
-    PyText(String),
-    PyString(String),
-    PyIntI16(i16),
-    PyIntI32(i32),
-    PyIntI64(i64),
-    PyIntU32(u32),
-    PyIntU64(u64),
-    PyFloat32(f32),
-    PyFloat64(f64),
-    PyMoney(i64),
-    PyDate(NaiveDate),
-    PyTime(NaiveTime),
-    PyDateTime(NaiveDateTime),
-    PyDateTimeTz(DateTime<FixedOffset>),
-    PyInterval(Interval),
-    PyIpAddress(IpAddr),
-    PyList(Vec<PythonDTO>),
-    PyArray(Array<PythonDTO>),
-    PyTuple(Vec<PythonDTO>),
-    PyJsonb(Value),
-    PyJson(Value),
-    PyMacAddr6(MacAddr6),
-    PyMacAddr8(MacAddr8),
-    PyDecimal(Decimal),
-    PyCustomType(Vec<u8>),
-    PyPoint(Point),
-    PyBox(Rect),
-    PyPath(LineString),
-    PyLine(Line),
-    PyLineSegment(LineSegment),
-    PyCircle(Circle),
-    // Arrays
-    PyBoolArray(Array<PythonDTO>),
-    PyUuidArray(Array<PythonDTO>),
-    PyVarCharArray(Array<PythonDTO>),
-    PyTextArray(Array<PythonDTO>),
-    PyInt16Array(Array<PythonDTO>),
-    PyInt32Array(Array<PythonDTO>),
-    PyInt64Array(Array<PythonDTO>),
-    PyFloat32Array(Array<PythonDTO>),
-    PyFloat64Array(Array<PythonDTO>),
-    PyMoneyArray(Array<PythonDTO>),
-    PyIpAddressArray(Array<PythonDTO>),
-    PyJSONBArray(Array<PythonDTO>),
-    PyJSONArray(Array<PythonDTO>),
-    PyDateArray(Array<PythonDTO>),
-    PyTimeArray(Array<PythonDTO>),
-    PyDateTimeArray(Array<PythonDTO>),
-    PyDateTimeTZArray(Array<PythonDTO>),
-    PyMacAddr6Array(Array<PythonDTO>),
-    PyMacAddr8Array(Array<PythonDTO>),
-    PyNumericArray(Array<PythonDTO>),
-    PyPointArray(Array<PythonDTO>),
-    PyBoxArray(Array<PythonDTO>),
-    PyPathArray(Array<PythonDTO>),
-    PyLineArray(Array<PythonDTO>),
-    PyLsegArray(Array<PythonDTO>),
-    PyCircleArray(Array<PythonDTO>),
-    PyIntervalArray(Array<PythonDTO>),
-    // PgVector
-    PyPgVector(Vec<f32>),
-}
+use super::enums::PythonDTO;
 
-impl ToPyObject for PythonDTO {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
+impl<'py> IntoPyObject<'py> for PythonDTO {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         match self {
-            PythonDTO::PyNone => py.None(),
-            PythonDTO::PyBool(pybool) => pybool.to_object(py),
+            PythonDTO::PyNone => Ok(py.None().into_bound(py)),
+            PythonDTO::PyBool(pybool) => Ok(pybool.into_pyobject(py)?.to_owned().into_any()),
             PythonDTO::PyString(py_string)
             | PythonDTO::PyText(py_string)
-            | PythonDTO::PyVarChar(py_string) => py_string.to_object(py),
-            PythonDTO::PyIntI32(pyint) => pyint.to_object(py),
-            PythonDTO::PyIntI64(pyint) => pyint.to_object(py),
-            PythonDTO::PyIntU64(pyint) => pyint.to_object(py),
-            PythonDTO::PyFloat32(pyfloat) => pyfloat.to_object(py),
-            PythonDTO::PyFloat64(pyfloat) => pyfloat.to_object(py),
-            _ => unreachable!(),
+            | PythonDTO::PyVarChar(py_string) => Ok(py_string.into_pyobject(py)?.into_any()),
+            PythonDTO::PyIntI32(pyint) => Ok(pyint.into_pyobject(py)?.into_any()),
+            PythonDTO::PyIntI64(pyint) => Ok(pyint.into_pyobject(py)?.into_any()),
+            PythonDTO::PyIntU64(pyint) => Ok(pyint.into_pyobject(py)?.into_any()),
+            PythonDTO::PyFloat32(pyfloat) => Ok(pyfloat.into_pyobject(py)?.into_any()),
+            PythonDTO::PyFloat64(pyfloat) => Ok(pyfloat.into_pyobject(py)?.into_any()),
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
@@ -120,7 +55,7 @@ impl PythonDTO {
     ///
     /// # Errors
     /// May return Err Result if there is no support for passed python type.
-    pub fn array_type(&self) -> RustPSQLDriverPyResult<tokio_postgres::types::Type> {
+    pub fn array_type(&self) -> PSQLPyResult<tokio_postgres::types::Type> {
         match self {
             PythonDTO::PyBool(_) => Ok(tokio_postgres::types::Type::BOOL_ARRAY),
             PythonDTO::PyUUID(_) => Ok(tokio_postgres::types::Type::UUID_ARRAY),
@@ -163,7 +98,7 @@ impl PythonDTO {
     ///
     /// # Errors
     /// May return Err Result if cannot convert python type into rust.
-    pub fn to_serde_value(&self) -> RustPSQLDriverPyResult<Value> {
+    pub fn to_serde_value(&self) -> PSQLPyResult<Value> {
         match self {
             PythonDTO::PyNone => Ok(Value::Null),
             PythonDTO::PyBool(pybool) => Ok(json!(pybool)),
@@ -175,7 +110,7 @@ impl PythonDTO {
             PythonDTO::PyIntU64(pyint) => Ok(json!(pyint)),
             PythonDTO::PyFloat32(pyfloat) => Ok(json!(pyfloat)),
             PythonDTO::PyFloat64(pyfloat) => Ok(json!(pyfloat)),
-            PythonDTO::PyList(pylist) => {
+            PythonDTO::PyList(pylist, _) => {
                 let mut vec_serde_values: Vec<Value> = vec![];
 
                 for py_object in pylist {
@@ -184,7 +119,9 @@ impl PythonDTO {
 
                 Ok(json!(vec_serde_values))
             }
-            PythonDTO::PyArray(array) => Ok(json!(pythondto_array_to_serde(Some(array.clone()))?)),
+            PythonDTO::PyArray(array, _) => {
+                Ok(json!(pythondto_array_to_serde(Some(array.clone()))?))
+            }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => Ok(py_dict.clone()),
             _ => Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert your type into Rust type".into(),
@@ -305,30 +242,11 @@ impl ToSql for PythonDTO {
             PythonDTO::PyCircle(pycircle) => {
                 <&Circle as ToSql>::to_sql(&pycircle, ty, out)?;
             }
-            PythonDTO::PyList(py_iterable) | PythonDTO::PyTuple(py_iterable) => {
-                let mut items = Vec::new();
-                for inner in py_iterable {
-                    items.push(inner);
-                }
-                if items.is_empty() {
-                    return_is_null_true = true;
-                } else {
-                    items.to_sql(&items[0].array_type()?, out)?;
-                }
+            PythonDTO::PyList(py_iterable, type_) | PythonDTO::PyTuple(py_iterable, type_) => {
+                return py_iterable.to_sql(type_, out);
             }
-            PythonDTO::PyArray(array) => {
-                if let Some(first_elem) = array.iter().nth(0) {
-                    match first_elem.array_type() {
-                        Ok(ok_type) => {
-                            array.to_sql(&ok_type, out)?;
-                        }
-                        Err(_) => {
-                            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                                "Cannot define array type.".into(),
-                            ))?
-                        }
-                    }
-                }
+            PythonDTO::PyArray(array, type_) => {
+                return array.to_sql(type_, out);
             }
             PythonDTO::PyJsonb(py_dict) | PythonDTO::PyJson(py_dict) => {
                 <&Value as ToSql>::to_sql(&py_dict, ty, out)?;
@@ -430,62 +348,4 @@ impl ToSql for PythonDTO {
     }
 
     to_sql_checked!();
-}
-
-/// Convert Array of `PythonDTO`s to serde `Value`.
-///
-/// It can convert multidimensional arrays.
-fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> RustPSQLDriverPyResult<Value> {
-    match array {
-        Some(array) => inner_pythondto_array_to_serde(
-            array.dimensions(),
-            array.iter().collect::<Vec<&PythonDTO>>().as_slice(),
-            0,
-            0,
-        ),
-        None => Ok(Value::Null),
-    }
-}
-
-/// Inner conversion array of `PythonDTO`s to serde `Value`.
-#[allow(clippy::cast_sign_loss)]
-fn inner_pythondto_array_to_serde(
-    dimensions: &[Dimension],
-    data: &[&PythonDTO],
-    dimension_index: usize,
-    mut lower_bound: usize,
-) -> RustPSQLDriverPyResult<Value> {
-    let current_dimension = dimensions.get(dimension_index);
-
-    if let Some(current_dimension) = current_dimension {
-        let possible_next_dimension = dimensions.get(dimension_index + 1);
-        match possible_next_dimension {
-            Some(next_dimension) => {
-                let mut final_list: Value = Value::Array(vec![]);
-
-                for _ in 0..current_dimension.len as usize {
-                    if dimensions.get(dimension_index + 1).is_some() {
-                        let inner_pylist = inner_pythondto_array_to_serde(
-                            dimensions,
-                            &data[lower_bound..next_dimension.len as usize + lower_bound],
-                            dimension_index + 1,
-                            0,
-                        )?;
-                        match final_list {
-                            Value::Array(ref mut array) => array.push(inner_pylist),
-                            _ => unreachable!(),
-                        }
-                        lower_bound += next_dimension.len as usize;
-                    };
-                }
-
-                return Ok(final_list);
-            }
-            None => {
-                return data.iter().map(|x| x.to_serde_value()).collect();
-            }
-        }
-    }
-
-    Ok(Value::Array(vec![]))
 }

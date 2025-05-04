@@ -6,7 +6,7 @@ use std::{collections::HashSet, net::IpAddr, sync::Arc};
 use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     runtime::tokio_runtime,
@@ -25,6 +25,7 @@ pub struct Connection {
     db_client: Option<Arc<PsqlpyConnection>>,
     db_pool: Option<Pool>,
     pg_config: Arc<Config>,
+    prepare: bool,
 }
 
 impl Connection {
@@ -33,11 +34,13 @@ impl Connection {
         db_client: Option<Arc<PsqlpyConnection>>,
         db_pool: Option<Pool>,
         pg_config: Arc<Config>,
+        prepare: bool,
     ) -> Self {
         Connection {
             db_client,
             db_pool,
             pg_config,
+            prepare,
         }
     }
 
@@ -54,7 +57,7 @@ impl Connection {
 
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new(None, None, Arc::new(Config::default()))
+        Connection::new(None, None, Arc::new(Config::default()), true)
     }
 }
 
@@ -137,10 +140,14 @@ impl Connection {
         return self.pg_config.get_options();
     }
 
-    async fn __aenter__<'a>(self_: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
-        let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
+    async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
+        let (db_client, db_pool, prepare) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
-            (self_.db_client.clone(), self_.db_pool.clone())
+            (
+                self_.db_client.clone(),
+                self_.db_pool.clone(),
+                self_.prepare,
+            )
         });
 
         if db_client.is_some() {
@@ -155,7 +162,8 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(PsqlpyConnection::PoolConn(db_connection)));
+                self_.db_client =
+                    Some(Arc::new(PsqlpyConnection::PoolConn(db_connection, prepare)));
             });
             return Ok(self_);
         }
@@ -169,7 +177,7 @@ impl Connection {
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
             (
                 exception.is_none(gil),
@@ -205,11 +213,12 @@ impl Connection {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.execute(querystring, parameters, prepared).await;
+            let res = db_client.execute(querystring, parameters, prepared).await;
+            return res;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -227,10 +236,7 @@ impl Connection {
     /// May return Err Result if:
     /// 1) Connection is closed.
     /// 2) Cannot execute querystring.
-    pub async fn execute_batch(
-        self_: pyo3::Py<Self>,
-        querystring: String,
-    ) -> RustPSQLDriverPyResult<()> {
+    pub async fn execute_batch(self_: pyo3::Py<Self>, querystring: String) -> PSQLPyResult<()> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
@@ -256,7 +262,7 @@ impl Connection {
         querystring: String,
         parameters: Option<Vec<Py<PyAny>>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
@@ -282,7 +288,7 @@ impl Connection {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
@@ -312,7 +318,7 @@ impl Connection {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverSinglePyQueryResult> {
+    ) -> PSQLPyResult<PSQLDriverSinglePyQueryResult> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
@@ -339,7 +345,7 @@ impl Connection {
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    ) -> PSQLPyResult<Py<PyAny>> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
@@ -365,7 +371,7 @@ impl Connection {
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
         synchronous_commit: Option<SynchronousCommit>,
-    ) -> RustPSQLDriverPyResult<Transaction> {
+    ) -> PSQLPyResult<Transaction> {
         if let Some(db_client) = &self.db_client {
             return Ok(Transaction::new(
                 db_client.clone(),
@@ -401,7 +407,7 @@ impl Connection {
         fetch_number: Option<usize>,
         scroll: Option<bool>,
         prepared: Option<bool>,
-    ) -> RustPSQLDriverPyResult<Cursor> {
+    ) -> PSQLPyResult<Cursor> {
         if let Some(db_client) = &self.db_client {
             return Ok(Cursor::new(
                 db_client.clone(),
@@ -446,7 +452,7 @@ impl Connection {
         table_name: String,
         columns: Option<Vec<String>>,
         schema_name: Option<String>,
-    ) -> RustPSQLDriverPyResult<u64> {
+    ) -> PSQLPyResult<u64> {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
         let mut table_name = quote_ident(&table_name);
         if let Some(schema_name) = schema_name {
