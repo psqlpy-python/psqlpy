@@ -21,8 +21,8 @@ Use standard python types instead of deprecated ones.
 | Float64 (Deprecated) | FLOAT8 | f64 |
 | VarChar (Deprecated) | VarChar | String |
 | Text (Deprecated) | Text | String |
-| JSON | JSON | serde::Value |
-| JSONB | JSONB | serde::Value |
+| JSON (Deprecated) | JSON | serde::Value |
+| JSONB (Deprecated) | JSONB | serde::Value |
 | MacAddr6 | MacAddr | MacAddr6 |
 | MacAddr8 | MacAddr8 | MacAddr8 |
 | Point | Point | Point |
