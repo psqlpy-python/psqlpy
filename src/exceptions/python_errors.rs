@@ -147,7 +147,7 @@ create_exception!(psqlpy.exceptions, SSLError, DatabaseError);
 #[allow(clippy::missing_errors_doc)]
 #[allow(clippy::too_many_lines)]
 pub fn python_exceptions_module(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
-    pymod.add("Warning", py.get_type::<WarningError>())?;
+    pymod.add("WarningError", py.get_type::<WarningError>())?;
     pymod.add("Error", py.get_type::<Error>())?;
     pymod.add("InterfaceError", py.get_type::<InterfaceError>())?;
     pymod.add("DatabaseError", py.get_type::<DatabaseError>())?;
