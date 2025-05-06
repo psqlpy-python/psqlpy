@@ -96,6 +96,10 @@ ignore = [
     "D103", # Missing docstring in public function
     "S311", # Standard pseudo-random generators are not suitable for security/cryptographic purposes
 ]
+"python/psqlpy/_internal/exceptions.pyi" = [
+    "D205",
+    "RUF002",
+]
 "./psqlpy-stress/psqlpy_stress/migrations/env.py" = ["INP001"]
 "examples/*" = ["INP001"]
 

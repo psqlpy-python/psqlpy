@@ -1,7 +1,7 @@
 use bytes::BytesMut;
 use deadpool_postgres::Pool;
 use futures_util::pin_mut;
-use pyo3::{buffer::PyBuffer, pyclass, pymethods, Py, PyAny, PyErr, Python};
+use pyo3::{buffer::PyBuffer, pyclass, pyfunction, pymethods, Py, PyAny, PyErr, Python};
 use std::{collections::HashSet, net::IpAddr, sync::Arc};
 use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
@@ -9,15 +9,112 @@ use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    runtime::tokio_runtime,
+    runtime::{rustdriver_future, tokio_runtime},
 };
 
 use super::{
+    common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
+    connection_pool::{connect_pool, ConnectionPool},
     cursor::Cursor,
     inner_connection::PsqlpyConnection,
     transaction::Transaction,
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
+    utils::build_connection_config,
 };
+
+/// Make new connection pool.
+///
+/// # Errors
+/// May return error if cannot build new connection pool.
+#[pyfunction]
+#[pyo3(signature = (
+    dsn=None,
+    username=None,
+    password=None,
+    host=None,
+    hosts=None,
+    port=None,
+    ports=None,
+    db_name=None,
+    target_session_attrs=None,
+    options=None,
+    application_name=None,
+    connect_timeout_sec=None,
+    connect_timeout_nanosec=None,
+    tcp_user_timeout_sec=None,
+    tcp_user_timeout_nanosec=None,
+    keepalives=None,
+    keepalives_idle_sec=None,
+    keepalives_idle_nanosec=None,
+    keepalives_interval_sec=None,
+    keepalives_interval_nanosec=None,
+    keepalives_retries=None,
+    load_balance_hosts=None,
+    ssl_mode=None,
+    ca_file=None,
+))]
+#[allow(clippy::too_many_arguments)]
+pub async fn connect(
+    dsn: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+    host: Option<String>,
+    hosts: Option<Vec<String>>,
+    port: Option<u16>,
+    ports: Option<Vec<u16>>,
+    db_name: Option<String>,
+    target_session_attrs: Option<TargetSessionAttrs>,
+    options: Option<String>,
+    application_name: Option<String>,
+    connect_timeout_sec: Option<u64>,
+    connect_timeout_nanosec: Option<u32>,
+    tcp_user_timeout_sec: Option<u64>,
+    tcp_user_timeout_nanosec: Option<u32>,
+    keepalives: Option<bool>,
+    keepalives_idle_sec: Option<u64>,
+    keepalives_idle_nanosec: Option<u32>,
+    keepalives_interval_sec: Option<u64>,
+    keepalives_interval_nanosec: Option<u32>,
+    keepalives_retries: Option<u32>,
+    load_balance_hosts: Option<LoadBalanceHosts>,
+    ssl_mode: Option<SslMode>,
+    ca_file: Option<String>,
+) -> PSQLPyResult<Connection> {
+    let mut connection_pool = connect_pool(
+        dsn,
+        username,
+        password,
+        host,
+        hosts,
+        port,
+        ports,
+        db_name,
+        target_session_attrs,
+        options,
+        application_name,
+        connect_timeout_sec,
+        connect_timeout_nanosec,
+        tcp_user_timeout_sec,
+        tcp_user_timeout_nanosec,
+        keepalives,
+        keepalives_idle_sec,
+        keepalives_idle_nanosec,
+        keepalives_interval_sec,
+        keepalives_interval_nanosec,
+        keepalives_retries,
+        load_balance_hosts,
+        ssl_mode,
+        ca_file,
+        Some(2),
+        None,
+    )?;
+
+    let db_connection = tokio_runtime()
+        .spawn(async move { connection_pool.retrieve_connection().await })
+        .await??;
+
+    Ok(db_connection)
+}
 
 #[pyclass(subclass)]
 #[derive(Clone)]

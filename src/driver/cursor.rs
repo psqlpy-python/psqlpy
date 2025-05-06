@@ -303,8 +303,6 @@ impl Cursor {
     ///
     /// Execute FETCH <number> FROM <cursor name>
     ///
-    /// This is the only place where we use `rustdriver_future` cuz
-    /// we didn't find any solution how to implement it without
     /// # Errors
     /// May return Err Result if can't execute querystring.
     fn __anext__(&self) -> PSQLPyResult<Option<PyObject>> {

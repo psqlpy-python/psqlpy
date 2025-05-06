@@ -8,7 +8,7 @@ use super::python_errors::{
     BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseListenerError,
     BaseTransactionError, ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
     ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
-    CursorClosedError, CursorFetchError, CursorStartError, DriverError, ListenerCallbackError,
+    CursorClosedError, CursorFetchError, CursorStartError, DatabaseError, ListenerCallbackError,
     ListenerClosedError, ListenerStartError, MacAddrParseError, RuntimeJoinError, SSLError,
     TransactionBeginError, TransactionClosedError, TransactionCommitError, TransactionExecuteError,
     TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
@@ -104,7 +104,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
         let error_desc = error.to_string();
         match error {
             RustPSQLDriverError::RustPyError(err) => err,
-            RustPSQLDriverError::RustDriverError(_) => DriverError::new_err((error_desc,)),
+            RustPSQLDriverError::RustDriverError(_) => DatabaseError::new_err((error_desc,)),
             RustPSQLDriverError::RustMacAddrConversionError(_) => {
                 MacAddrParseError::new_err((error_desc,))
             }

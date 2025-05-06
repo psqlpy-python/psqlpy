@@ -886,6 +886,34 @@ class Transaction:
         number of inserted rows;
         """
 
+async def connect(
+    dsn: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+    host: str | None = None,
+    hosts: list[str] | None = None,
+    port: int | None = None,
+    ports: list[int] | None = None,
+    db_name: str | None = None,
+    target_session_attrs: TargetSessionAttrs | None = None,
+    options: str | None = None,
+    application_name: str | None = None,
+    connect_timeout_sec: int | None = None,
+    connect_timeout_nanosec: int | None = None,
+    tcp_user_timeout_sec: int | None = None,
+    tcp_user_timeout_nanosec: int | None = None,
+    keepalives: bool | None = None,
+    keepalives_idle_sec: int | None = None,
+    keepalives_idle_nanosec: int | None = None,
+    keepalives_interval_sec: int | None = None,
+    keepalives_interval_nanosec: int | None = None,
+    keepalives_retries: int | None = None,
+    load_balance_hosts: LoadBalanceHosts | None = None,
+    ssl_mode: SslMode | None = None,
+    ca_file: str | None = None,
+) -> Connection:
+    """Create new standalone connection."""
+
 class Connection:
     """Connection from Database Connection Pool.
 
@@ -1336,7 +1364,7 @@ class ConnectionPool:
     def close(self: Self) -> None:
         """Close the connection pool."""
 
-def connect(
+def connect_pool(
     dsn: str | None = None,
     username: str | None = None,
     password: str | None = None,
