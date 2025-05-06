@@ -138,12 +138,12 @@ impl MappingParametersBuilder {
         types: Vec<Type>,
     ) -> PSQLPyResult<PreparedParameters> {
         let extracted_parameters = self.extract_parameters(gil, parameters_names)?;
-        let zipped_params_types = zip(extracted_parameters, types);
+        let zipped_params_types = zip(extracted_parameters, &types);
         let converted_parameters = zipped_params_types
             .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
+        Ok(PreparedParameters::new(converted_parameters, types))
     }
 
     fn prepare_not_typed(
@@ -157,7 +157,7 @@ impl MappingParametersBuilder {
             .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
+        Ok(PreparedParameters::new(converted_parameters, vec![]))
     }
 
     fn extract_parameters(
@@ -218,7 +218,7 @@ impl SequenceParametersBuilder {
             .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
+        Ok(PreparedParameters::new(converted_parameters, vec![]))
     }
 }
 
