@@ -125,22 +125,22 @@ impl MappingParametersBuilder {
         gil: Python<'_>,
         parameters_names: Vec<String>,
     ) -> PSQLPyResult<PreparedParameters> {
-        if self.types.is_some() {
-            return self.prepare_typed(gil, parameters_names);
+        match self.types.clone() {
+            Some(types) => return self.prepare_typed(gil, parameters_names, types),
+            None => return self.prepare_not_typed(gil, parameters_names),
         }
-
-        self.prepare_not_typed(gil, parameters_names)
     }
 
     fn prepare_typed(
         self,
         gil: Python<'_>,
         parameters_names: Vec<String>,
+        types: Vec<Type>,
     ) -> PSQLPyResult<PreparedParameters> {
-        let converted_parameters = self
-            .extract_parameters(gil, parameters_names)?
-            .iter()
-            .map(|parameter| from_python_untyped(parameter.bind(gil)))
+        let extracted_parameters = self.extract_parameters(gil, parameters_names)?;
+        let zipped_params_types = zip(extracted_parameters, types);
+        let converted_parameters = zipped_params_types
+            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(converted_parameters, vec![])) // TODO: change vec![] to real types.
@@ -196,13 +196,10 @@ impl SequenceParametersBuilder {
     }
 
     fn prepare(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
-        let types = self.types.clone();
-
-        if types.is_some() {
-            return self.prepare_typed(gil, types.clone().unwrap());
+        match self.types.clone() {
+            Some(types) => return self.prepare_typed(gil, types),
+            None => return self.prepare_not_typed(gil),
         }
-
-        self.prepare_not_typed(gil)
     }
 
     fn prepare_typed(self, gil: Python<'_>, types: Vec<Type>) -> PSQLPyResult<PreparedParameters> {

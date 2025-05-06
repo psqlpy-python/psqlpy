@@ -177,7 +177,7 @@ async def create_table_for_map_parameters_test(
     connection = await psql_pool.connection()
     await connection.execute(
         f"CREATE TABLE {map_parameters_table_name}"
-        "(id SERIAL, name VARCHAR(255),surname VARCHAR(255), age INT)",
+        "(id SERIAL, name VARCHAR(255),surname VARCHAR(255), age SMALLINT)",
     )
 
     yield
