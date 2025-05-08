@@ -125,15 +125,15 @@ db_pool: Final = ConnectionPool(
 ```py
 from typing import Final
 
-from psqlpy import connect
+from psqlpy import connect_pool
 
 
-db_pool: Final = connect(
+db_pool: Final = connect_pool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
     max_db_pool_size=10,
 )
 ```
-`connect` function has the same parameters as `ConnectionPool`.
+`connect_pool` function has the same parameters as `ConnectionPool`.
 
 ### Use Connection Pool as context manager
 ```py

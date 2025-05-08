@@ -17,6 +17,7 @@ from psqlpy._internal import (
     TargetSessionAttrs,
     Transaction,
     connect,
+    connect_pool,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "TargetSessionAttrs",
     "Transaction",
     "connect",
+    "connect_pool",
 ]

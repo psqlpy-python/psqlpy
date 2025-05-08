@@ -66,7 +66,7 @@ impl ConnectionPoolConf {
     conn_recycling_method=None,
 ))]
 #[allow(clippy::too_many_arguments)]
-pub fn connect(
+pub fn connect_pool(
     dsn: Option<String>,
     username: Option<String>,
     password: Option<String>,
@@ -239,6 +239,20 @@ impl ConnectionPool {
         }
     }
 
+    pub async fn retrieve_connection(&mut self) -> PSQLPyResult<Connection> {
+        let connection = self.pool.get().await?;
+
+        Ok(Connection::new(
+            Some(Arc::new(PsqlpyConnection::PoolConn(
+                connection,
+                self.pool_conf.prepare,
+            ))),
+            None,
+            self.pg_config.clone(),
+            self.pool_conf.prepare,
+        ))
+    }
+
     pub fn remove_prepared_stmt(&mut self, query: &str, types: &[Type]) {
         self.pool.manager().statement_caches.remove(query, types);
     }
@@ -308,7 +322,7 @@ impl ConnectionPool {
         ssl_mode: Option<SslMode>,
         ca_file: Option<String>,
     ) -> PSQLPyResult<Self> {
-        connect(
+        connect_pool(
             dsn,
             username,
             password,

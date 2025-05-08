@@ -11,7 +11,7 @@ from psqlpy import (
     SynchronousCommit,
 )
 from psqlpy.exceptions import (
-    RustPSQLDriverPyBaseError,
+    InterfaceError,
     TransactionBeginError,
     TransactionExecuteError,
     TransactionSavepointError,
@@ -50,7 +50,7 @@ async def test_transaction_init_parameters(
                 f"INSERT INTO {table_name} VALUES ($1, $2)",
                 parameters=[100, "test_name"],
             )
-        except RustPSQLDriverPyBaseError:
+        except InterfaceError:
             assert read_variant is ReadVariant.ReadOnly
         else:
             assert read_variant is not ReadVariant.ReadOnly
@@ -287,7 +287,7 @@ async def test_transaction_fetch_row_more_than_one_row(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        with pytest.raises(RustPSQLDriverPyBaseError):
+        with pytest.raises(InterfaceError):
             await transaction.fetch_row(
                 f"SELECT * FROM  {table_name}",
                 [],
@@ -313,7 +313,7 @@ async def test_transaction_fetch_val_more_than_one_row(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        with pytest.raises(RustPSQLDriverPyBaseError):
+        with pytest.raises(InterfaceError):
             await transaction.fetch_row(
                 f"SELECT * FROM  {table_name}",
                 [],
