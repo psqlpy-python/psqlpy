@@ -742,6 +742,7 @@ impl Transaction {
 
         Err(RustPSQLDriverError::TransactionClosedError)
     }
+
     /// Execute querystrings with parameters and return all results.
     ///
     /// Create pipeline of queries.
