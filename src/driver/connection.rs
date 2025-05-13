@@ -9,17 +9,16 @@ use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    runtime::{rustdriver_future, tokio_runtime},
+    runtime::tokio_runtime,
 };
 
 use super::{
     common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
-    connection_pool::{connect_pool, ConnectionPool},
+    connection_pool::connect_pool,
     cursor::Cursor,
     inner_connection::PsqlpyConnection,
     transaction::Transaction,
     transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
-    utils::build_connection_config,
 };
 
 /// Make new connection pool.

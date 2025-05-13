@@ -1,7 +1,7 @@
 use bytes::Buf;
-use deadpool_postgres::Object;
+use deadpool_postgres::{Object, Transaction};
 use postgres_types::{ToSql, Type};
-use pyo3::{Py, PyAny, Python};
+use pyo3::{pyclass, Py, PyAny, Python};
 use std::vec;
 use tokio_postgres::{Client, CopyInSink, Row, Statement, ToStatement};
 
@@ -17,6 +17,11 @@ pub enum PsqlpyConnection {
     PoolConn(Object, bool),
     SingleConn(Client),
 }
+
+// #[pyclass]
+// struct Portal {
+//     trans: Transaction<'static>,
+// }
 
 impl PsqlpyConnection {
     /// Prepare cached statement.
@@ -37,6 +42,25 @@ impl PsqlpyConnection {
             PsqlpyConnection::SingleConn(sconn) => return Ok(sconn.prepare(query).await?),
         }
     }
+
+    // pub async fn transaction(&mut self) -> Portal {
+    //     match self {
+    //         PsqlpyConnection::PoolConn(pconn, _) => {
+    //             let b = unsafe {
+    //                 std::mem::transmute::<Transaction<'_>, Transaction<'static>>(pconn.transaction().await.unwrap())
+    //             };
+    //             Portal {trans: b}
+    //             // let c = b.bind("SELECT 1", &[]).await.unwrap();
+    //             // b.query_portal(&c, 1).await;
+    //         }
+    //         PsqlpyConnection::SingleConn(sconn) => {
+    //             let b = unsafe {
+    //                 std::mem::transmute::<Transaction<'_>, Transaction<'static>>(sconn.transaction().await.unwrap())
+    //             };
+    //             Portal {trans: b}
+    //         },
+    //     }
+    // }
 
     /// Delete prepared statement.
     ///
