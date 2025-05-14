@@ -1,8 +1,10 @@
 pub mod common;
+pub mod connection;
 pub mod driver;
 pub mod exceptions;
 pub mod extra_types;
 pub mod format_helpers;
+pub mod options;
 pub mod query_result;
 pub mod row_factories;
 pub mod runtime;
@@ -35,9 +37,8 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::cursor::Cursor>()?;
     pymod.add_class::<driver::listener::core::Listener>()?;
     pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
-    pymod.add_class::<driver::transaction_options::IsolationLevel>()?;
-    pymod.add_class::<driver::transaction_options::SynchronousCommit>()?;
-    pymod.add_class::<driver::transaction_options::ReadVariant>()?;
+    pymod.add_class::<options::IsolationLevel>()?;
+    pymod.add_class::<options::ReadVariant>()?;
     pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
     pymod.add_class::<driver::common_options::LoadBalanceHosts>()?;
     pymod.add_class::<driver::common_options::TargetSessionAttrs>()?;

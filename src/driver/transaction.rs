@@ -9,108 +9,27 @@ use pyo3::{
 use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
+    connection::{
+        structs::PSQLPyConnection,
+        traits::{Connection as _, Transaction as _},
+    },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
+    options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
 };
 
-use super::{
-    cursor::Cursor,
-    inner_connection::PsqlpyConnection,
-    transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
-};
+use super::cursor::Cursor;
 use std::{collections::HashSet, net::IpAddr, sync::Arc};
-
-#[allow(clippy::module_name_repetitions)]
-pub trait TransactionObjectTrait {
-    fn start_transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        defferable: Option<bool>,
-        synchronous_commit: Option<SynchronousCommit>,
-    ) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
-    fn commit(&self) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
-    fn rollback(&self) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
-}
-
-impl TransactionObjectTrait for PsqlpyConnection {
-    async fn start_transaction(
-        &self,
-        isolation_level: Option<IsolationLevel>,
-        read_variant: Option<ReadVariant>,
-        deferrable: Option<bool>,
-        synchronous_commit: Option<SynchronousCommit>,
-    ) -> PSQLPyResult<()> {
-        let mut querystring = "START TRANSACTION".to_string();
-
-        if let Some(level) = isolation_level {
-            let level = &level.to_str_level();
-            querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
-        };
-
-        querystring.push_str(match read_variant {
-            Some(ReadVariant::ReadOnly) => " READ ONLY",
-            Some(ReadVariant::ReadWrite) => " READ WRITE",
-            None => "",
-        });
-
-        querystring.push_str(match deferrable {
-            Some(true) => " DEFERRABLE",
-            Some(false) => " NOT DEFERRABLE",
-            None => "",
-        });
-
-        self.batch_execute(&querystring).await.map_err(|err| {
-            RustPSQLDriverError::TransactionBeginError(format!(
-                "Cannot execute statement to start transaction, err - {err}"
-            ))
-        })?;
-
-        if let Some(synchronous_commit) = synchronous_commit {
-            let str_synchronous_commit = synchronous_commit.to_str_level();
-
-            let synchronous_commit_query =
-                format!("SET LOCAL synchronous_commit = '{str_synchronous_commit}'");
-
-            self.batch_execute(&synchronous_commit_query)
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::TransactionBeginError(format!(
-                        "Cannot set synchronous_commit parameter, err - {err}"
-                    ))
-                })?;
-        }
-
-        Ok(())
-    }
-    async fn commit(&self) -> PSQLPyResult<()> {
-        self.batch_execute("COMMIT;").await.map_err(|err| {
-            RustPSQLDriverError::TransactionCommitError(format!(
-                "Cannot execute COMMIT statement, error - {err}"
-            ))
-        })?;
-        Ok(())
-    }
-    async fn rollback(&self) -> PSQLPyResult<()> {
-        self.batch_execute("ROLLBACK;").await.map_err(|err| {
-            RustPSQLDriverError::TransactionRollbackError(format!(
-                "Cannot execute ROLLBACK statement, error - {err}"
-            ))
-        })?;
-        Ok(())
-    }
-}
 
 #[pyclass(subclass)]
 pub struct Transaction {
-    pub db_client: Option<Arc<PsqlpyConnection>>,
+    pub db_client: Option<Arc<PSQLPyConnection>>,
     pg_config: Arc<Config>,
     is_started: bool,
     is_done: bool,
 
     isolation_level: Option<IsolationLevel>,
-    synchronous_commit: Option<SynchronousCommit>,
     read_variant: Option<ReadVariant>,
     deferrable: Option<bool>,
 
@@ -121,12 +40,11 @@ impl Transaction {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn new(
-        db_client: Arc<PsqlpyConnection>,
+        db_client: Arc<PSQLPyConnection>,
         pg_config: Arc<Config>,
         is_started: bool,
         is_done: bool,
         isolation_level: Option<IsolationLevel>,
-        synchronous_commit: Option<SynchronousCommit>,
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
         savepoints_map: HashSet<String>,
@@ -137,7 +55,6 @@ impl Transaction {
             is_started,
             is_done,
             isolation_level,
-            synchronous_commit,
             read_variant,
             deferrable,
             savepoints_map,
@@ -243,26 +160,18 @@ impl Transaction {
     }
 
     async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (
-            is_started,
-            is_done,
-            isolation_level,
-            synchronous_commit,
-            read_variant,
-            deferrable,
-            db_client,
-        ) = pyo3::Python::with_gil(|gil| {
-            let self_ = self_.borrow(gil);
-            (
-                self_.is_started,
-                self_.is_done,
-                self_.isolation_level,
-                self_.synchronous_commit,
-                self_.read_variant,
-                self_.deferrable,
-                self_.db_client.clone(),
-            )
-        });
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
 
         if is_started {
             return Err(RustPSQLDriverError::TransactionBeginError(
@@ -278,12 +187,7 @@ impl Transaction {
 
         if let Some(db_client) = db_client {
             db_client
-                .start_transaction(
-                    isolation_level,
-                    read_variant,
-                    deferrable,
-                    synchronous_commit,
-                )
+                .start(isolation_level, read_variant, deferrable)
                 .await?;
 
             Python::with_gil(|gil| {
@@ -565,26 +469,18 @@ impl Transaction {
     /// 2) Transaction is done.
     /// 3) Cannot execute `BEGIN` command.
     pub async fn begin(self_: Py<Self>) -> PSQLPyResult<()> {
-        let (
-            is_started,
-            is_done,
-            isolation_level,
-            synchronous_commit,
-            read_variant,
-            deferrable,
-            db_client,
-        ) = pyo3::Python::with_gil(|gil| {
-            let self_ = self_.borrow(gil);
-            (
-                self_.is_started,
-                self_.is_done,
-                self_.isolation_level,
-                self_.synchronous_commit,
-                self_.read_variant,
-                self_.deferrable,
-                self_.db_client.clone(),
-            )
-        });
+        let (is_started, is_done, isolation_level, read_variant, deferrable, db_client) =
+            pyo3::Python::with_gil(|gil| {
+                let self_ = self_.borrow(gil);
+                (
+                    self_.is_started,
+                    self_.is_done,
+                    self_.isolation_level,
+                    self_.read_variant,
+                    self_.deferrable,
+                    self_.db_client.clone(),
+                )
+            });
 
         if let Some(db_client) = db_client {
             if is_started {
@@ -599,12 +495,7 @@ impl Transaction {
                 ));
             }
             db_client
-                .start_transaction(
-                    isolation_level,
-                    read_variant,
-                    deferrable,
-                    synchronous_commit,
-                )
+                .start(isolation_level, read_variant, deferrable)
                 .await?;
 
             pyo3::Python::with_gil(|gil| {

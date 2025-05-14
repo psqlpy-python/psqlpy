@@ -6,8 +6,13 @@ use std::{collections::HashSet, net::IpAddr, sync::Arc};
 use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
 
 use crate::{
+    connection::{
+        structs::{PSQLPyConnection, PoolConnection},
+        traits::Connection as _,
+    },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
+    options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     runtime::tokio_runtime,
 };
@@ -16,9 +21,7 @@ use super::{
     common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection_pool::connect_pool,
     cursor::Cursor,
-    inner_connection::PsqlpyConnection,
     transaction::Transaction,
-    transaction_options::{IsolationLevel, ReadVariant, SynchronousCommit},
 };
 
 /// Make new connection pool.
@@ -118,30 +121,27 @@ pub async fn connect(
 #[pyclass(subclass)]
 #[derive(Clone)]
 pub struct Connection {
-    db_client: Option<Arc<PsqlpyConnection>>,
+    db_client: Option<Arc<PSQLPyConnection>>,
     db_pool: Option<Pool>,
     pg_config: Arc<Config>,
-    prepare: bool,
 }
 
 impl Connection {
     #[must_use]
     pub fn new(
-        db_client: Option<Arc<PsqlpyConnection>>,
+        db_client: Option<Arc<PSQLPyConnection>>,
         db_pool: Option<Pool>,
         pg_config: Arc<Config>,
-        prepare: bool,
     ) -> Self {
         Connection {
             db_client,
             db_pool,
             pg_config,
-            prepare,
         }
     }
 
     #[must_use]
-    pub fn db_client(&self) -> Option<Arc<PsqlpyConnection>> {
+    pub fn db_client(&self) -> Option<Arc<PSQLPyConnection>> {
         self.db_client.clone()
     }
 
@@ -153,7 +153,7 @@ impl Connection {
 
 impl Default for Connection {
     fn default() -> Self {
-        Connection::new(None, None, Arc::new(Config::default()), true)
+        Connection::new(None, None, Arc::new(Config::default()))
     }
 }
 
@@ -237,13 +237,9 @@ impl Connection {
     }
 
     async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (db_client, db_pool, prepare) = pyo3::Python::with_gil(|gil| {
+        let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
-            (
-                self_.db_client.clone(),
-                self_.db_pool.clone(),
-                self_.prepare,
-            )
+            (self_.db_client.clone(), self_.db_pool.clone())
         });
 
         if db_client.is_some() {
@@ -258,8 +254,9 @@ impl Connection {
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client =
-                    Some(Arc::new(PsqlpyConnection::PoolConn(db_connection, prepare)));
+                self_.db_client = Some(Arc::new(PSQLPyConnection::PoolConn(PoolConnection {
+                    connection: db_connection,
+                })));
             });
             return Ok(self_);
         }
@@ -459,14 +456,12 @@ impl Connection {
         isolation_level=None,
         read_variant=None,
         deferrable=None,
-        synchronous_commit=None,
     ))]
     pub fn transaction(
         &self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
-        synchronous_commit: Option<SynchronousCommit>,
     ) -> PSQLPyResult<Transaction> {
         if let Some(db_client) = &self.db_client {
             return Ok(Transaction::new(
@@ -475,7 +470,6 @@ impl Connection {
                 false,
                 false,
                 isolation_level,
-                synchronous_commit,
                 read_variant,
                 deferrable,
                 HashSet::new(),

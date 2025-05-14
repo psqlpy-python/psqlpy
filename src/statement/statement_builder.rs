@@ -2,7 +2,10 @@ use pyo3::PyObject;
 use tokio::sync::RwLockWriteGuard;
 use tokio_postgres::Statement;
 
-use crate::{driver::inner_connection::PsqlpyConnection, exceptions::rust_errors::PSQLPyResult};
+use crate::{
+    connection::{structs::PSQLPyConnection, traits::Connection},
+    exceptions::rust_errors::PSQLPyResult,
+};
 
 use super::{
     cache::{StatementCacheInfo, StatementsCache, STMTS_CACHE},
@@ -14,7 +17,7 @@ use super::{
 pub struct StatementBuilder<'a> {
     querystring: String,
     parameters: Option<PyObject>,
-    inner_conn: &'a PsqlpyConnection,
+    inner_conn: &'a PSQLPyConnection,
     prepared: bool,
 }
 
@@ -22,7 +25,7 @@ impl<'a> StatementBuilder<'a> {
     pub fn new(
         querystring: String,
         parameters: Option<PyObject>,
-        inner_conn: &'a PsqlpyConnection,
+        inner_conn: &'a PSQLPyConnection,
         prepared: Option<bool>,
     ) -> Self {
         Self {
