@@ -6,12 +6,11 @@ use pyo3::{
 use tokio_postgres::{config::Host, Config};
 
 use crate::{
+    connection::structs::PSQLPyConnection,
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     query_result::PSQLDriverPyQueryResult,
     runtime::rustdriver_future,
 };
-
-use super::inner_connection::PsqlpyConnection;
 
 /// Additional implementation for the `Object` type.
 #[allow(clippy::ref_option)]
@@ -28,7 +27,7 @@ trait CursorObjectTrait {
     async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> PSQLPyResult<()>;
 }
 
-impl CursorObjectTrait for PsqlpyConnection {
+impl CursorObjectTrait for PSQLPyConnection {
     /// Start the cursor.
     ///
     /// Execute `DECLARE` command with parameters.
@@ -90,7 +89,7 @@ impl CursorObjectTrait for PsqlpyConnection {
 
 #[pyclass(subclass)]
 pub struct Cursor {
-    db_transaction: Option<Arc<PsqlpyConnection>>,
+    db_transaction: Option<Arc<PSQLPyConnection>>,
     pg_config: Arc<Config>,
     querystring: String,
     parameters: Option<Py<PyAny>>,
@@ -105,7 +104,7 @@ pub struct Cursor {
 impl Cursor {
     #[must_use]
     pub fn new(
-        db_transaction: Arc<PsqlpyConnection>,
+        db_transaction: Arc<PSQLPyConnection>,
         pg_config: Arc<Config>,
         querystring: String,
         parameters: Option<Py<PyAny>>,

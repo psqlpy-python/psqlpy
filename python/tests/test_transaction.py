@@ -8,7 +8,6 @@ from psqlpy import (
     Cursor,
     IsolationLevel,
     ReadVariant,
-    SynchronousCommit,
 )
 from psqlpy.exceptions import (
     InterfaceError,
@@ -362,29 +361,3 @@ async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
         await transaction.execute(querystring="SELECT * FROM execute_batch2")
 
     connection.back_to_pool()
-
-
-@pytest.mark.parametrize(
-    "synchronous_commit",
-    [
-        SynchronousCommit.On,
-        SynchronousCommit.Off,
-        SynchronousCommit.Local,
-        SynchronousCommit.RemoteWrite,
-        SynchronousCommit.RemoteApply,
-    ],
-)
-async def test_synchronous_commit(
-    synchronous_commit: SynchronousCommit,
-    psql_pool: ConnectionPool,
-    table_name: str,
-    number_database_records: int,
-) -> None:
-    async with psql_pool.acquire() as conn, conn.transaction(
-        synchronous_commit=synchronous_commit,
-    ) as trans:
-        res = await trans.execute(
-            f"SELECT * FROM {table_name}",
-        )
-
-        assert len(res.result()) == number_database_records

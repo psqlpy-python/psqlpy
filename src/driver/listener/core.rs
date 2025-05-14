@@ -12,10 +12,13 @@ use tokio::{
 use tokio_postgres::{AsyncMessage, Config};
 
 use crate::{
+    connection::{
+        structs::{PSQLPyConnection, SingleConnection},
+        traits::Connection as _,
+    },
     driver::{
         common_options::SslMode,
         connection::Connection,
-        inner_connection::PsqlpyConnection,
         utils::{build_tls, is_coroutine_function, ConfiguredTLS},
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
@@ -42,19 +45,14 @@ pub struct Listener {
 
 impl Listener {
     #[must_use]
-    pub fn new(
-        pg_config: Arc<Config>,
-        ca_file: Option<String>,
-        ssl_mode: Option<SslMode>,
-        prepare: bool,
-    ) -> Self {
+    pub fn new(pg_config: Arc<Config>, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
         Listener {
             pg_config: pg_config.clone(),
             ca_file,
             ssl_mode,
             channel_callbacks: Arc::default(),
             listen_abort_handler: Option::default(),
-            connection: Connection::new(None, None, pg_config.clone(), prepare),
+            connection: Connection::new(None, None, pg_config.clone()),
             receiver: Option::default(),
             listen_query: Arc::default(),
             is_listened: Arc::new(RwLock::new(false)),
@@ -224,10 +222,11 @@ impl Listener {
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
         self.connection = Connection::new(
-            Some(Arc::new(PsqlpyConnection::SingleConn(client))),
+            Some(Arc::new(PSQLPyConnection::SingleConnection(
+                SingleConnection { connection: client },
+            ))),
             None,
             self.pg_config.clone(),
-            false,
         );
 
         self.is_started = true;
@@ -356,7 +355,7 @@ async fn dispatch_callback(
 async fn execute_listen(
     is_listened: &Arc<RwLock<bool>>,
     listen_query: &Arc<RwLock<String>>,
-    client: &Arc<PsqlpyConnection>,
+    client: &Arc<PSQLPyConnection>,
 ) -> PSQLPyResult<()> {
     let mut write_is_listened = is_listened.write().await;
 
