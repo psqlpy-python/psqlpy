@@ -12,15 +12,15 @@ use crate::{
 
 use super::{
     structs::{PSQLPyConnection, PoolConnection, SingleConnection},
-    traits::{Connection, Transaction},
+    traits::{CloseTransaction, Connection, Cursor, StartTransaction, Transaction},
 };
 
 impl<T> Transaction for T
 where
     T: Connection,
 {
-    async fn start(
-        &self,
+    async fn _start_transaction(
+        &mut self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
@@ -35,7 +35,7 @@ where
         Ok(())
     }
 
-    async fn commit(&self) -> PSQLPyResult<()> {
+    async fn _commit(&self) -> PSQLPyResult<()> {
         self.batch_execute("COMMIT;").await.map_err(|err| {
             RustPSQLDriverError::TransactionCommitError(format!(
                 "Cannot execute COMMIT statement, error - {err}"
@@ -44,7 +44,7 @@ where
         Ok(())
     }
 
-    async fn rollback(&self) -> PSQLPyResult<()> {
+    async fn _rollback(&self) -> PSQLPyResult<()> {
         self.batch_execute("ROLLBACK;").await.map_err(|err| {
             RustPSQLDriverError::TransactionRollbackError(format!(
                 "Cannot execute ROLLBACK statement, error - {err}"
@@ -105,41 +105,37 @@ impl Connection for SingleConnection {
     }
 }
 
-// impl Transaction for SingleConnection {
-//     async fn start(
-//         &self,
-//         isolation_level: Option<super::transaction_options::IsolationLevel>,
-//         read_variant: Option<super::transaction_options::ReadVariant>,
-//         deferrable: Option<bool>,
-//     ) -> PSQLPyResult<()> {
-//         let start_qs = self.build_start_qs(isolation_level, read_variant, deferrable);
-//         self.batch_execute(start_qs.as_str()).await.map_err(|err| {
-//             RustPSQLDriverError::TransactionBeginError(
-//                 format!("Cannot start transaction due to - {err}").into(),
-//             )
-//         })?;
+impl StartTransaction for SingleConnection {
+    async fn start_transaction(
+        &mut self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> PSQLPyResult<()> {
+        let res = self
+            ._start_transaction(isolation_level, read_variant, deferrable)
+            .await?;
+        self.in_transaction = true;
 
-//         Ok(())
-//     }
+        Ok(res)
+    }
+}
 
-//     async fn commit(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("COMMIT;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionCommitError(format!(
-//                 "Cannot execute COMMIT statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
+impl CloseTransaction for SingleConnection {
+    async fn commit(&mut self) -> PSQLPyResult<()> {
+        let res = self._commit().await?;
+        self.in_transaction = false;
 
-//     async fn rollback(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("ROLLBACK;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionRollbackError(format!(
-//                 "Cannot execute ROLLBACK statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
-// }
+        Ok(res)
+    }
+
+    async fn rollback(&mut self) -> PSQLPyResult<()> {
+        let res = self._rollback().await?;
+        self.in_transaction = false;
+
+        Ok(res)
+    }
+}
 
 impl Connection for PoolConnection {
     async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
@@ -193,41 +189,34 @@ impl Connection for PoolConnection {
     }
 }
 
-// impl Transaction for PoolConnection {
-//     async fn start(
-//         &self,
-//         isolation_level: Option<super::transaction_options::IsolationLevel>,
-//         read_variant: Option<super::transaction_options::ReadVariant>,
-//         deferrable: Option<bool>,
-//     ) -> PSQLPyResult<()> {
-//         let start_qs = self.build_start_qs(isolation_level, read_variant, deferrable);
-//         self.batch_execute(start_qs.as_str()).await.map_err(|err| {
-//             RustPSQLDriverError::TransactionBeginError(
-//                 format!("Cannot start transaction due to - {err}").into(),
-//             )
-//         })?;
+impl StartTransaction for PoolConnection {
+    async fn start_transaction(
+        &mut self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> PSQLPyResult<()> {
+        self.in_transaction = true;
+        self._start_transaction(isolation_level, read_variant, deferrable)
+            .await
+    }
+}
 
-//         Ok(())
-//     }
+impl CloseTransaction for PoolConnection {
+    async fn commit(&mut self) -> PSQLPyResult<()> {
+        let res = self._commit().await?;
+        self.in_transaction = false;
 
-//     async fn commit(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("COMMIT;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionCommitError(format!(
-//                 "Cannot execute COMMIT statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
+        Ok(res)
+    }
 
-//     async fn rollback(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("ROLLBACK;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionRollbackError(format!(
-//                 "Cannot execute ROLLBACK statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
-// }
+    async fn rollback(&mut self) -> PSQLPyResult<()> {
+        let res = self._rollback().await?;
+        self.in_transaction = false;
+
+        Ok(res)
+    }
+}
 
 impl Connection for PSQLPyConnection {
     async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
@@ -293,37 +282,81 @@ impl Connection for PSQLPyConnection {
     }
 }
 
-// impl Transaction for PSQLPyConnection {
-//     async fn start(
-//         &self,
-//         isolation_level: Option<super::transaction_options::IsolationLevel>,
-//         read_variant: Option<super::transaction_options::ReadVariant>,
-//         deferrable: Option<bool>,
-//     ) -> PSQLPyResult<()> {
-//         match self {
-//             PSQLPyConnection::PoolConn(p_conn) => p_conn.start(isolation_level, read_variant, deferrable).await,
-//             PSQLPyConnection::SingleConnection(s_conn) => s_conn.start(isolation_level, read_variant, deferrable).await,
-//         }
-//     }
+impl StartTransaction for PSQLPyConnection {
+    async fn start_transaction(
+        &mut self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> PSQLPyResult<()> {
+        match self {
+            PSQLPyConnection::PoolConn(p_conn) => {
+                p_conn
+                    .start_transaction(isolation_level, read_variant, deferrable)
+                    .await
+            }
+            PSQLPyConnection::SingleConnection(s_conn) => {
+                s_conn
+                    .start_transaction(isolation_level, read_variant, deferrable)
+                    .await
+            }
+        }
+    }
+}
 
-//     async fn commit(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("COMMIT;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionCommitError(format!(
-//                 "Cannot execute COMMIT statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
+impl CloseTransaction for PSQLPyConnection {
+    async fn commit(&mut self) -> PSQLPyResult<()> {
+        match self {
+            PSQLPyConnection::PoolConn(p_conn) => p_conn.commit().await,
+            PSQLPyConnection::SingleConnection(s_conn) => s_conn.commit().await,
+        }
+    }
 
-//     async fn rollback(&self) -> PSQLPyResult<()> {
-//         self.batch_execute("ROLLBACK;").await.map_err(|err| {
-//             RustPSQLDriverError::TransactionRollbackError(format!(
-//                 "Cannot execute ROLLBACK statement, error - {err}"
-//             ))
-//         })?;
-//         Ok(())
-//     }
-// }
+    async fn rollback(&mut self) -> PSQLPyResult<()> {
+        match self {
+            PSQLPyConnection::PoolConn(p_conn) => p_conn.rollback().await,
+            PSQLPyConnection::SingleConnection(s_conn) => s_conn.rollback().await,
+        }
+    }
+}
+
+impl Cursor for PSQLPyConnection {
+    async fn start_cursor(
+        &mut self,
+        cursor_name: &str,
+        scroll: &Option<bool>,
+        querystring: String,
+        prepared: &Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> PSQLPyResult<()> {
+        let cursor_qs = self.build_cursor_start_qs(cursor_name, scroll, &querystring);
+        self.execute(cursor_qs, parameters, *prepared)
+            .await
+            .map_err(|err| {
+                RustPSQLDriverError::CursorStartError(format!("Cannot start cursor due to {err}"))
+            })?;
+        match self {
+            PSQLPyConnection::PoolConn(conn) => conn.in_cursor = true,
+            PSQLPyConnection::SingleConnection(conn) => conn.in_cursor = true,
+        }
+        Ok(())
+    }
+
+    async fn close_cursor(&mut self, cursor_name: &str) -> PSQLPyResult<()> {
+        self.execute(
+            format!("CLOSE {cursor_name}"),
+            Option::default(),
+            Some(false),
+        )
+        .await?;
+
+        match self {
+            PSQLPyConnection::PoolConn(conn) => conn.in_cursor = false,
+            PSQLPyConnection::SingleConnection(conn) => conn.in_cursor = false,
+        }
+        Ok(())
+    }
+}
 
 impl PSQLPyConnection {
     pub async fn execute(
@@ -337,23 +370,24 @@ impl PSQLPyConnection {
             .await?;
 
         let prepared = prepared.unwrap_or(true);
-
         let result = match prepared {
-            true => self
-                .query(statement.statement_query()?, &statement.params())
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::ConnectionExecuteError(format!(
-                        "Cannot prepare statement, error - {err}"
-                    ))
-                })?,
-            false => self
-                .query_typed(statement.raw_query(), &statement.params_typed())
-                .await
-                .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?,
+            true => {
+                self.query(statement.statement_query()?, &statement.params())
+                    .await
+            }
+            false => {
+                self.query_typed(statement.raw_query(), &statement.params_typed())
+                    .await
+            }
         };
 
-        Ok(PSQLDriverPyQueryResult::new(result))
+        let return_result = result.map_err(|err| {
+            RustPSQLDriverError::ConnectionExecuteError(format!(
+                "Cannot execute query, error - {err}"
+            ))
+        })?;
+
+        Ok(PSQLDriverPyQueryResult::new(return_result))
     }
 
     pub async fn execute_many(

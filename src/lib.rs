@@ -39,11 +39,11 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
     pymod.add_class::<options::IsolationLevel>()?;
     pymod.add_class::<options::ReadVariant>()?;
-    pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
-    pymod.add_class::<driver::common_options::LoadBalanceHosts>()?;
-    pymod.add_class::<driver::common_options::TargetSessionAttrs>()?;
-    pymod.add_class::<driver::common_options::SslMode>()?;
-    pymod.add_class::<driver::common_options::KeepaliveConfig>()?;
+    pymod.add_class::<options::ConnRecyclingMethod>()?;
+    pymod.add_class::<options::LoadBalanceHosts>()?;
+    pymod.add_class::<options::TargetSessionAttrs>()?;
+    pymod.add_class::<options::SslMode>()?;
+    pymod.add_class::<options::KeepaliveConfig>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;

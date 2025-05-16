@@ -1,12 +1,41 @@
+use std::sync::Arc;
+
 use deadpool_postgres::Object;
-use tokio_postgres::Client;
+use tokio_postgres::{Client, Config};
 
 pub struct PoolConnection {
     pub connection: Object,
+    pub in_transaction: bool,
+    pub in_cursor: bool,
+    pub pg_config: Arc<Config>,
 }
 
+impl PoolConnection {
+    pub fn new(connection: Object, pg_config: Arc<Config>) -> Self {
+        Self {
+            connection,
+            in_transaction: false,
+            in_cursor: false,
+            pg_config,
+        }
+    }
+}
 pub struct SingleConnection {
     pub connection: Client,
+    pub in_transaction: bool,
+    pub in_cursor: bool,
+    pub pg_config: Arc<Config>,
+}
+
+impl SingleConnection {
+    pub fn new(connection: Client, pg_config: Arc<Config>) -> Self {
+        Self {
+            connection,
+            in_transaction: false,
+            in_cursor: false,
+            pg_config,
+        }
+    }
 }
 
 pub enum PSQLPyConnection {

@@ -1,4 +1,4 @@
-pub mod common_options;
+pub mod common;
 pub mod connection;
 pub mod connection_pool;
 pub mod connection_pool_builder;

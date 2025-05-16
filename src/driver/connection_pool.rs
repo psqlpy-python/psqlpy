@@ -6,12 +6,15 @@ use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use postgres_types::Type;
 use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tokio_postgres::Config;
 
-use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
+use crate::{
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+};
 
 use super::{
-    common_options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
     connection::Connection,
     listener::core::Listener,
     utils::{build_connection_config, build_manager, build_tls},
@@ -245,9 +248,9 @@ impl ConnectionPool {
         let connection = self.pool.get().await?;
 
         Ok(Connection::new(
-            Some(Arc::new(PSQLPyConnection::PoolConn(PoolConnection {
-                connection,
-            }))),
+            Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
+                PoolConnection::new(connection, self.pg_config.clone()),
+            )))),
             None,
             self.pg_config.clone(),
         ))
@@ -422,9 +425,9 @@ impl ConnectionPool {
             .await??;
 
         Ok(Connection::new(
-            Some(Arc::new(PSQLPyConnection::PoolConn(PoolConnection {
-                connection,
-            }))),
+            Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
+                PoolConnection::new(connection, pg_config.clone()),
+            )))),
             None,
             pg_config,
         ))

@@ -2,8 +2,9 @@ use bytes::BytesMut;
 use deadpool_postgres::Pool;
 use futures_util::pin_mut;
 use pyo3::{buffer::PyBuffer, pyclass, pyfunction, pymethods, Py, PyAny, PyErr, Python};
-use std::{collections::HashSet, net::IpAddr, sync::Arc};
-use tokio_postgres::{binary_copy::BinaryCopyInWriter, config::Host, Config};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, Config};
 
 use crate::{
     connection::{
@@ -12,17 +13,12 @@ use crate::{
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     format_helpers::quote_ident,
-    options::{IsolationLevel, ReadVariant},
+    options::{IsolationLevel, LoadBalanceHosts, ReadVariant, SslMode, TargetSessionAttrs},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     runtime::tokio_runtime,
 };
 
-use super::{
-    common_options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
-    connection_pool::connect_pool,
-    cursor::Cursor,
-    transaction::Transaction,
-};
+use super::{connection_pool::connect_pool, cursor::Cursor, transaction::Transaction};
 
 /// Make new connection pool.
 ///
@@ -121,15 +117,15 @@ pub async fn connect(
 #[pyclass(subclass)]
 #[derive(Clone)]
 pub struct Connection {
-    db_client: Option<Arc<PSQLPyConnection>>,
+    db_client: Option<Arc<RwLock<PSQLPyConnection>>>,
     db_pool: Option<Pool>,
-    pg_config: Arc<Config>,
+    pub pg_config: Arc<Config>,
 }
 
 impl Connection {
     #[must_use]
     pub fn new(
-        db_client: Option<Arc<PSQLPyConnection>>,
+        db_client: Option<Arc<RwLock<PSQLPyConnection>>>,
         db_pool: Option<Pool>,
         pg_config: Arc<Config>,
     ) -> Self {
@@ -141,7 +137,7 @@ impl Connection {
     }
 
     #[must_use]
-    pub fn db_client(&self) -> Option<Arc<PSQLPyConnection>> {
+    pub fn db_client(&self) -> Option<Arc<RwLock<PSQLPyConnection>>> {
         self.db_client.clone()
     }
 
@@ -159,87 +155,14 @@ impl Default for Connection {
 
 #[pymethods]
 impl Connection {
-    #[getter]
-    fn conn_dbname(&self) -> Option<&str> {
-        self.pg_config.get_dbname()
-    }
-
-    #[getter]
-    fn user(&self) -> Option<&str> {
-        self.pg_config.get_user()
-    }
-
-    #[getter]
-    fn host_addrs(&self) -> Vec<String> {
-        let mut host_addrs_vec = vec![];
-
-        let host_addrs = self.pg_config.get_hostaddrs();
-        for ip_addr in host_addrs {
-            match ip_addr {
-                IpAddr::V4(ipv4) => {
-                    host_addrs_vec.push(ipv4.to_string());
-                }
-                IpAddr::V6(ipv6) => {
-                    host_addrs_vec.push(ipv6.to_string());
-                }
-            }
-        }
-
-        host_addrs_vec
-    }
-
-    #[cfg(unix)]
-    #[getter]
-    fn hosts(&self) -> Vec<String> {
-        let mut hosts_vec = vec![];
-
-        let hosts = self.pg_config.get_hosts();
-        for host in hosts {
-            match host {
-                Host::Tcp(host) => {
-                    hosts_vec.push(host.to_string());
-                }
-                Host::Unix(host) => {
-                    hosts_vec.push(host.display().to_string());
-                }
-            }
-        }
-
-        hosts_vec
-    }
-
-    #[cfg(not(unix))]
-    #[getter]
-    fn hosts(&self) -> Vec<String> {
-        let mut hosts_vec = vec![];
-
-        let hosts = self.pg_config.get_hosts();
-        for host in hosts {
-            match host {
-                Host::Tcp(host) => {
-                    hosts_vec.push(host.to_string());
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        hosts_vec
-    }
-
-    #[getter]
-    fn ports(&self) -> Vec<&u16> {
-        return self.pg_config.get_ports().iter().collect::<Vec<&u16>>();
-    }
-
-    #[getter]
-    fn options(&self) -> Option<&str> {
-        return self.pg_config.get_options();
-    }
-
     async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (db_client, db_pool) = pyo3::Python::with_gil(|gil| {
+        let (db_client, db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
-            (self_.db_client.clone(), self_.db_pool.clone())
+            (
+                self_.db_client.clone(),
+                self_.db_pool.clone(),
+                self_.pg_config.clone(),
+            )
         });
 
         if db_client.is_some() {
@@ -247,16 +170,16 @@ impl Connection {
         }
 
         if let Some(db_pool) = db_pool {
-            let db_connection = tokio_runtime()
+            let connection = tokio_runtime()
                 .spawn(async move {
                     Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
                 })
                 .await??;
             pyo3::Python::with_gil(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
-                self_.db_client = Some(Arc::new(PSQLPyConnection::PoolConn(PoolConnection {
-                    connection: db_connection,
-                })));
+                self_.db_client = Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
+                    PoolConnection::new(connection, pg_config),
+                ))));
             });
             return Ok(self_);
         }
@@ -310,7 +233,8 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            let res = db_client.execute(querystring, parameters, prepared).await;
+            let read_conn_g = db_client.read().await;
+            let res = read_conn_g.execute(querystring, parameters, prepared).await;
             return res;
         }
 
@@ -333,7 +257,8 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.batch_execute(&querystring).await;
+            let read_conn_g = db_client.read().await;
+            return read_conn_g.batch_execute(&querystring).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -359,7 +284,8 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client
+            let read_conn_g = db_client.read().await;
+            return read_conn_g
                 .execute_many(querystring, parameters, prepared)
                 .await;
         }
@@ -385,7 +311,8 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.execute(querystring, parameters, prepared).await;
+            let read_conn_g = db_client.read().await;
+            return read_conn_g.execute(querystring, parameters, prepared).await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -415,7 +342,10 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.fetch_row(querystring, parameters, prepared).await;
+            let read_conn_g = db_client.read().await;
+            return read_conn_g
+                .fetch_row(querystring, parameters, prepared)
+                .await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -442,7 +372,10 @@ impl Connection {
         let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).db_client.clone());
 
         if let Some(db_client) = db_client {
-            return db_client.fetch_val(querystring, parameters, prepared).await;
+            let read_conn_g = db_client.read().await;
+            return read_conn_g
+                .fetch_val(querystring, parameters, prepared)
+                .await;
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -465,14 +398,11 @@ impl Connection {
     ) -> PSQLPyResult<Transaction> {
         if let Some(db_client) = &self.db_client {
             return Ok(Transaction::new(
-                db_client.clone(),
+                Some(db_client.clone()),
                 self.pg_config.clone(),
-                false,
-                false,
                 isolation_level,
                 read_variant,
                 deferrable,
-                HashSet::new(),
             ));
         }
 
@@ -504,7 +434,6 @@ impl Connection {
                 self.pg_config.clone(),
                 querystring,
                 parameters,
-                "cur_name".into(),
                 fetch_number.unwrap_or(10),
                 scroll,
                 prepared,
@@ -576,7 +505,8 @@ impl Connection {
                 ))
             })?;
 
-            let sink = db_client.copy_in(&copy_qs).await?;
+            let read_conn_g = db_client.read().await;
+            let sink = read_conn_g.copy_in(&copy_qs).await?;
             let writer = BinaryCopyInWriter::new_empty_buffer(sink, &[]);
             pin_mut!(writer);
             writer.as_mut().write_raw_bytes(&mut psql_bytes).await?;
