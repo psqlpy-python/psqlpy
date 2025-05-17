@@ -18,7 +18,9 @@ use crate::{
     runtime::tokio_runtime,
 };
 
-use super::{connection_pool::connect_pool, cursor::Cursor, transaction::Transaction};
+use super::{
+    connection_pool::connect_pool, cursor::Cursor, portal::Portal, transaction::Transaction,
+};
 
 /// Make new connection pool.
 ///
@@ -396,17 +398,16 @@ impl Connection {
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
     ) -> PSQLPyResult<Transaction> {
-        if let Some(db_client) = &self.db_client {
-            return Ok(Transaction::new(
-                Some(db_client.clone()),
-                self.pg_config.clone(),
-                isolation_level,
-                read_variant,
-                deferrable,
-            ));
-        }
-
-        Err(RustPSQLDriverError::ConnectionClosedError)
+        let Some(conn) = &self.db_client else {
+            return Err(RustPSQLDriverError::ConnectionClosedError);
+        };
+        Ok(Transaction::new(
+            Some(conn.clone()),
+            self.pg_config.clone(),
+            isolation_level,
+            read_variant,
+            deferrable,
+        ))
     }
 
     /// Create new cursor object.
@@ -428,19 +429,39 @@ impl Connection {
         scroll: Option<bool>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<Cursor> {
-        if let Some(db_client) = &self.db_client {
-            return Ok(Cursor::new(
-                db_client.clone(),
-                self.pg_config.clone(),
-                querystring,
-                parameters,
-                fetch_number.unwrap_or(10),
-                scroll,
-                prepared,
-            ));
-        }
+        let Some(conn) = &self.db_client else {
+            return Err(RustPSQLDriverError::ConnectionClosedError);
+        };
 
-        Err(RustPSQLDriverError::ConnectionClosedError)
+        Ok(Cursor::new(
+            conn.clone(),
+            self.pg_config.clone(),
+            querystring,
+            parameters,
+            fetch_number.unwrap_or(10),
+            scroll,
+            prepared,
+        ))
+    }
+
+    #[pyo3(signature = (
+        querystring,
+        parameters=None,
+        fetch_number=None,
+    ))]
+    pub fn portal(
+        &self,
+        querystring: String,
+        parameters: Option<Py<PyAny>>,
+        fetch_number: Option<i32>,
+    ) -> PSQLPyResult<Portal> {
+        println!("{:?}", fetch_number);
+        Ok(Portal::new(
+            self.db_client.clone(),
+            querystring,
+            parameters,
+            fetch_number,
+        ))
     }
 
     #[allow(clippy::needless_pass_by_value)]
