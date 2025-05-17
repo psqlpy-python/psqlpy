@@ -17,11 +17,11 @@ use crate::{
         traits::Connection as _,
     },
     driver::{
-        common_options::SslMode,
         connection::Connection,
         utils::{build_tls, is_coroutine_function, ConfiguredTLS},
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::SslMode,
     runtime::{rustdriver_future, tokio_runtime},
 };
 
@@ -222,9 +222,9 @@ impl Listener {
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
         self.connection = Connection::new(
-            Some(Arc::new(PSQLPyConnection::SingleConnection(
-                SingleConnection { connection: client },
-            ))),
+            Some(Arc::new(RwLock::new(PSQLPyConnection::SingleConnection(
+                SingleConnection::new(client, self.pg_config.clone()),
+            )))),
             None,
             self.pg_config.clone(),
         );
@@ -355,8 +355,9 @@ async fn dispatch_callback(
 async fn execute_listen(
     is_listened: &Arc<RwLock<bool>>,
     listen_query: &Arc<RwLock<String>>,
-    client: &Arc<PSQLPyConnection>,
+    client: &Arc<RwLock<PSQLPyConnection>>,
 ) -> PSQLPyResult<()> {
+    let read_conn_g = client.read().await;
     let mut write_is_listened = is_listened.write().await;
 
     if !write_is_listened.eq(&true) {
@@ -365,7 +366,7 @@ async fn execute_listen(
             String::from(read_listen_query.as_str())
         };
 
-        client.batch_execute(listen_q.as_str()).await?;
+        read_conn_g.batch_execute(listen_q.as_str()).await?;
     }
 
     *write_is_listened = true;

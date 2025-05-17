@@ -1,4 +1,5 @@
 use postgres_types::{ToSql, Type};
+use pyo3::PyAny;
 use tokio_postgres::{Row, Statement, ToStatement};
 
 use crate::exceptions::rust_errors::PSQLPyResult;
@@ -74,14 +75,65 @@ pub trait Transaction {
         querystring
     }
 
-    fn start(
-        &self,
+    fn _start_transaction(
+        &mut self,
         isolation_level: Option<IsolationLevel>,
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
     ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
 
-    fn commit(&self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+    fn _commit(&self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
 
-    fn rollback(&self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+    fn _rollback(&self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+}
+
+pub trait StartTransaction: Transaction {
+    fn start_transaction(
+        &mut self,
+        isolation_level: Option<IsolationLevel>,
+        read_variant: Option<ReadVariant>,
+        deferrable: Option<bool>,
+    ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+}
+
+pub trait CloseTransaction: StartTransaction {
+    fn commit(&mut self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+
+    fn rollback(&mut self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+}
+
+pub trait Cursor {
+    fn build_cursor_start_qs(
+        &self,
+        cursor_name: &str,
+        scroll: &Option<bool>,
+        querystring: &str,
+    ) -> String {
+        let mut cursor_init_query = format!("DECLARE {cursor_name}");
+        if let Some(scroll) = scroll {
+            if *scroll {
+                cursor_init_query.push_str(" SCROLL");
+            } else {
+                cursor_init_query.push_str(" NO SCROLL");
+            }
+        }
+
+        cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
+
+        cursor_init_query
+    }
+
+    fn start_cursor(
+        &mut self,
+        cursor_name: &str,
+        scroll: &Option<bool>,
+        querystring: String,
+        prepared: &Option<bool>,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
+
+    fn close_cursor(
+        &mut self,
+        cursor_name: &str,
+    ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
 }

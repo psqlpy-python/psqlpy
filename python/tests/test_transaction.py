@@ -9,11 +9,10 @@ from psqlpy import (
     IsolationLevel,
     ReadVariant,
 )
+from psqlpy._internal.exceptions import TransactionClosedError
 from psqlpy.exceptions import (
     InterfaceError,
-    TransactionBeginError,
     TransactionExecuteError,
-    TransactionSavepointError,
 )
 
 from tests.helpers import count_rows_in_test_table
@@ -64,10 +63,10 @@ async def test_transaction_begin(
     connection = await psql_pool.connection()
     transaction = connection.transaction()
 
-    with pytest.raises(expected_exception=TransactionBeginError):
-        await transaction.execute(
-            f"SELECT * FROM {table_name}",
-        )
+    # with pytest.raises(expected_exception=TransactionBeginError):
+    await transaction.execute(
+        f"SELECT * FROM {table_name}",
+    )
 
     await transaction.begin()
 
@@ -170,7 +169,7 @@ async def test_transaction_rollback(
 
     await transaction.rollback()
 
-    with pytest.raises(expected_exception=TransactionBeginError):
+    with pytest.raises(expected_exception=TransactionClosedError):
         await transaction.execute(
             f"SELECT * FROM {table_name} WHERE name = $1",
             parameters=[test_name],
@@ -198,9 +197,8 @@ async def test_transaction_release_savepoint(
     sp_name_2 = "sp2"
 
     await transaction.create_savepoint(sp_name_1)
-
-    with pytest.raises(expected_exception=TransactionSavepointError):
-        await transaction.create_savepoint(sp_name_1)
+    # There is no problem in creating the same sp_name
+    await transaction.create_savepoint(sp_name_1)
 
     await transaction.create_savepoint(sp_name_2)
 

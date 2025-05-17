@@ -3,10 +3,12 @@ use std::{net::IpAddr, time::Duration};
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, Py, Python};
 
-use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
+use crate::{
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+};
 
 use super::{
-    common_options,
     connection_pool::ConnectionPool,
     utils::{build_manager, build_tls},
 };
@@ -17,7 +19,7 @@ pub struct ConnectionPoolBuilder {
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<RecyclingMethod>,
     ca_file: Option<String>,
-    ssl_mode: Option<common_options::SslMode>,
+    ssl_mode: Option<SslMode>,
     prepare: Option<bool>,
 }
 
@@ -104,7 +106,7 @@ impl ConnectionPoolBuilder {
     /// Set connection recycling method.
     fn conn_recycling_method(
         self_: Py<Self>,
-        conn_recycling_method: super::common_options::ConnRecyclingMethod,
+        conn_recycling_method: ConnRecyclingMethod,
     ) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -171,7 +173,7 @@ impl ConnectionPoolBuilder {
     ///
     /// Defaults to `prefer`.
     #[must_use]
-    pub fn ssl_mode(self_: Py<Self>, ssl_mode: crate::driver::common_options::SslMode) -> Py<Self> {
+    pub fn ssl_mode(self_: Py<Self>, ssl_mode: SslMode) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.ssl_mode = Some(ssl_mode);
@@ -259,7 +261,7 @@ impl ConnectionPoolBuilder {
     #[must_use]
     pub fn target_session_attrs(
         self_: Py<Self>,
-        target_session_attrs: super::common_options::TargetSessionAttrs,
+        target_session_attrs: TargetSessionAttrs,
     ) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -274,10 +276,7 @@ impl ConnectionPoolBuilder {
     ///
     /// Defaults to `disable`.
     #[must_use]
-    pub fn load_balance_hosts(
-        self_: Py<Self>,
-        load_balance_hosts: super::common_options::LoadBalanceHosts,
-    ) -> Py<Self> {
+    pub fn load_balance_hosts(self_: Py<Self>, load_balance_hosts: LoadBalanceHosts) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_

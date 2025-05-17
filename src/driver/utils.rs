@@ -6,9 +6,10 @@ use postgres_openssl::MakeTlsConnector;
 use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
 use tokio_postgres::{Config, NoTls};
 
-use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
-
-use super::common_options::{self, LoadBalanceHosts, SslMode, TargetSessionAttrs};
+use crate::{
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
+};
 
 /// Create new config.
 ///
@@ -190,7 +191,7 @@ pub fn build_tls(
             builder.build(),
         )));
     } else if let Some(ssl_mode) = ssl_mode {
-        if *ssl_mode == common_options::SslMode::Require {
+        if *ssl_mode == SslMode::Require {
             let mut builder = SslConnector::builder(SslMethod::tls())?;
             builder.set_verify(SslVerifyMode::NONE);
             return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
