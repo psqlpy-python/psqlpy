@@ -1,14 +1,21 @@
+use std::sync::{Arc, RwLock};
+
 use bytes::Buf;
 use pyo3::{PyAny, Python};
-use tokio_postgres::{CopyInSink, Row, Statement, ToStatement};
+use tokio_postgres::{CopyInSink, Portal as tp_Portal, Row, Statement, ToStatement};
 
 use crate::{
+    driver::portal::Portal,
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
     statement::{statement::PsqlpyStatement, statement_builder::StatementBuilder},
+    transaction::structs::PSQLPyTransaction,
     value_converter::to_python::postgres_to_py,
 };
+
+use deadpool_postgres::Transaction as dp_Transaction;
+use tokio_postgres::Transaction as tp_Transaction;
 
 use super::{
     structs::{PSQLPyConnection, PoolConnection, SingleConnection},
@@ -515,5 +522,43 @@ impl PSQLPyConnection {
                 return Ok(sconn.connection.copy_in(statement).await?)
             }
         }
+    }
+
+    pub async fn transaction(&mut self) -> PSQLPyResult<PSQLPyTransaction> {
+        match self {
+            PSQLPyConnection::PoolConn(conn) => {
+                let transaction = unsafe {
+                    std::mem::transmute::<dp_Transaction<'_>, dp_Transaction<'static>>(
+                        conn.connection.transaction().await?,
+                    )
+                };
+                Ok(PSQLPyTransaction::PoolTransaction(transaction))
+            }
+            PSQLPyConnection::SingleConnection(conn) => {
+                let transaction = unsafe {
+                    std::mem::transmute::<tp_Transaction<'_>, tp_Transaction<'static>>(
+                        conn.connection.transaction().await?,
+                    )
+                };
+                Ok(PSQLPyTransaction::SingleTransaction(transaction))
+            }
+        }
+    }
+
+    pub async fn portal(
+        &mut self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> PSQLPyResult<(PSQLPyTransaction, tp_Portal)> {
+        let statement = StatementBuilder::new(querystring, parameters, self, Some(false))
+            .build()
+            .await?;
+
+        let transaction = self.transaction().await?;
+        let inner_portal = transaction
+            .portal(statement.raw_query(), &statement.params())
+            .await?;
+
+        Ok((transaction, inner_portal))
     }
 }
