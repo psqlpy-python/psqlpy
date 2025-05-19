@@ -200,7 +200,7 @@ async def main() -> None:
     )
 ```
 
-### Back To Pool
+### Close
 Returns connection to the pool.
 It's crucial to commit all transactions and close all cursor which are made from the connection.
 Otherwise, this method won't do anything useful.
@@ -213,5 +213,5 @@ There is no need in this method if you use async context manager.
 async def main() -> None:
     ...
     connection = await db_pool.connection()
-    connection.back_to_pool()
+    connection.close()
 ```

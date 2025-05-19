@@ -1,4 +1,9 @@
-use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
+use pyo3::{
+    prelude::*,
+    pyclass, pymethods,
+    types::{PyDict, PyTuple},
+    Py, PyAny, Python, ToPyObject,
+};
 use tokio_postgres::Row;
 
 use crate::{exceptions::rust_errors::PSQLPyResult, value_converter::to_python::postgres_to_py};

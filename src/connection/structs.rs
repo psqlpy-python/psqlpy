@@ -3,6 +3,7 @@ use std::sync::Arc;
 use deadpool_postgres::Object;
 use tokio_postgres::{Client, Config};
 
+#[derive(Debug)]
 pub struct PoolConnection {
     pub connection: Object,
     pub in_transaction: bool,
@@ -20,6 +21,8 @@ impl PoolConnection {
         }
     }
 }
+
+#[derive(Debug)]
 pub struct SingleConnection {
     pub connection: Client,
     pub in_transaction: bool,
@@ -38,6 +41,7 @@ impl SingleConnection {
     }
 }
 
+#[derive(Debug)]
 pub enum PSQLPyConnection {
     PoolConn(PoolConnection),
     SingleConnection(SingleConnection),

@@ -141,7 +141,7 @@ impl CopyCommandFormat {
 }
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum IsolationLevel {
     ReadUncommitted,
     ReadCommitted,
@@ -163,7 +163,7 @@ impl IsolationLevel {
 }
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ReadVariant {
     ReadOnly,
     ReadWrite,

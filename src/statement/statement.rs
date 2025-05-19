@@ -3,7 +3,10 @@ use tokio_postgres::Statement;
 
 use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
 
-use super::{parameters::PreparedParameters, query::QueryString};
+use super::{
+    parameters::{Column, PreparedParameters},
+    query::QueryString,
+};
 
 #[derive(Clone, Debug)]
 pub struct PsqlpyStatement {
@@ -46,5 +49,9 @@ impl PsqlpyStatement {
 
     pub fn params_typed(&self) -> Box<[(&(dyn ToSql + Sync), Type)]> {
         self.prepared_parameters.params_typed()
+    }
+
+    pub fn columns(&self) -> &Vec<Column> {
+        &self.prepared_parameters.columns()
     }
 }

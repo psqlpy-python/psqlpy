@@ -1,11 +1,8 @@
-use std::sync::{Arc, RwLock};
-
 use bytes::Buf;
 use pyo3::{PyAny, Python};
 use tokio_postgres::{CopyInSink, Portal as tp_Portal, Row, Statement, ToStatement};
 
 use crate::{
-    driver::portal::Portal,
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
@@ -19,7 +16,7 @@ use tokio_postgres::Transaction as tp_Transaction;
 
 use super::{
     structs::{PSQLPyConnection, PoolConnection, SingleConnection},
-    traits::{CloseTransaction, Connection, Cursor, StartTransaction, Transaction},
+    traits::{CloseTransaction, Connection, StartTransaction, Transaction},
 };
 
 impl<T> Transaction for T
@@ -327,52 +324,42 @@ impl CloseTransaction for PSQLPyConnection {
     }
 }
 
-impl Cursor for PSQLPyConnection {
-    async fn start_cursor(
-        &mut self,
-        cursor_name: &str,
-        scroll: &Option<bool>,
-        querystring: String,
-        prepared: &Option<bool>,
-        parameters: Option<pyo3::Py<PyAny>>,
-    ) -> PSQLPyResult<()> {
-        let cursor_qs = self.build_cursor_start_qs(cursor_name, scroll, &querystring);
-        self.execute(cursor_qs, parameters, *prepared)
-            .await
-            .map_err(|err| {
-                RustPSQLDriverError::CursorStartError(format!("Cannot start cursor due to {err}"))
-            })?;
-        match self {
-            PSQLPyConnection::PoolConn(conn) => conn.in_cursor = true,
-            PSQLPyConnection::SingleConnection(conn) => conn.in_cursor = true,
-        }
-        Ok(())
-    }
-
-    async fn close_cursor(&mut self, cursor_name: &str) -> PSQLPyResult<()> {
-        self.execute(
-            format!("CLOSE {cursor_name}"),
-            Option::default(),
-            Some(false),
-        )
-        .await?;
-
-        match self {
-            PSQLPyConnection::PoolConn(conn) => conn.in_cursor = false,
-            PSQLPyConnection::SingleConnection(conn) => conn.in_cursor = false,
-        }
-        Ok(())
-    }
-}
-
 impl PSQLPyConnection {
+    pub fn in_transaction(&self) -> bool {
+        match self {
+            PSQLPyConnection::PoolConn(conn) => conn.in_transaction,
+            PSQLPyConnection::SingleConnection(conn) => conn.in_transaction,
+        }
+    }
+
+    pub async fn prepare_statement(
+        &self,
+        querystring: String,
+        parameters: Option<pyo3::Py<PyAny>>,
+    ) -> PSQLPyResult<PsqlpyStatement> {
+        StatementBuilder::new(&querystring, &parameters, self, Some(true))
+            .build()
+            .await
+    }
+
+    pub async fn execute_statement(
+        &self,
+        statement: &PsqlpyStatement,
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        let result = self
+            .query(statement.statement_query()?, &statement.params())
+            .await?;
+
+        Ok(PSQLDriverPyQueryResult::new(result))
+    }
+
     pub async fn execute(
         &self,
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
-        let statement = StatementBuilder::new(querystring, parameters, self, prepared)
+        let statement = StatementBuilder::new(&querystring, &parameters, self, prepared)
             .build()
             .await?;
 
@@ -408,7 +395,7 @@ impl PSQLPyConnection {
             for vec_of_py_any in parameters {
                 // TODO: Fix multiple qs creation
                 let statement =
-                    StatementBuilder::new(querystring.clone(), Some(vec_of_py_any), self, prepared)
+                    StatementBuilder::new(&querystring, &Some(vec_of_py_any), self, prepared)
                         .build()
                         .await?;
 
@@ -451,7 +438,7 @@ impl PSQLPyConnection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<Row> {
-        let statement = StatementBuilder::new(querystring, parameters, self, prepared)
+        let statement = StatementBuilder::new(&querystring, &parameters, self, prepared)
             .build()
             .await?;
 
@@ -547,12 +534,26 @@ impl PSQLPyConnection {
 
     pub async fn portal(
         &mut self,
-        querystring: String,
-        parameters: Option<pyo3::Py<PyAny>>,
+        querystring: Option<&String>,
+        parameters: &Option<pyo3::Py<PyAny>>,
+        statement: Option<&PsqlpyStatement>,
     ) -> PSQLPyResult<(PSQLPyTransaction, tp_Portal)> {
-        let statement = StatementBuilder::new(querystring, parameters, self, Some(false))
-            .build()
-            .await?;
+        let statement = {
+            match statement {
+                Some(stmt) => stmt,
+                None => {
+                    let Some(querystring) = querystring else {
+                        return Err(RustPSQLDriverError::ConnectionExecuteError(
+                            "Can't create cursor without querystring".into(),
+                        ));
+                    };
+
+                    &StatementBuilder::new(querystring, parameters, self, Some(false))
+                        .build()
+                        .await?
+                }
+            }
+        };
 
         let transaction = self.transaction().await?;
         let inner_portal = transaction

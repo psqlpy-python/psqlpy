@@ -3,6 +3,7 @@ use std::iter::zip;
 use postgres_types::{ToSql, Type};
 use pyo3::{
     conversion::FromPyObjectBound,
+    pyclass, pymethods,
     types::{PyAnyMethods, PyMapping},
     Py, PyObject, PyTypeCheck, Python,
 };
@@ -17,16 +18,48 @@ use crate::{
 
 pub type QueryParameter = (dyn ToSql + Sync);
 
+#[pyclass]
+#[derive(Default, Clone, Debug)]
+pub struct Column {
+    name: String,
+    table_oid: Option<u32>,
+}
+
+impl Column {
+    pub fn new(name: String, table_oid: Option<u32>) -> Self {
+        Self { name, table_oid }
+    }
+}
+
+#[pymethods]
+impl Column {
+    #[getter]
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    #[getter]
+    fn get_table_oid(&self) -> Option<u32> {
+        self.table_oid.clone()
+    }
+}
+
 pub(crate) struct ParametersBuilder {
     parameters: Option<PyObject>,
     types: Option<Vec<Type>>,
+    columns: Vec<Column>,
 }
 
 impl ParametersBuilder {
-    pub fn new(parameters: &Option<PyObject>, types: Option<Vec<Type>>) -> Self {
+    pub fn new(
+        parameters: &Option<PyObject>,
+        types: Option<Vec<Type>>,
+        columns: Vec<Column>,
+    ) -> Self {
         Self {
             parameters: parameters.clone(),
             types,
+            columns,
         }
     }
 
@@ -55,13 +88,15 @@ impl ParametersBuilder {
 
         match (sequence_typed, mapping_typed) {
             (Some(sequence), None) => {
-                prepared_parameters =
-                    Some(SequenceParametersBuilder::new(sequence, self.types).prepare(gil)?);
+                prepared_parameters = Some(
+                    SequenceParametersBuilder::new(sequence, self.types, self.columns)
+                        .prepare(gil)?,
+                );
             }
             (None, Some(mapping)) => {
                 if let Some(parameters_names) = parameters_names {
                     prepared_parameters = Some(
-                        MappingParametersBuilder::new(mapping, self.types)
+                        MappingParametersBuilder::new(mapping, self.types, self.columns)
                             .prepare(gil, parameters_names)?,
                     )
                 }
@@ -110,13 +145,15 @@ impl ParametersBuilder {
 pub(crate) struct MappingParametersBuilder {
     map_parameters: Py<PyMapping>,
     types: Option<Vec<Type>>,
+    columns: Vec<Column>,
 }
 
 impl MappingParametersBuilder {
-    fn new(map_parameters: Py<PyMapping>, types: Option<Vec<Type>>) -> Self {
+    fn new(map_parameters: Py<PyMapping>, types: Option<Vec<Type>>, columns: Vec<Column>) -> Self {
         Self {
             map_parameters,
             types,
+            columns,
         }
     }
 
@@ -143,7 +180,11 @@ impl MappingParametersBuilder {
             .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, types))
+        Ok(PreparedParameters::new(
+            converted_parameters,
+            types,
+            self.columns,
+        ))
     }
 
     fn prepare_not_typed(
@@ -157,7 +198,11 @@ impl MappingParametersBuilder {
             .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![]))
+        Ok(PreparedParameters::new(
+            converted_parameters,
+            vec![],
+            self.columns,
+        ))
     }
 
     fn extract_parameters(
@@ -185,13 +230,15 @@ impl MappingParametersBuilder {
 pub(crate) struct SequenceParametersBuilder {
     seq_parameters: Vec<PyObject>,
     types: Option<Vec<Type>>,
+    columns: Vec<Column>,
 }
 
 impl SequenceParametersBuilder {
-    fn new(seq_parameters: Vec<PyObject>, types: Option<Vec<Type>>) -> Self {
+    fn new(seq_parameters: Vec<PyObject>, types: Option<Vec<Type>>, columns: Vec<Column>) -> Self {
         Self {
             seq_parameters: seq_parameters,
             types,
+            columns,
         }
     }
 
@@ -208,7 +255,11 @@ impl SequenceParametersBuilder {
             .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, types))
+        Ok(PreparedParameters::new(
+            converted_parameters,
+            types,
+            self.columns,
+        ))
     }
 
     fn prepare_not_typed(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
@@ -218,7 +269,11 @@ impl SequenceParametersBuilder {
             .map(|parameter| from_python_untyped(parameter.bind(gil)))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
-        Ok(PreparedParameters::new(converted_parameters, vec![]))
+        Ok(PreparedParameters::new(
+            converted_parameters,
+            vec![],
+            self.columns,
+        ))
     }
 }
 
@@ -226,11 +281,16 @@ impl SequenceParametersBuilder {
 pub struct PreparedParameters {
     parameters: Vec<PythonDTO>,
     types: Vec<Type>,
+    columns: Vec<Column>,
 }
 
 impl PreparedParameters {
-    pub fn new(parameters: Vec<PythonDTO>, types: Vec<Type>) -> Self {
-        Self { parameters, types }
+    pub fn new(parameters: Vec<PythonDTO>, types: Vec<Type>, columns: Vec<Column>) -> Self {
+        Self {
+            parameters,
+            types,
+            columns,
+        }
     }
 
     pub fn params(&self) -> Box<[&(dyn ToSql + Sync)]> {
@@ -250,5 +310,9 @@ impl PreparedParameters {
             .map(|(param, type_)| (param as &QueryParameter, type_))
             .collect::<Vec<(&QueryParameter, Type)>>()
             .into_boxed_slice()
+    }
+
+    pub fn columns(&self) -> &Vec<Column> {
+        &self.columns
     }
 }

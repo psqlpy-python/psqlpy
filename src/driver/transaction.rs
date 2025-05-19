@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
-use bytes::BytesMut;
-use futures::{future, pin_mut};
+use futures::future;
 use pyo3::{
-    buffer::PyBuffer,
     pyclass, pymethods,
     types::{PyAnyMethods, PyList, PyTuple},
     Py, PyAny, PyErr, PyResult,
 };
 use tokio::sync::RwLock;
-use tokio_postgres::{binary_copy::BinaryCopyInWriter, Config};
+use tokio_postgres::Config;
 
 use crate::{
     connection::{
@@ -17,14 +15,12 @@ use crate::{
         traits::{CloseTransaction, Connection, StartTransaction as _},
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
-    format_helpers::quote_ident,
     options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
 };
 
-use super::cursor::Cursor;
-
 #[pyclass(subclass)]
+#[derive(Debug)]
 pub struct Transaction {
     pub conn: Option<Arc<RwLock<PSQLPyConnection>>>,
     pub pg_config: Arc<Config>,
@@ -75,7 +71,7 @@ impl Transaction {
         });
 
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("7".into()));
         };
         let mut write_conn_g = conn.write().await;
         write_conn_g
@@ -102,7 +98,7 @@ impl Transaction {
         });
 
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("8".into()));
         };
         let mut write_conn_g = conn.write().await;
         if is_exception_none {
@@ -125,38 +121,12 @@ impl Transaction {
     pub async fn begin(&mut self) -> PSQLPyResult<()> {
         let conn = &self.conn;
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("9".into()));
         };
         let mut write_conn_g = conn.write().await;
         write_conn_g
             .start_transaction(self.isolation_level, self.read_variant, self.deferrable)
             .await?;
-
-        Ok(())
-    }
-
-    pub async fn commit(&mut self) -> PSQLPyResult<()> {
-        let conn = self.conn.clone();
-        let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
-        };
-        let mut write_conn_g = conn.write().await;
-        write_conn_g.commit().await?;
-
-        self.conn = None;
-
-        Ok(())
-    }
-
-    pub async fn rollback(&mut self) -> PSQLPyResult<()> {
-        let conn = self.conn.clone();
-        let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
-        };
-        let mut write_conn_g = conn.write().await;
-        write_conn_g.rollback().await?;
-
-        self.conn = None;
 
         Ok(())
     }
@@ -169,7 +139,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("10".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -184,7 +154,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("11".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -199,7 +169,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<Py<PyAny>> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("12".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -210,7 +180,7 @@ impl Transaction {
 
     pub async fn execute_batch(&self, querystring: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("13".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -225,7 +195,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("14".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -242,7 +212,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverSinglePyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("15".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -253,7 +223,7 @@ impl Transaction {
 
     pub async fn create_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("16".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -266,7 +236,7 @@ impl Transaction {
 
     pub async fn release_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("17".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -279,7 +249,7 @@ impl Transaction {
 
     pub async fn rollback_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
+            return Err(RustPSQLDriverError::TransactionClosedError("18".into()));
         };
 
         let read_conn_g = conn.read().await;
@@ -288,39 +258,6 @@ impl Transaction {
             .await?;
 
         Ok(())
-    }
-
-    /// Create new cursor object.
-    ///
-    /// # Errors
-    /// May return Err Result if db_client is None
-    #[pyo3(signature = (
-        querystring,
-        parameters=None,
-        fetch_number=None,
-        scroll=None,
-        prepared=None,
-    ))]
-    pub fn cursor(
-        &self,
-        querystring: String,
-        parameters: Option<Py<PyAny>>,
-        fetch_number: Option<usize>,
-        scroll: Option<bool>,
-        prepared: Option<bool>,
-    ) -> PSQLPyResult<Cursor> {
-        let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError);
-        };
-        Ok(Cursor::new(
-            conn.clone(),
-            self.pg_config.clone(),
-            querystring,
-            parameters,
-            fetch_number.unwrap_or(10),
-            scroll,
-            prepared,
-        ))
     }
 
     #[pyo3(signature = (queries=None, prepared=None))]
@@ -368,65 +305,6 @@ impl Transaction {
             return future::try_join_all(futures).await;
         }
 
-        Err(RustPSQLDriverError::TransactionClosedError)
-    }
-
-    /// Perform binary copy to postgres table.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot get bytes,
-    /// cannot perform request to the database,
-    /// cannot write bytes to the database.
-    #[pyo3(signature = (source, table_name, columns=None, schema_name=None))]
-    pub async fn binary_copy_to_table(
-        self_: pyo3::Py<Self>,
-        source: Py<PyAny>,
-        table_name: String,
-        columns: Option<Vec<String>>,
-        schema_name: Option<String>,
-    ) -> PSQLPyResult<u64> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
-        let mut table_name = quote_ident(&table_name);
-        if let Some(schema_name) = schema_name {
-            table_name = format!("{}.{}", quote_ident(&schema_name), table_name);
-        }
-
-        let mut formated_columns = String::default();
-        if let Some(columns) = columns {
-            formated_columns = format!("({})", columns.join(", "));
-        }
-
-        let copy_qs = format!("COPY {table_name}{formated_columns} FROM STDIN (FORMAT binary)");
-
-        if let Some(db_client) = db_client {
-            let mut psql_bytes: BytesMut = pyo3::Python::with_gil(|gil| {
-                let possible_py_buffer: Result<PyBuffer<u8>, PyErr> =
-                    source.extract::<PyBuffer<u8>>(gil);
-                if let Ok(py_buffer) = possible_py_buffer {
-                    let vec_buf = py_buffer.to_vec(gil)?;
-                    return Ok(BytesMut::from(vec_buf.as_slice()));
-                }
-
-                if let Ok(py_bytes) = source.call_method0(gil, "getvalue") {
-                    if let Ok(bytes) = py_bytes.extract::<Vec<u8>>(gil) {
-                        return Ok(BytesMut::from(bytes.as_slice()));
-                    }
-                }
-
-                Err(RustPSQLDriverError::PyToRustValueConversionError(
-                    "source must be bytes or support Buffer protocol".into(),
-                ))
-            })?;
-
-            let read_conn_g = db_client.read().await;
-            let sink = read_conn_g.copy_in(&copy_qs).await?;
-            let writer = BinaryCopyInWriter::new_empty_buffer(sink, &[]);
-            pin_mut!(writer);
-            writer.as_mut().write_raw_bytes(&mut psql_bytes).await?;
-            let rows_created = writer.as_mut().finish_empty().await?;
-            return Ok(rows_created);
-        }
-
-        Ok(0)
+        Err(RustPSQLDriverError::TransactionClosedError("19".into()))
     }
 }

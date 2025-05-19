@@ -145,7 +145,7 @@ async def test_connection_cursor(
     await transaction.begin()
     cursor = connection.cursor(querystring=f"SELECT * FROM {table_name}")
     await cursor.start()
-    await cursor.close()
+    cursor.close()
     await transaction.commit()
 
 
@@ -172,7 +172,7 @@ async def test_closed_connection_error(
 ) -> None:
     """Test exception when connection is closed."""
     connection = await psql_pool.connection()
-    connection.back_to_pool()
+    connection.close()
 
     with pytest.raises(expected_exception=ConnectionClosedError):
         await connection.execute("SELECT 1")
