@@ -4,6 +4,6 @@ pub mod connection_pool;
 pub mod connection_pool_builder;
 pub mod cursor;
 pub mod listener;
-pub mod portal;
+pub mod prepared_statement;
 pub mod transaction;
 pub mod utils;

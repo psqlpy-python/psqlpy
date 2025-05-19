@@ -35,8 +35,10 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection::Connection>()?;
     pymod.add_function(wrap_pyfunction!(driver::connection::connect, pymod)?)?;
     pymod.add_class::<driver::transaction::Transaction>()?;
+    // pymod.add_class::<driver::cursor::Cursor>()?;
+    pymod.add_class::<statement::parameters::Column>()?;
+    pymod.add_class::<driver::prepared_statement::PreparedStatement>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
-    pymod.add_class::<driver::portal::Portal>()?;
     pymod.add_class::<driver::listener::core::Listener>()?;
     pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
     pymod.add_class::<options::IsolationLevel>()?;

@@ -5,7 +5,7 @@ use postgres_types::Type;
 use tokio::sync::RwLock;
 use tokio_postgres::Statement;
 
-use super::{query::QueryString, utils::hash_str};
+use super::{parameters::Column, query::QueryString, utils::hash_str};
 
 #[derive(Default)]
 pub(crate) struct StatementsCache(HashMap<u64, StatementCacheInfo>);
@@ -43,6 +43,14 @@ impl StatementCacheInfo {
 
     pub(crate) fn types(&self) -> Vec<Type> {
         self.inner_stmt.params().to_vec()
+    }
+
+    pub(crate) fn columns(&self) -> Vec<Column> {
+        self.inner_stmt
+            .columns()
+            .iter()
+            .map(|column| Column::new(column.name().to_string(), column.table_oid().clone()))
+            .collect::<Vec<Column>>()
     }
 }
 

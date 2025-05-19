@@ -172,6 +172,12 @@ fn postgres_bytes_to_py(
             }
             Ok(py.None())
         }
+        Type::OID => {
+            Ok(composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?.to_object(py))
+        }
+        Type::NAME => Ok(
+            composite_field_postgres_to_py::<Option<String>>(type_, buf, is_simple)?.to_object(py),
+        ),
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
         Type::TEXT | Type::VARCHAR | Type::XML => Ok(composite_field_postgres_to_py::<
@@ -340,6 +346,11 @@ fn postgres_bytes_to_py(
         Type::BOOL_ARRAY => Ok(postgres_array_to_py(
             py,
             composite_field_postgres_to_py::<Option<Array<bool>>>(type_, buf, is_simple)?,
+        )
+        .to_object(py)),
+        Type::OID_ARRAY => Ok(postgres_array_to_py(
+            py,
+            composite_field_postgres_to_py::<Option<Array<i32>>>(type_, buf, is_simple)?,
         )
         .to_object(py)),
         // Convert ARRAY of TEXT or VARCHAR into Vec<String>, then into list[str]

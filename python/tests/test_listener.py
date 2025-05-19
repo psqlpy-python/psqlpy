@@ -64,7 +64,7 @@ async def notify(
 
     connection = await psql_pool.connection()
     await connection.execute(f"NOTIFY {channel}, '{TEST_PAYLOAD}'")
-    connection.back_to_pool()
+    connection.close()
 
 
 async def check_insert_callback(
@@ -91,7 +91,7 @@ async def check_insert_callback(
     assert data_record["payload"] == TEST_PAYLOAD
     assert data_record["channel"] == TEST_CHANNEL
 
-    connection.back_to_pool()
+    connection.close()
 
 
 async def clear_test_table(
@@ -102,7 +102,7 @@ async def clear_test_table(
     await connection.execute(
         f"DELETE FROM {listener_table_name}",
     )
-    connection.back_to_pool()
+    connection.close()
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")

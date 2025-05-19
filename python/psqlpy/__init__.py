@@ -18,6 +18,9 @@ from psqlpy._internal import (
     connect,
     connect_pool,
 )
+from psqlpy.exceptions import (
+    Error,
+)
 
 __all__ = [
     "ConnRecyclingMethod",
@@ -25,6 +28,7 @@ __all__ = [
     "ConnectionPool",
     "ConnectionPoolBuilder",
     "Cursor",
+    "Error",
     "IsolationLevel",
     "KeepaliveConfig",
     "Listener",
