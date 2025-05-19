@@ -32,7 +32,11 @@ impl PsqlpyStatement {
     pub fn statement_query(&self) -> PSQLPyResult<&Statement> {
         match &self.prepared_statement {
             Some(prepared_stmt) => return Ok(prepared_stmt),
-            None => return Err(RustPSQLDriverError::ConnectionExecuteError("No".into())),
+            None => {
+                return Err(RustPSQLDriverError::ConnectionExecuteError(
+                    "No prepared parameters".into(),
+                ))
+            }
         }
     }
 

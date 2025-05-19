@@ -9,6 +9,7 @@ pub mod query_result;
 pub mod row_factories;
 pub mod runtime;
 pub mod statement;
+pub mod transaction;
 pub mod value_converter;
 
 use common::add_module;
@@ -35,6 +36,7 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_function(wrap_pyfunction!(driver::connection::connect, pymod)?)?;
     pymod.add_class::<driver::transaction::Transaction>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
+    pymod.add_class::<driver::portal::Portal>()?;
     pymod.add_class::<driver::listener::core::Listener>()?;
     pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
     pymod.add_class::<options::IsolationLevel>()?;
