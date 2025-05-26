@@ -27,7 +27,7 @@ However, if you have application and database located on different machines, you
 ## Local Database
 ::: tabs
 @tab Simple Connection Select
-::: chart Simple Connection Select
+::: chartjs Simple Connection Select
 
 ```json
 {
@@ -80,7 +80,7 @@ However, if you have application and database located on different machines, you
 }
 ```
 @tab Hard Connection Select
-::: chart Hard Connection Select
+::: chartjs Hard Connection Select
 
 ```json
 {
@@ -133,7 +133,7 @@ However, if you have application and database located on different machines, you
 }
 ```
 @tab Combined Connection Query
-::: chart Combined Connection Query
+::: chartjs Combined Connection Query
 
 ```json
 {
@@ -186,7 +186,7 @@ However, if you have application and database located on different machines, you
 }
 ```
 @tab Simple Transaction Select
-::: chart Simple Transaction Select
+::: chartjs Simple Transaction Select
 
 ```json
 {
@@ -239,7 +239,7 @@ However, if you have application and database located on different machines, you
 }
 ```
 @tab Hard Transaction Select
-::: chart Hard Transaction Select
+::: chartjs Hard Transaction Select
 
 ```json
 {
@@ -292,7 +292,7 @@ However, if you have application and database located on different machines, you
 }
 ```
 @tab Combined Transaction Query
-::: chart Combined Transaction Query
+::: chartjs Combined Transaction Query
 
 ```json
 {
@@ -349,7 +349,7 @@ However, if you have application and database located on different machines, you
 ## External Database
 ::: tabs
 @tab Simple Connection Select
-::: chart Simple Connection Select
+::: chartjs Simple Connection Select
 
 ```json
 {
@@ -403,7 +403,7 @@ However, if you have application and database located on different machines, you
 ```
 
 @tab Hard Connection Select
-::: chart Hard Connection Select
+::: chartjs Hard Connection Select
 
 ```json
 {
@@ -457,7 +457,7 @@ However, if you have application and database located on different machines, you
 ```
 
 @tab Combined Connection Query
-::: chart Combined Connection Query
+::: chartjs Combined Connection Query
 
 ```json
 {
@@ -511,7 +511,7 @@ However, if you have application and database located on different machines, you
 ```
 
 @tab Simple Transaction Select
-::: chart Simple Transaction Select
+::: chartjs Simple Transaction Select
 
 ```json
 {
@@ -565,7 +565,7 @@ However, if you have application and database located on different machines, you
 ```
 
 @tab Hard Transaction Select
-::: chart Hard Transaction Select
+::: chartjs Hard Transaction Select
 
 ```json
 {
@@ -619,7 +619,7 @@ However, if you have application and database located on different machines, you
 ```
 
 @tab Combined Transaction Query
-::: chart Combined Transaction Query
+::: chartjs Combined Transaction Query
 
 ```json
 {

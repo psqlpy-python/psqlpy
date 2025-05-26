@@ -341,6 +341,26 @@ class Transaction:
 
         `commit()` can be called only once per transaction.
         """
+    async def rollback(self: Self) -> None:
+        """Rollback all queries in the transaction.
+
+        It can be done only one, after execution transaction marked
+        as `done`.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
+            await transaction.execute(...)
+            await transaction.rollback()
+        ```
+        """
     async def execute(
         self: Self,
         querystring: str,
@@ -622,26 +642,6 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
-    async def rollback(self: Self) -> None:
-        """Rollback all queries in the transaction.
-
-        It can be done only one, after execution transaction marked
-        as `done`.
-
-        ### Example:
-        ```python
-        import asyncio
-
-        from psqlpy import PSQLPool, QueryResult
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            connection = await db_pool.connection()
-            transaction = connection.transaction()
-            await transaction.execute(...)
-            await transaction.rollback()
-        ```
-        """
     async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
@@ -696,8 +696,6 @@ class Transaction:
         querystring: str,
         parameters: ParamsT = None,
         fetch_number: int | None = None,
-        scroll: bool | None = None,
-        prepared: bool = True,
     ) -> Cursor:
         """Create new cursor object.
 
@@ -707,9 +705,6 @@ class Transaction:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
-        - `scroll`: SCROLL or NO SCROLL cursor.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
 
         ### Returns:
         new initialized cursor.
@@ -811,6 +806,25 @@ class Connection:
         exception: BaseException | None,
         traceback: types.TracebackType | None,
     ) -> None: ...
+    async def prepare(
+        self,
+        querystring: str,
+        parameters: ParamsT = None,
+    ) -> PreparedStatement:
+        """Prepare statement.
+
+        Return representation of prepared statement.
+        """
+    async def commit(self: Self) -> None:
+        """Commit the transaction.
+
+        Do nothing if there is no active transaction.
+        """
+    async def rollback(self: Self) -> None:
+        """Rollback the transaction.
+
+        Do nothing if there is no active transaction.
+        """
     async def execute(
         self: Self,
         querystring: str,
@@ -1017,9 +1031,6 @@ class Connection:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
-        - `scroll`: SCROLL or NO SCROLL cursor.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
 
         ### Returns:
         new initialized cursor.
@@ -1050,6 +1061,7 @@ class Connection:
         It necessary to commit all transactions and close all cursor
         made by this connection. Otherwise, it won't have any practical usage.
         """
+
     async def binary_copy_to_table(
         self: Self,
         source: bytes | bytearray | Buffer | BytesIO,
@@ -1759,3 +1771,15 @@ class ListenerNotificationMsg:
     channel: str
     payload: str
     connection: Connection
+
+class Column:
+    name: str
+    table_oid: int | None
+
+class PreparedStatement:
+    async def execute(self: Self) -> QueryResult:
+        """Execute prepared statement."""
+    def cursor(self: Self) -> Cursor:
+        """Create new server-side cursor based on prepared statement."""
+    def columns(self: Self) -> list[Column]:
+        """Return information about statement columns."""

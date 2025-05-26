@@ -78,3 +78,7 @@ _load_test
 # JS
 node_modules
 .temp
+node_modules/
+docs/.vuepress/.cache/
+docs/.vuepress/.temp/
+docs/.vuepress/dist/

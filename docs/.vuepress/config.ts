@@ -1,15 +1,14 @@
 import { defineUserConfig } from "vuepress";
 import { hopeTheme } from "vuepress-theme-hope";
 import sidebar from "./sidebar.js";
-
-import { viteBundler } from '@vuepress/bundler-vite'
+import { markdownTabPlugin } from '@vuepress/plugin-markdown-tab'
 
 export default defineUserConfig({
   lang: "en-US",
   title: "PSQLPy",
   description: "PSQLPy Documentation",
 
-  bundler: viteBundler(),
+  // bundler: viteBundler(),
 
   theme: hopeTheme({
     repo: "psqlpy-python/psqlpy",
@@ -22,22 +21,20 @@ export default defineUserConfig({
 
     hostname: "https://psqlpy-python.github.io/",
 
+    markdown: {
+      tabs: true,
+      mermaid: true,
+      chartjs: true,
+    },
+
     plugins: {
       readingTime: false,
-
       copyCode: {
         showInMobile: true,
       },
 
-      searchPro: {
+      slimsearch: {
         indexContent: true,
-        autoSuggestions: false,
-      },
-
-      mdEnhance: {
-        tabs: true,
-        mermaid: true,
-        chart: true,
       },
 
       sitemap: {
