@@ -15,9 +15,7 @@ use crate::{
     runtime::tokio_runtime,
 };
 
-use super::{
-    connection_pool::connect_pool, prepared_statement::PreparedStatement, transaction::Transaction,
-};
+use super::{connection_pool::connect_pool, transaction::Transaction};
 
 /// Make new connection pool.
 ///
@@ -413,31 +411,6 @@ impl Connection {
             isolation_level,
             read_variant,
             deferrable,
-        ))
-    }
-
-    #[pyo3(signature = (
-        querystring,
-        parameters=None,
-    ))]
-    pub async fn prepare(
-        &self,
-        querystring: String,
-        parameters: Option<pyo3::Py<PyAny>>,
-    ) -> PSQLPyResult<PreparedStatement> {
-        let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::ConnectionClosedError);
-        };
-
-        let read_conn_g = conn.read().await;
-        let prep_stmt = read_conn_g
-            .prepare_statement(querystring, parameters)
-            .await?;
-
-        Ok(PreparedStatement::new(
-            self.conn.clone(),
-            self.pg_config.clone(),
-            prep_stmt,
         ))
     }
 

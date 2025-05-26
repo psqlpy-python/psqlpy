@@ -2,7 +2,10 @@ use tokio_postgres::config::Host;
 
 use std::net::IpAddr;
 
-use super::{connection::Connection, cursor::Cursor, transaction::Transaction};
+use super::{
+    connection::Connection, cursor::Cursor, prepared_statement::PreparedStatement,
+    transaction::Transaction,
+};
 
 use pyo3::{pymethods, Py, PyAny};
 
@@ -125,11 +128,11 @@ impl_is_closed_method!(Transaction);
 impl_is_closed_method!(Connection);
 impl_is_closed_method!(Cursor);
 
-macro_rules! impl_portal_method {
+macro_rules! impl_cursor_method {
     ($name:ident) => {
         #[pymethods]
         impl $name {
-            #[pyo3(signature = (querystring, parameters=None, fetch_number=None))]
+            #[pyo3(signature = (querystring=None, parameters=None, fetch_number=None))]
             pub fn cursor(
                 &self,
                 querystring: Option<String>,
@@ -149,8 +152,40 @@ macro_rules! impl_portal_method {
     };
 }
 
-impl_portal_method!(Transaction);
-impl_portal_method!(Connection);
+impl_cursor_method!(Transaction);
+impl_cursor_method!(Connection);
+
+macro_rules! impl_prepare_method {
+    ($name:ident) => {
+        #[pymethods]
+        impl $name {
+            #[pyo3(signature = (querystring, parameters=None))]
+            pub async fn prepare(
+                &self,
+                querystring: String,
+                parameters: Option<pyo3::Py<PyAny>>,
+            ) -> PSQLPyResult<PreparedStatement> {
+                let Some(conn) = &self.conn else {
+                    return Err(RustPSQLDriverError::ConnectionClosedError);
+                };
+
+                let read_conn_g = conn.read().await;
+                let prep_stmt = read_conn_g
+                    .prepare_statement(querystring, parameters)
+                    .await?;
+
+                Ok(PreparedStatement::new(
+                    self.conn.clone(),
+                    self.pg_config.clone(),
+                    prep_stmt,
+                ))
+            }
+        }
+    };
+}
+
+impl_prepare_method!(Transaction);
+impl_prepare_method!(Connection);
 
 macro_rules! impl_transaction_methods {
     ($name:ident, $val:expr $(,)?) => {
@@ -189,7 +224,6 @@ macro_rules! impl_transaction_methods {
     };
 }
 
-impl_transaction_methods!(Connection, false);
 impl_transaction_methods!(Transaction, true);
 
 macro_rules! impl_binary_copy_method {
