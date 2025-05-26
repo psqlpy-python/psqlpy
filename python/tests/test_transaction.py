@@ -180,7 +180,7 @@ async def test_transaction_rollback(
         f"INSERT INTO {table_name} VALUES ($1, $2)",
         parameters=[100, test_name],
     )
-    connection.back_to_pool()
+    connection.close()
 
     assert not (result_from_conn.result())
 
@@ -358,4 +358,4 @@ async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
         await transaction.execute(querystring="SELECT * FROM execute_batch")
         await transaction.execute(querystring="SELECT * FROM execute_batch2")
 
-    connection.back_to_pool()
+    connection.close()
