@@ -407,8 +407,6 @@ async def main() -> None:
 - `querystring`: Statement string.
 - `parameters`: List of list of parameters for the statement string.
 - `fetch_number`: rewrite default fetch_number. Default is 10.
-- `scroll`: make cursor scrollable or not. Default is like in `PostgreSQL`.
-- `prepared`: prepare querystring or not.
 
 From `Transaction` you can create new `Cursor` object which represents cursor in the `PostgreSQL`. [PostgreSQL Docs](https://www.postgresql.org/docs/current/plpgsql-cursors.html)
 
