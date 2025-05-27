@@ -65,6 +65,22 @@ async def test_cursor_as_async_context_manager(
     assert len(results.result()) == number_database_records
 
 
+async def test_cursor_as_async_iterator(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    connection = await psql_pool.connection()
+    all_results = []
+    async with connection.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+    ) as cursor:
+        async for results in cursor:
+            all_results.extend(results.result())
+
+    assert len(all_results) == number_database_records
+
+
 async def test_cursor_send_underlying_connection_to_pool(
     psql_pool: ConnectionPool,
     table_name: str,

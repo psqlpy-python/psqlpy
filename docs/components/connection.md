@@ -24,11 +24,10 @@ async def main() -> None:
 ```python
 from psqlpy import connect
 
-db_connection: Final = connect(
-    dsn="postgres://postgres:postgres@localhost:5432/postgres",
-)
-
 async def main() -> None:
+    db_connection: Final = await connect(
+        dsn="postgres://postgres:postgres@localhost:5432/postgres",
+    )
     await db_connection.execute(...)
 ```
 

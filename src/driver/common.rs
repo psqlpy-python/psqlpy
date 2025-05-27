@@ -132,18 +132,18 @@ macro_rules! impl_cursor_method {
     ($name:ident) => {
         #[pymethods]
         impl $name {
-            #[pyo3(signature = (querystring=None, parameters=None, fetch_number=None))]
+            #[pyo3(signature = (querystring=None, parameters=None, array_size=None))]
             pub fn cursor(
                 &self,
                 querystring: Option<String>,
                 parameters: Option<Py<PyAny>>,
-                fetch_number: Option<i32>,
+                array_size: Option<i32>,
             ) -> PSQLPyResult<Cursor> {
                 Ok(Cursor::new(
                     self.conn.clone(),
                     querystring,
                     parameters,
-                    fetch_number,
+                    array_size,
                     self.pg_config.clone(),
                     None,
                 ))
