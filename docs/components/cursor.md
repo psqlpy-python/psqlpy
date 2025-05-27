@@ -3,44 +3,93 @@ title: Cursor
 ---
 
 `Cursor` objects represents server-side `Cursor` in the `PostgreSQL`. [PostgreSQL docs](https://www.postgresql.org/docs/current/plpgsql-cursors.html).
+::: important
+Cursor always lives inside a transaction. If you don't begin transaction explicitly, it will be opened anyway.
+:::
 
 ## Cursor Parameters
 
 - `querystring`: specify query for cursor.
 - `parameters`: parameters for the querystring. Default `None`
-- `fetch_number`: default fetch number. It is used in `fetch()` method and in async iterator. Default 10
-- `scroll`: is cursor scrollable or not. Default as in `PostgreSQL`.
+- `fetch_number`: default fetch number. It is used in `fetch()` method and in async iterator.
 
-## Cursor as async iterator
+## Usage
 
-The most common situation is using `Cursor` as async iterator.
+Cursor can be used in different ways.
 
+::: tabs
+@tab Pre-Initialization
 ```python
 from psqlpy import ConnectionPool, QueryResult
 
+async def main() -> None:
+    db_pool = ConnectionPool()
+    connection = await db_pool.connection()
+
+    cursor = connection.cursor(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+        fetch_number=10,
+    )
+    await cursor.start()
+```
+
+@tab Post-Initialization
+```python
+from psqlpy import ConnectionPool, QueryResult
 
 async def main() -> None:
     db_pool = ConnectionPool()
-
-
     connection = await db_pool.connection()
-    transaction = await connection.transaction()
 
-    # Here we fetch 5 results in each iteration.
-    async with cursor in transaction.cursor(
-        querystring="SELECT * FROM users WHERE username = $1",
-        parameters=["Some_Username"],
-        fetch_number=5,
-    ):
-        async for fetched_result in cursor:
-            dict_result: List[Dict[Any, Any]] = fetched_result.result()
-            ... # do something with this result.
+    cursor = connection.cursor()
+    await cursor.execute(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+    )
+    result: QueryResult = await cursor.fetchone()
 ```
 
+@tab Async Context Manager
+```python
+from psqlpy import ConnectionPool, QueryResult
+
+async def main() -> None:
+    db_pool = ConnectionPool()
+    connection = await db_pool.connection()
+
+    async with connection.cursor(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+        array_size=10,
+    ) as cursor:
+        result: QueryResult = await cursor.fetchone()
+```
+
+@tab Async Iterator
+```python
+from psqlpy import ConnectionPool, QueryResult
+
+async def main() -> None:
+    db_pool = ConnectionPool()
+    connection = await db_pool.connection()
+
+    cursor = connection.cursor(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+        fetch_number=10,
+    )
+    await cursor.start()
+
+    async for result in cursor:
+        print(result)
+```
+:::
+
+## Cursor attributes
+- `array_size`: get and set attribute. Used in async iterator and `fetch_many` method.
+
 ## Cursor methods
-
-There are a lot of methods to work with cursor.
-
 ### Start
 Declare (create) cursor.
 
@@ -58,14 +107,53 @@ async def main() -> None:
     await cursor.close()
 ```
 
-### Fetch
+### Execute
 
-You can fetch next `N` records from the cursor.
-It's possible to specify `N` fetch record with parameter `fetch_number`, otherwise will be used `fetch_number` from the `Cursor` initialization.
+Initialize cursor and make it ready for fetching.
+
+::: important
+If you initialized cursor with `start` method or via context manager, you don't have to use this method.
+:::
+
+#### Parameters:
+- `querystring`: specify query for cursor.
+- `parameters`: parameters for the querystring. Default `None`
 
 ```python
 async def main() -> None:
-    result: QueryResult = await cursor.fetch(
-        fetch_number=100,
+    await cursor.execute(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
     )
+    result: QueryResult = await cursor.fetchone()
+```
+
+### Fetchone
+
+Fetch one result from the cursor.
+
+```python
+async def main() -> None:
+    result: QueryResult = await cursor.fetchone()
+```
+
+### Fetchmany
+
+Fetch N results from the cursor. Default is `array_size`.
+
+#### Parameters:
+- `size`: number of records to fetch.
+
+```python
+async def main() -> None:
+    result: QueryResult = await cursor.fetchmany(size=10)
+```
+
+### Fetchall
+
+Fetch all results from the cursor.
+
+```python
+async def main() -> None:
+    result: QueryResult = await cursor.fetchall()
 ```

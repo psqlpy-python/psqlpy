@@ -1,5 +1,5 @@
 use deadpool_postgres::Pool;
-use pyo3::{ffi::PyObject, pyclass, pyfunction, pymethods, Py, PyAny, PyErr};
+use pyo3::{pyclass, pyfunction, pymethods, Py, PyAny, PyErr};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_postgres::Config;

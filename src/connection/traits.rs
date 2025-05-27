@@ -101,39 +101,3 @@ pub trait CloseTransaction: StartTransaction {
 
     fn rollback(&mut self) -> impl std::future::Future<Output = PSQLPyResult<()>>;
 }
-
-// pub trait Cursor {
-//     fn build_cursor_start_qs(
-//         &self,
-//         cursor_name: &str,
-//         scroll: &Option<bool>,
-//         querystring: &str,
-//     ) -> String {
-//         let mut cursor_init_query = format!("DECLARE {cursor_name}");
-//         if let Some(scroll) = scroll {
-//             if *scroll {
-//                 cursor_init_query.push_str(" SCROLL");
-//             } else {
-//                 cursor_init_query.push_str(" NO SCROLL");
-//             }
-//         }
-
-//         cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
-
-//         cursor_init_query
-//     }
-
-//     fn start_cursor(
-//         &mut self,
-//         cursor_name: &str,
-//         scroll: &Option<bool>,
-//         querystring: String,
-//         prepared: &Option<bool>,
-//         parameters: Option<pyo3::Py<PyAny>>,
-//     ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
-
-//     fn close_cursor(
-//         &mut self,
-//         cursor_name: &str,
-//     ) -> impl std::future::Future<Output = PSQLPyResult<()>>;
-// }

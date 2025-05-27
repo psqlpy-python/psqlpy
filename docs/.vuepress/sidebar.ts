@@ -47,6 +47,15 @@ export default sidebar({
           ]
         },
         {
+          text: "Row Factories Usage",
+          prefix: "row_factories/",
+          collapsible: true,
+          children: [
+            "row_factories",
+            "predefined_row_factories",
+          ]
+        },
+        {
           text: "Frameworks Usage",
           prefix: "frameworks/",
           collapsible: true,
@@ -56,15 +65,6 @@ export default sidebar({
             "litestar",
             "blacksheep",
             "robyn",
-          ]
-        },
-        {
-          text: "Row Factories Usage",
-          prefix: "row_factories/",
-          collapsible: true,
-          children: [
-            "row_factories",
-            "predefined_row_factories",
           ]
         },
       ],

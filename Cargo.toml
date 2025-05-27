@@ -10,7 +10,14 @@ crate-type = ["cdylib"]
 
 [dependencies]
 deadpool-postgres = { git = "https://github.com/chandr-andr/deadpool.git", branch = "psqlpy" }
-pyo3 = { version = "0.23.4", features = ["chrono", "experimental-async", "rust_decimal", "py-clone", "macros", "multiple-pymethods"] }
+pyo3 = { version = "0.23.4", features = [
+    "chrono",
+    "experimental-async",
+    "rust_decimal",
+    "py-clone",
+    "macros",
+    "multiple-pymethods",
+] }
 pyo3-async-runtimes = { git = "https://github.com/chandr-andr/pyo3-async-runtimes.git", branch = "psqlpy", features = [
     "tokio-runtime",
 ] }
