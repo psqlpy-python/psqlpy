@@ -194,7 +194,7 @@ macro_rules! impl_transaction_methods {
             pub async fn commit(&mut self) -> PSQLPyResult<()> {
                 let conn = self.conn.clone();
                 let Some(conn) = conn else {
-                    return Err(RustPSQLDriverError::TransactionClosedError("1".into()));
+                    return Err(RustPSQLDriverError::TransactionClosedError);
                 };
                 let mut write_conn_g = conn.write().await;
                 write_conn_g.commit().await?;
@@ -209,7 +209,7 @@ macro_rules! impl_transaction_methods {
             pub async fn rollback(&mut self) -> PSQLPyResult<()> {
                 let conn = self.conn.clone();
                 let Some(conn) = conn else {
-                    return Err(RustPSQLDriverError::TransactionClosedError("2".into()));
+                    return Err(RustPSQLDriverError::TransactionClosedError);
                 };
                 let mut write_conn_g = conn.write().await;
                 write_conn_g.rollback().await?;

@@ -71,7 +71,7 @@ impl Transaction {
         });
 
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("7".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
         let mut write_conn_g = conn.write().await;
         write_conn_g
@@ -98,7 +98,7 @@ impl Transaction {
         });
 
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("8".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
         let mut write_conn_g = conn.write().await;
         if is_exception_none {
@@ -121,7 +121,7 @@ impl Transaction {
     pub async fn begin(&mut self) -> PSQLPyResult<()> {
         let conn = &self.conn;
         let Some(conn) = conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("9".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
         let mut write_conn_g = conn.write().await;
         write_conn_g
@@ -139,7 +139,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("10".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -154,7 +154,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("11".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -169,7 +169,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<Py<PyAny>> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("12".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -180,7 +180,7 @@ impl Transaction {
 
     pub async fn execute_batch(&self, querystring: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("13".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -195,7 +195,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("14".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -212,7 +212,7 @@ impl Transaction {
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverSinglePyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("15".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -223,7 +223,7 @@ impl Transaction {
 
     pub async fn create_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("16".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -236,7 +236,7 @@ impl Transaction {
 
     pub async fn release_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("17".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -249,7 +249,7 @@ impl Transaction {
 
     pub async fn rollback_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("18".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;
@@ -305,6 +305,6 @@ impl Transaction {
             return future::try_join_all(futures).await;
         }
 
-        Err(RustPSQLDriverError::TransactionClosedError("19".into()))
+        Err(RustPSQLDriverError::TransactionClosedError)
     }
 }

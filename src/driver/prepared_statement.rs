@@ -39,7 +39,7 @@ impl PreparedStatement {
 impl PreparedStatement {
     async fn execute(&self) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(conn) = &self.conn else {
-            return Err(RustPSQLDriverError::TransactionClosedError("12".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
 
         let read_conn_g = conn.read().await;

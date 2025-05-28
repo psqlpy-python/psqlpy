@@ -49,8 +49,8 @@ pub enum RustPSQLDriverError {
     TransactionSavepointError(String),
     #[error("Transaction execute error: {0}")]
     TransactionExecuteError(String),
-    #[error("Underlying connection is returned to the pool: {0}")]
-    TransactionClosedError(String),
+    #[error("Underlying connection is returned to the pool")]
+    TransactionClosedError,
 
     // Cursor Errors
     #[error("Cursor error: {0}")]
@@ -162,7 +162,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
             RustPSQLDriverError::TransactionExecuteError(_) => {
                 TransactionExecuteError::new_err((error_desc,))
             }
-            RustPSQLDriverError::TransactionClosedError(_) => {
+            RustPSQLDriverError::TransactionClosedError => {
                 TransactionClosedError::new_err((error_desc,))
             }
             RustPSQLDriverError::BaseCursorError(_) => BaseCursorError::new_err((error_desc,)),

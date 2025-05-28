@@ -54,10 +54,10 @@ impl Cursor {
 
     async fn query_portal(&self, size: i32) -> PSQLPyResult<PSQLDriverPyQueryResult> {
         let Some(transaction) = &self.transaction else {
-            return Err(RustPSQLDriverError::TransactionClosedError("3".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
         let Some(portal) = &self.inner else {
-            return Err(RustPSQLDriverError::TransactionClosedError("4".into()));
+            return Err(RustPSQLDriverError::TransactionClosedError);
         };
         transaction.query_portal(&portal, size).await
     }
@@ -162,10 +162,10 @@ impl Cursor {
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
                 let Some(txid) = &txid else {
-                    return Err(RustPSQLDriverError::TransactionClosedError("5".into()));
+                    return Err(RustPSQLDriverError::TransactionClosedError);
                 };
                 let Some(portal) = &portal else {
-                    return Err(RustPSQLDriverError::TransactionClosedError("6".into()));
+                    return Err(RustPSQLDriverError::TransactionClosedError);
                 };
                 let result = txid.query_portal(&portal, size).await?;
 
