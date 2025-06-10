@@ -9,6 +9,7 @@ use crate::{
     exceptions::rust_errors::RustPSQLDriverError, value_converter::consts::get_timedelta_cls,
 };
 
+#[derive(Clone)]
 pub struct InnerInterval(pub Interval);
 
 impl<'py> IntoPyObject<'py> for InnerInterval {

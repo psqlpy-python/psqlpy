@@ -19,7 +19,7 @@ pub struct NonePyType;
 
 macro_rules! build_additional_rust_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         pub struct $st_name {
             inner: $rust_type,
         }

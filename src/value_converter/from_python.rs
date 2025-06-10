@@ -426,9 +426,9 @@ fn from_python_array_typed(parameter: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<P
         return <extra_types::IntervalArray as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-        "Cannot convert parameter in extra types Array",
-    )))
+    Err(RustPSQLDriverError::PyToRustValueConversionError(
+        "Cannot convert parameter in extra types Array".to_string(),
+    ))
 }
 
 /// Extract a timezone-aware datetime from a Python object.
