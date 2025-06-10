@@ -1,12 +1,10 @@
-use pyo3::{
-    prelude::*,
-    pyclass, pymethods,
-    types::{PyDict, PyTuple},
-    Py, PyAny, Python, ToPyObject,
-};
+use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, Py, PyAny, Python};
 use tokio_postgres::Row;
 
-use crate::{exceptions::rust_errors::PSQLPyResult, value_converter::to_python::postgres_to_py};
+use crate::{
+    exceptions::rust_errors::PSQLPyResult,
+    value_converter::to_python::{postgres_to_py, InnerIntoPyObject},
+};
 
 /// Convert postgres `Row` into Python Dict.
 ///
@@ -24,7 +22,7 @@ fn row_to_dict<'a>(
     let python_dict = PyDict::new(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
         let python_type = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
-        python_dict.set_item(column.name().to_object(py), python_type)?;
+        python_dict.set_item(column.name().internal_into_py_object(py)?, python_type)?;
     }
     Ok(python_dict)
 }
@@ -72,7 +70,7 @@ impl PSQLDriverPyQueryResult {
         for row in &self.inner {
             result.push(row_to_dict(py, row, &custom_decoders)?);
         }
-        Ok(result.to_object(py))
+        result.internal_into_py_object(py)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -90,7 +88,7 @@ impl PSQLDriverPyQueryResult {
             res.push(convert_class_inst);
         }
 
-        Ok(res.to_object(py))
+        res.internal_into_py_object(py)
     }
 
     /// Convert result from database with function passed from Python.
@@ -113,7 +111,7 @@ impl PSQLDriverPyQueryResult {
             let row_factory_class = row_factory.call(py, (pydict,), None)?;
             res.push(row_factory_class);
         }
-        Ok(res.to_object(py))
+        res.internal_into_py_object(py)
     }
 }
 
@@ -153,8 +151,8 @@ impl PSQLDriverSinglePyQueryResult {
         &self,
         py: Python<'_>,
         custom_decoders: Option<Py<PyDict>>,
-    ) -> PSQLPyResult<Py<PyAny>> {
-        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py))
+    ) -> PSQLPyResult<Py<PyDict>> {
+        row_to_dict(py, &self.inner, &custom_decoders)?.internal_into_py_object(py)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -184,7 +182,7 @@ impl PSQLDriverSinglePyQueryResult {
         row_factory: Py<PyAny>,
         custom_decoders: Option<Py<PyDict>>,
     ) -> PSQLPyResult<Py<PyAny>> {
-        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py);
+        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.internal_into_py_object(py)?;
         Ok(row_factory.call(py, (pydict,), None)?)
     }
 }

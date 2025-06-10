@@ -1,18 +1,28 @@
 use postgres_types::{FromSql, Type};
-use pyo3::{types::PyAnyMethods, Bound, IntoPyObject, PyAny, PyObject, Python, ToPyObject};
+use pyo3::{types::PyAnyMethods, Bound, IntoPyObject, PyAny, Python};
 use rust_decimal::Decimal;
 
-use crate::value_converter::consts::get_decimal_cls;
+use crate::{
+    exceptions::rust_errors::RustPSQLDriverError,
+    value_converter::{consts::get_decimal_cls, to_python::InnerIntoPyObject},
+};
 
 pub struct InnerDecimal(pub Decimal);
 
-impl ToPyObject for InnerDecimal {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
+impl<'py> IntoPyObject<'py> for InnerDecimal {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let dec_cls = get_decimal_cls(py).expect("failed to load decimal.Decimal");
         let ret = dec_cls
             .call1((self.0.to_string(),))
             .expect("failed to call decimal.Decimal(value)");
-        ret.to_object(py)
+        match ret.internal_into_py_object(py) {
+            Ok(result) => Ok(*result.bind(py)),
+            Err(err) => Err(err),
+        }
     }
 }
 

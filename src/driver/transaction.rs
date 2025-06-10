@@ -277,7 +277,7 @@ impl Transaction {
             let mut futures = vec![];
             if let Some(queries) = queries {
                 let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
-                    for single_query in queries.into_bound(gil).iter() {
+                    for single_query in queries.into_bound(gil).try_iter() {
                         let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
                             RustPSQLDriverError::PyToRustValueConversionError(format!(
                                 "Cannot cast to tuple: {err}",
