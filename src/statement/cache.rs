@@ -17,7 +17,7 @@ impl StatementsCache {
     }
 
     pub fn get_cache(&self, querystring: &String) -> Option<StatementCacheInfo> {
-        let qs_hash = hash_str(&querystring);
+        let qs_hash = hash_str(querystring);
 
         if let Some(cache_info) = self.0.get(&qs_hash) {
             return Some(cache_info.clone());
@@ -35,10 +35,10 @@ pub(crate) struct StatementCacheInfo {
 
 impl StatementCacheInfo {
     fn new(query: &QueryString, inner_stmt: &Statement) -> Self {
-        return Self {
+        Self {
             query: query.clone(),
             inner_stmt: inner_stmt.clone(),
-        };
+        }
     }
 
     pub(crate) fn types(&self) -> Vec<Type> {
@@ -49,7 +49,7 @@ impl StatementCacheInfo {
         self.inner_stmt
             .columns()
             .iter()
-            .map(|column| Column::new(column.name().to_string(), column.table_oid().clone()))
+            .map(|column| Column::new(column.name().to_string(), column.table_oid()))
             .collect::<Vec<Column>>()
     }
 }

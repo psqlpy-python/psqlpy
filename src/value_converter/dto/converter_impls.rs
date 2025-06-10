@@ -67,9 +67,9 @@ impl ToPythonDTO for PyDateTime {
             return Ok(PythonDTO::PyDateTimeTz(pydatetime_tz));
         }
 
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+        Err(RustPSQLDriverError::PyToRustValueConversionError(
             "Can not convert you datetime to rust type".into(),
-        ));
+        ))
     }
 }
 
@@ -79,9 +79,9 @@ impl ToPythonDTO for PyDelta {
         if let Some(interval) = Interval::from_duration(duration) {
             return Ok(PythonDTO::PyInterval(interval));
         }
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+        Err(RustPSQLDriverError::PyToRustValueConversionError(
             "Cannot convert timedelta from Python to inner Rust type.".to_string(),
-        ));
+        ))
     }
 }
 
@@ -89,7 +89,7 @@ impl ToPythonDTO for PyDict {
     fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
         let serde_value = build_serde_value(python_param)?;
 
-        return Ok(PythonDTO::PyJsonb(serde_value));
+        Ok(PythonDTO::PyJsonb(serde_value))
     }
 }
 

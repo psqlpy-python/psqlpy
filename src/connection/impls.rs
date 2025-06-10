@@ -31,9 +31,9 @@ where
     ) -> PSQLPyResult<()> {
         let start_qs = self.build_start_qs(isolation_level, read_variant, deferrable);
         self.batch_execute(start_qs.as_str()).await.map_err(|err| {
-            RustPSQLDriverError::TransactionBeginError(
-                format!("Cannot start transaction due to - {err}").into(),
-            )
+            RustPSQLDriverError::TransactionBeginError(format!(
+                "Cannot start transaction due to - {err}"
+            ))
         })?;
 
         Ok(())
@@ -65,7 +65,7 @@ impl Connection for SingleConnection {
         if !prepared {
             self.drop_prepared(&prepared_stmt).await?;
         }
-        return Ok(prepared_stmt);
+        Ok(prepared_stmt)
     }
 
     async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
@@ -116,28 +116,27 @@ impl StartTransaction for SingleConnection {
         read_variant: Option<ReadVariant>,
         deferrable: Option<bool>,
     ) -> PSQLPyResult<()> {
-        let res = self
-            ._start_transaction(isolation_level, read_variant, deferrable)
+        self._start_transaction(isolation_level, read_variant, deferrable)
             .await?;
         self.in_transaction = true;
 
-        Ok(res)
+        Ok(())
     }
 }
 
 impl CloseTransaction for SingleConnection {
     async fn commit(&mut self) -> PSQLPyResult<()> {
-        let res = self._commit().await?;
+        self._commit().await?;
         self.in_transaction = false;
 
-        Ok(res)
+        Ok(())
     }
 
     async fn rollback(&mut self) -> PSQLPyResult<()> {
-        let res = self._rollback().await?;
+        self._rollback().await?;
         self.in_transaction = false;
 
-        Ok(res)
+        Ok(())
     }
 }
 
@@ -149,7 +148,7 @@ impl Connection for PoolConnection {
 
         let prepared = self.connection.prepare(query).await?;
         self.drop_prepared(&prepared).await?;
-        return Ok(prepared);
+        Ok(prepared)
     }
 
     async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
@@ -208,17 +207,17 @@ impl StartTransaction for PoolConnection {
 
 impl CloseTransaction for PoolConnection {
     async fn commit(&mut self) -> PSQLPyResult<()> {
-        let res = self._commit().await?;
+        self._commit().await?;
         self.in_transaction = false;
 
-        Ok(res)
+        Ok(())
     }
 
     async fn rollback(&mut self) -> PSQLPyResult<()> {
-        let res = self._rollback().await?;
+        self._rollback().await?;
         self.in_transaction = false;
 
-        Ok(res)
+        Ok(())
     }
 }
 
@@ -407,14 +406,14 @@ impl PSQLPyConnection {
 
         for statement in statements {
             let querystring_result = if prepared {
-                let prepared_stmt = &self.prepare(&statement.raw_query(), true).await;
+                let prepared_stmt = &self.prepare(statement.raw_query(), true).await;
                 if let Err(error) = prepared_stmt {
                     return Err(RustPSQLDriverError::ConnectionExecuteError(format!(
                         "Cannot prepare statement in execute_many, operation rolled back {error}",
                     )));
                 }
                 self.query(
-                    &self.prepare(&statement.raw_query(), true).await?,
+                    &self.prepare(statement.raw_query(), true).await?,
                     &statement.params(),
                 )
                 .await
@@ -429,7 +428,7 @@ impl PSQLPyConnection {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub async fn fetch_row_raw(
@@ -447,7 +446,7 @@ impl PSQLPyConnection {
         let result = if prepared {
             self.query_one(
                 &self
-                    .prepare(&statement.raw_query(), true)
+                    .prepare(statement.raw_query(), true)
                     .await
                     .map_err(|err| {
                         RustPSQLDriverError::ConnectionExecuteError(format!(
@@ -464,7 +463,7 @@ impl PSQLPyConnection {
                 .map_err(|err| RustPSQLDriverError::ConnectionExecuteError(format!("{err}")))?
         };
 
-        return Ok(result);
+        Ok(result)
     }
 
     pub async fn fetch_row(
@@ -477,7 +476,7 @@ impl PSQLPyConnection {
             .fetch_row_raw(querystring, parameters, prepared)
             .await?;
 
-        return Ok(PSQLDriverSinglePyQueryResult::new(result));
+        Ok(PSQLDriverSinglePyQueryResult::new(result))
     }
 
     pub async fn fetch_val(
@@ -490,10 +489,10 @@ impl PSQLPyConnection {
             .fetch_row_raw(querystring, parameters, prepared)
             .await?;
 
-        return Python::with_gil(|gil| match result.columns().first() {
+        Python::with_gil(|gil| match result.columns().first() {
             Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
             None => Ok(gil.None()),
-        });
+        })
     }
 
     pub async fn copy_in<T, U>(&self, statement: &T) -> PSQLPyResult<CopyInSink<U>>

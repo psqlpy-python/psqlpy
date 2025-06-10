@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use pyo3::{
     types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyTuple},
-    Bound, FromPyObject, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
+    Bound, FromPyObject, IntoPyObject, Py, PyAny, PyResult, Python,
 };
 use tokio_postgres::types::Type;
 
@@ -31,11 +31,15 @@ impl<'a> FromPyObject<'a> for InternalSerdeValue {
     }
 }
 
-impl ToPyObject for InternalSerdeValue {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
+impl<'py> IntoPyObject<'py> for InternalSerdeValue {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         match build_python_from_serde_value(py, self.0.clone()) {
-            Ok(ok_value) => ok_value,
-            Err(_) => py.None(),
+            Ok(ok_value) => Ok(ok_value.bind(py).clone()),
+            Err(err) => Err(err),
         }
     }
 }
@@ -97,7 +101,7 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
         serde_map.insert(key, value.to_serde_value()?);
     }
 
-    return Ok(Value::Object(serde_map));
+    Ok(Value::Object(serde_map))
 }
 
 /// Convert python List of Dict type or just Dict into serde `Value`.
@@ -108,7 +112,7 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     Python::with_gil(|gil| {
         if value.is_instance_of::<PyList>() {
-            return serde_value_from_list(gil, value);
+            serde_value_from_list(gil, value)
         } else if value.is_instance_of::<PyDict>() {
             return serde_value_from_dict(value);
         } else {

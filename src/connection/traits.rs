@@ -1,5 +1,4 @@
 use postgres_types::{ToSql, Type};
-use pyo3::PyAny;
 use tokio_postgres::{Row, Statement, ToStatement};
 
 use crate::exceptions::rust_errors::PSQLPyResult;

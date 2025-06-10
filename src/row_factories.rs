@@ -1,7 +1,7 @@
 use pyo3::{
     pyclass, pyfunction, pymethods,
     types::{PyDict, PyDictMethods, PyModule, PyModuleMethods, PyTuple},
-    wrap_pyfunction, Bound, Py, PyAny, PyResult, Python, ToPyObject,
+    wrap_pyfunction, Bound, IntoPyObject, Py, PyAny, PyResult, Python,
 };
 
 use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
@@ -14,7 +14,10 @@ fn tuple_row(py: Python<'_>, dict_: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
             "as_tuple accepts only dict as a parameter".into(),
         )
     })?;
-    Ok(PyTuple::new_bound(py, dict_.items()).to_object(py))
+    match PyTuple::new(py, dict_.items())?.into_pyobject(py) {
+        Ok(x) => Ok(x.unbind().into_any()),
+        _ => unreachable!(),
+    }
 }
 
 #[pyclass]
@@ -24,7 +27,7 @@ struct class_row(Py<PyAny>);
 #[pymethods]
 impl class_row {
     #[new]
-    fn constract_class(class_: Py<PyAny>) -> Self {
+    fn construct_class(class_: Py<PyAny>) -> Self {
         Self(class_)
     }
 
@@ -35,7 +38,7 @@ impl class_row {
                 "as_tuple accepts only dict as a parameter".into(),
             )
         })?;
-        Ok(self.0.call_bound(py, (), Some(dict_))?)
+        Ok(self.0.call(py, (), Some(dict_))?)
     }
 }
 

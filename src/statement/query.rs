@@ -22,10 +22,10 @@ impl Display for QueryString {
 
 impl QueryString {
     pub fn new(initial_qs: &String) -> Self {
-        return Self {
+        Self {
             initial_qs: initial_qs.clone(),
             converted_qs: None,
-        };
+        }
     }
 
     pub(crate) fn query(&self) -> &str {
@@ -33,7 +33,7 @@ impl QueryString {
             return converted_qs.query();
         }
 
-        return &self.initial_qs;
+        &self.initial_qs
     }
 
     pub(crate) fn hash(&self) -> u64 {
@@ -42,7 +42,7 @@ impl QueryString {
 
     pub(crate) fn process_qs(&mut self) {
         if !self.is_kwargs_parametrized() {
-            return ();
+            return;
         }
 
         let mut counter = 0;

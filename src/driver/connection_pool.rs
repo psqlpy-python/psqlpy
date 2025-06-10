@@ -238,7 +238,7 @@ impl ConnectionPool {
         prepare: Option<bool>,
     ) -> Self {
         ConnectionPool {
-            pool: pool,
+            pool,
             pg_config: Arc::new(pg_config),
             pool_conf: ConnectionPoolConf::new(ca_file, ssl_mode, prepare.unwrap_or(true)),
         }

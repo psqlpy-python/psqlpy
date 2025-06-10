@@ -815,16 +815,6 @@ class Connection:
 
         Return representation of prepared statement.
         """
-    async def commit(self: Self) -> None:
-        """Commit the transaction.
-
-        Do nothing if there is no active transaction.
-        """
-    async def rollback(self: Self) -> None:
-        """Rollback the transaction.
-
-        Do nothing if there is no active transaction.
-        """
     async def execute(
         self: Self,
         querystring: str,

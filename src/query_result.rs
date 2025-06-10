@@ -1,9 +1,4 @@
-use pyo3::{
-    prelude::*,
-    pyclass, pymethods,
-    types::{PyDict, PyTuple},
-    Py, PyAny, Python, ToPyObject,
-};
+use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, IntoPyObjectExt, Py, PyAny, Python};
 use tokio_postgres::Row;
 
 use crate::{exceptions::rust_errors::PSQLPyResult, value_converter::to_python::postgres_to_py};
@@ -24,7 +19,7 @@ fn row_to_dict<'a>(
     let python_dict = PyDict::new(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
         let python_type = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
-        python_dict.set_item(column.name().to_object(py), python_type)?;
+        python_dict.set_item(column.name().into_py_any(py)?, python_type)?;
     }
     Ok(python_dict)
 }
@@ -72,7 +67,7 @@ impl PSQLDriverPyQueryResult {
         for row in &self.inner {
             result.push(row_to_dict(py, row, &custom_decoders)?);
         }
-        Ok(result.to_object(py))
+        Ok(result.into_py_any(py)?)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -83,14 +78,14 @@ impl PSQLDriverPyQueryResult {
     /// postgres type to python or create new Python class.
     #[allow(clippy::needless_pass_by_value)]
     pub fn as_class<'a>(&'a self, py: Python<'a>, as_class: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
-        let mut res: Vec<Py<PyAny>> = vec![];
+        let mut result: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &None)?;
             let convert_class_inst = as_class.call(py, (), Some(&pydict))?;
-            res.push(convert_class_inst);
+            result.push(convert_class_inst);
         }
 
-        Ok(res.to_object(py))
+        Ok(result.into_py_any(py)?)
     }
 
     /// Convert result from database with function passed from Python.
@@ -107,13 +102,13 @@ impl PSQLDriverPyQueryResult {
         row_factory: Py<PyAny>,
         custom_decoders: Option<Py<PyDict>>,
     ) -> PSQLPyResult<Py<PyAny>> {
-        let mut res: Vec<Py<PyAny>> = vec![];
+        let mut result: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &custom_decoders)?;
             let row_factory_class = row_factory.call(py, (pydict,), None)?;
-            res.push(row_factory_class);
+            result.push(row_factory_class);
         }
-        Ok(res.to_object(py))
+        Ok(result.into_py_any(py)?)
     }
 }
 
@@ -154,7 +149,7 @@ impl PSQLDriverSinglePyQueryResult {
         py: Python<'_>,
         custom_decoders: Option<Py<PyDict>>,
     ) -> PSQLPyResult<Py<PyAny>> {
-        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py))
+        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.into_py_any(py)?)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -184,7 +179,7 @@ impl PSQLDriverSinglePyQueryResult {
         row_factory: Py<PyAny>,
         custom_decoders: Option<Py<PyDict>>,
     ) -> PSQLPyResult<Py<PyAny>> {
-        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py);
+        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.into_py_any(py)?;
         Ok(row_factory.call(py, (pydict,), None)?)
     }
 }
