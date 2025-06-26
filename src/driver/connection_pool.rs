@@ -238,12 +238,16 @@ impl ConnectionPool {
         prepare: Option<bool>,
     ) -> Self {
         ConnectionPool {
-            pool: pool,
+            pool,
             pg_config: Arc::new(pg_config),
             pool_conf: ConnectionPoolConf::new(ca_file, ssl_mode, prepare.unwrap_or(true)),
         }
     }
 
+    /// Retrieve new connection from the pool.
+    ///
+    /// # Errors
+    /// May return error if cannot get new connection.
     pub async fn retrieve_connection(&mut self) -> PSQLPyResult<Connection> {
         let connection = self.pool.get().await?;
 
@@ -406,7 +410,7 @@ impl ConnectionPool {
             (b_gil.pg_config.clone(), b_gil.pool_conf.clone())
         });
 
-        Listener::new(pg_config, pool_conf.ca_file, pool_conf.ssl_mode)
+        Listener::new(&pg_config, pool_conf.ca_file, pool_conf.ssl_mode)
     }
 
     /// Return new single connection.

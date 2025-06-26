@@ -4,6 +4,10 @@ use super::structs::PSQLPyTransaction;
 use tokio_postgres::{Portal as tp_Portal, ToStatement};
 
 impl PSQLPyTransaction {
+    /// Query the portal (server-side cursor) to retrieve next elements.
+    ///
+    /// # Errors
+    /// May return error if there is a problem with DB communication.
     pub async fn query_portal(
         &self,
         portal: &tp_Portal,
@@ -17,6 +21,10 @@ impl PSQLPyTransaction {
         Ok(PSQLDriverPyQueryResult::new(portal_res))
     }
 
+    /// Create new portal (server-side cursor).
+    ///
+    /// # Errors
+    /// May return error if there is a problem with DB communication.
     pub async fn portal<T>(
         &self,
         querystring: &T,

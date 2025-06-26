@@ -2,24 +2,33 @@ use pg_interval::Interval;
 use postgres_types::{FromSql, Type};
 use pyo3::{
     types::{PyAnyMethods, PyDict, PyDictMethods},
-    PyObject, Python, ToPyObject,
+    Bound, IntoPyObject, PyAny, Python,
 };
 
-use crate::value_converter::consts::get_timedelta_cls;
+use crate::{
+    exceptions::rust_errors::RustPSQLDriverError, value_converter::consts::get_timedelta_cls,
+};
 
+#[derive(Clone)]
 pub struct InnerInterval(pub Interval);
 
-impl ToPyObject for InnerInterval {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
+impl<'py> IntoPyObject<'py> for InnerInterval {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let td_cls = get_timedelta_cls(py).expect("failed to load datetime.timedelta");
-        let pydict = PyDict::new_bound(py);
+        let pydict = PyDict::new(py);
         let months = self.0.months * 30;
         let _ = pydict.set_item("days", self.0.days + months);
         let _ = pydict.set_item("microseconds", self.0.microseconds);
-        let ret = td_cls
+        let timedelta = td_cls
             .call((), Some(&pydict))
             .expect("failed to call datetime.timedelta(days=<>, microseconds=<>)");
-        ret.to_object(py)
+        match timedelta.into_pyobject(py) {
+            Ok(res) => Ok(res),
+            Err(_) => unreachable!(),
+        }
     }
 }
 
