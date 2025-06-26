@@ -126,6 +126,9 @@ pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 /// Convert Array of `PythonDTO`s to serde `Value`.
 ///
 /// It can convert multidimensional arrays.
+///
+/// # Errors
+/// May return error if cannot create serde value.
 pub fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> PSQLPyResult<Value> {
     match array {
         Some(array) => inner_pythondto_array_to_serde(

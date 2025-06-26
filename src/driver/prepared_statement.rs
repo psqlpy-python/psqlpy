@@ -22,6 +22,7 @@ pub struct PreparedStatement {
 }
 
 impl PreparedStatement {
+    #[must_use]
     pub fn new(
         conn: Option<Arc<RwLock<PSQLPyConnection>>>,
         pg_config: Arc<Config>,
@@ -46,15 +47,15 @@ impl PreparedStatement {
         read_conn_g.execute_statement(&self.statement).await
     }
 
-    fn cursor(&self) -> PSQLPyResult<Cursor> {
-        Ok(Cursor::new(
+    fn cursor(&self) -> Cursor {
+        Cursor::new(
             self.conn.clone(),
             None,
             None,
             None,
             self.pg_config.clone(),
             Some(self.statement.clone()),
-        ))
+        )
     }
 
     fn columns(&self) -> Vec<Column> {

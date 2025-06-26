@@ -158,7 +158,7 @@ impl Connection {
         read_conn_g.in_transaction()
     }
 
-    async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
+    async fn __aenter__(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
         let (db_client, db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (
@@ -191,7 +191,7 @@ impl Connection {
     }
 
     #[allow(clippy::unused_async)]
-    async fn __aexit__<'a>(
+    async fn __aexit__(
         self_: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
@@ -278,7 +278,7 @@ impl Connection {
     /// 1) Cannot convert python parameters
     /// 2) Cannot execute querystring.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
-    pub async fn execute_many<'a>(
+    pub async fn execute_many(
         self_: pyo3::Py<Self>,
         querystring: String,
         parameters: Option<Vec<Py<PyAny>>>,
@@ -369,7 +369,7 @@ impl Connection {
     /// 2) Cannot execute querystring.
     /// 3) Query returns more than one row
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
-    pub async fn fetch_val<'a>(
+    pub async fn fetch_val(
         self_: pyo3::Py<Self>,
         querystring: String,
         parameters: Option<pyo3::Py<PyAny>>,

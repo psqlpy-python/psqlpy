@@ -31,6 +31,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
+    #[must_use]
     pub fn new(
         conn: Option<Arc<RwLock<PSQLPyConnection>>>,
         pg_config: Arc<Config>,
@@ -59,7 +60,7 @@ impl Transaction {
         self_
     }
 
-    async fn __aenter__<'a>(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
+    async fn __aenter__(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
         let (isolation_level, read_variant, deferrable, conn) = pyo3::Python::with_gil(|gil| {
             let self_ = self_.borrow(gil);
             (
@@ -82,7 +83,7 @@ impl Transaction {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    async fn __aexit__<'a>(
+    async fn __aexit__(
         self_: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
@@ -118,6 +119,10 @@ impl Transaction {
         }
     }
 
+    /// Begin the transaction.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     pub async fn begin(&mut self) -> PSQLPyResult<()> {
         let conn = &self.conn;
         let Some(conn) = conn else {
@@ -131,6 +136,10 @@ impl Transaction {
         Ok(())
     }
 
+    /// Execute querystring with parameters.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn execute(
         &self,
@@ -146,6 +155,10 @@ impl Transaction {
         read_conn_g.execute(querystring, parameters, prepared).await
     }
 
+    /// Execute querystring with parameters.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch(
         &self,
@@ -161,6 +174,11 @@ impl Transaction {
         read_conn_g.execute(querystring, parameters, prepared).await
     }
 
+    /// Execute querystring with parameters and return single value.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
+    /// Or if query returns more than one value.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch_val(
         &self,
@@ -178,6 +196,14 @@ impl Transaction {
             .await
     }
 
+    /// Executes a sequence of SQL statements using the simple query protocol.
+    ///
+    /// Statements should be separated by semicolons.
+    /// If an error occurs, execution of the sequence will stop at that point.
+    /// This is intended for use when, for example, initializing a database schema.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     pub async fn execute_batch(&self, querystring: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
             return Err(RustPSQLDriverError::TransactionClosedError);
@@ -187,6 +213,10 @@ impl Transaction {
         read_conn_g.batch_execute(&querystring).await
     }
 
+    /// Executes one query with different parameters.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn execute_many(
         &self,
@@ -204,6 +234,10 @@ impl Transaction {
             .await
     }
 
+    /// Executes query and return one row.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     #[pyo3(signature = (querystring, parameters=None, prepared=None))]
     pub async fn fetch_row(
         &self,
@@ -221,6 +255,10 @@ impl Transaction {
             .await
     }
 
+    /// Create new savepoint in a transaction.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     pub async fn create_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
             return Err(RustPSQLDriverError::TransactionClosedError);
@@ -234,6 +272,10 @@ impl Transaction {
         Ok(())
     }
 
+    /// Release a savepoint in a transaction.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     pub async fn release_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
             return Err(RustPSQLDriverError::TransactionClosedError);
@@ -247,6 +289,10 @@ impl Transaction {
         Ok(())
     }
 
+    /// Rollback to a savepoint in a transaction.
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
     pub async fn rollback_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
             return Err(RustPSQLDriverError::TransactionClosedError);
@@ -260,8 +306,16 @@ impl Transaction {
         Ok(())
     }
 
+    /// Execute many queries in a transaction.
+    ///
+    /// More information in a documentation:
+    /// https://psqlpy-python.github.io/components/transaction.html#pipeline
+    ///
+    /// # Errors
+    /// Can return error if there is a problem with DB communication.
+    #[allow(for_loops_over_fallibles)]
     #[pyo3(signature = (queries=None, prepared=None))]
-    pub async fn pipeline<'py>(
+    pub async fn pipeline(
         self_: Py<Self>,
         queries: Option<Py<PyList>>,
         prepared: Option<bool>,

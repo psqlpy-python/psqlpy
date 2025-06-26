@@ -45,7 +45,11 @@ pub struct Listener {
 
 impl Listener {
     #[must_use]
-    pub fn new(pg_config: Arc<Config>, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
+    pub fn new(
+        pg_config: &Arc<Config>,
+        ca_file: Option<String>,
+        ssl_mode: Option<SslMode>,
+    ) -> Self {
         Listener {
             pg_config: pg_config.clone(),
             ca_file,
@@ -92,12 +96,12 @@ impl Listener {
     }
 
     #[allow(clippy::unused_async)]
-    async fn __aenter__<'a>(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
+    async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         Ok(slf)
     }
 
     #[allow(clippy::unused_async)]
-    async fn __aexit__<'a>(
+    async fn __aexit__(
         slf: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
@@ -234,6 +238,8 @@ impl Listener {
         Ok(())
     }
 
+    /// TODO: remove clippy ignore after removing async
+    #[allow(clippy::unused_async)]
     async fn shutdown(&mut self) {
         self.abort_listen();
         std::mem::take(&mut self.connection);

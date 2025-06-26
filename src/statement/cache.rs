@@ -55,4 +55,4 @@ impl StatementCacheInfo {
 }
 
 pub(crate) static STMTS_CACHE: Lazy<RwLock<StatementsCache>> =
-    Lazy::new(|| RwLock::new(Default::default()));
+    Lazy::new(|| RwLock::new(StatementsCache::default()));

@@ -133,20 +133,21 @@ macro_rules! impl_cursor_method {
         #[pymethods]
         impl $name {
             #[pyo3(signature = (querystring=None, parameters=None, array_size=None))]
+            #[must_use]
             pub fn cursor(
                 &self,
                 querystring: Option<String>,
                 parameters: Option<Py<PyAny>>,
                 array_size: Option<i32>,
-            ) -> PSQLPyResult<Cursor> {
-                Ok(Cursor::new(
+            ) -> Cursor {
+                Cursor::new(
                     self.conn.clone(),
                     querystring,
                     parameters,
                     array_size,
                     self.pg_config.clone(),
                     None,
-                ))
+                )
             }
         }
     };
@@ -159,6 +160,10 @@ macro_rules! impl_prepare_method {
     ($name:ident) => {
         #[pymethods]
         impl $name {
+            /// Create new prepared statement.
+            ///
+            /// # Errors
+            /// May return error if there is some problem with DB communication.
             #[pyo3(signature = (querystring, parameters=None))]
             pub async fn prepare(
                 &self,
@@ -191,6 +196,10 @@ macro_rules! impl_transaction_methods {
     ($name:ident, $val:expr $(,)?) => {
         #[pymethods]
         impl $name {
+            /// Commit existing transaction.
+            ///
+            /// # Errors
+            /// May return error if there is some problem with DB communication.
             pub async fn commit(&mut self) -> PSQLPyResult<()> {
                 let conn = self.conn.clone();
                 let Some(conn) = conn else {
@@ -206,6 +215,10 @@ macro_rules! impl_transaction_methods {
                 Ok(())
             }
 
+            /// Rollback existing transaction.
+            ///
+            /// # Errors
+            /// May return error if there is some problem with DB communication.
             pub async fn rollback(&mut self) -> PSQLPyResult<()> {
                 let conn = self.conn.clone();
                 let Some(conn) = conn else {
@@ -230,6 +243,10 @@ macro_rules! impl_binary_copy_method {
     ($name:ident) => {
         #[pymethods]
         impl $name {
+            /// Perform binary copy to table.
+            ///
+            /// # Errors
+            /// May return error if there is some problem with DB communication.
             #[pyo3(signature = (source, table_name, columns=None, schema_name=None))]
             pub async fn binary_copy_to_table(
                 self_: pyo3::Py<Self>,
