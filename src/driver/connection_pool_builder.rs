@@ -52,7 +52,7 @@ impl ConnectionPoolBuilder {
             mgr_config = ManagerConfig {
                 recycling_method: RecyclingMethod::Fast,
             };
-        };
+        }
 
         let mgr: Manager = build_manager(
             mgr_config,

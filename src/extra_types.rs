@@ -347,6 +347,7 @@ macro_rules! build_array_type {
                 self.inner.clone()
             }
 
+            #[must_use]
             pub fn element_type() -> Type {
                 $elem_kind
             }

@@ -21,9 +21,10 @@ impl Display for QueryString {
 }
 
 impl QueryString {
-    pub fn new(initial_qs: &String) -> Self {
+    #[must_use]
+    pub fn new(initial_qs: &str) -> Self {
         Self {
-            initial_qs: initial_qs.clone(),
+            initial_qs: initial_qs.to_owned(),
             converted_qs: None,
         }
     }

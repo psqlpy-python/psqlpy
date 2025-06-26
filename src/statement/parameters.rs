@@ -26,6 +26,7 @@ pub struct Column {
 }
 
 impl Column {
+    #[must_use]
     pub fn new(name: String, table_oid: Option<u32>) -> Self {
         Self { name, table_oid }
     }
@@ -52,12 +53,12 @@ pub(crate) struct ParametersBuilder {
 
 impl ParametersBuilder {
     pub fn new(
-        parameters: &Option<PyObject>,
+        parameters: Option<&PyObject>,
         types: Option<Vec<Type>>,
         columns: Vec<Column>,
     ) -> Self {
         Self {
-            parameters: parameters.clone(),
+            parameters: parameters.cloned(),
             types,
             columns,
         }
@@ -98,7 +99,7 @@ impl ParametersBuilder {
                     prepared_parameters = Some(
                         MappingParametersBuilder::new(mapping, self.types, self.columns)
                             .prepare(gil, parameters_names)?,
-                    )
+                    );
                 }
             }
             _ => {}
@@ -217,8 +218,7 @@ impl MappingParametersBuilder {
                 Ok(param_value) => params_as_pyobject.push(param_value.unbind()),
                 Err(_) => {
                     return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-                        "Cannot find parameter with name <{}>",
-                        param_name
+                        "Cannot find parameter with name <{param_name}>",
                     )))
                 }
             }
@@ -286,6 +286,7 @@ pub struct PreparedParameters {
 }
 
 impl PreparedParameters {
+    #[must_use]
     pub fn new(parameters: Vec<PythonDTO>, types: Vec<Type>, columns: Vec<Column>) -> Self {
         Self {
             parameters,
@@ -294,6 +295,7 @@ impl PreparedParameters {
         }
     }
 
+    #[must_use]
     pub fn params(&self) -> Box<[&(dyn ToSql + Sync)]> {
         let params_ref = &self.parameters;
         params_ref
@@ -303,6 +305,7 @@ impl PreparedParameters {
             .into_boxed_slice()
     }
 
+    #[must_use]
     pub fn params_typed(&self) -> Box<[(&(dyn ToSql + Sync), Type)]> {
         let params_ref = &self.parameters;
         let types = self.types.clone();
@@ -313,6 +316,7 @@ impl PreparedParameters {
             .into_boxed_slice()
     }
 
+    #[must_use]
     pub fn columns(&self) -> &Vec<Column> {
         &self.columns
     }

@@ -1,5 +1,6 @@
 use postgres_types::Type;
 
+#[must_use]
 pub fn array_type_to_single_type(array_type: &Type) -> Type {
     match *array_type {
         Type::BOOL_ARRAY => Type::BOOL,

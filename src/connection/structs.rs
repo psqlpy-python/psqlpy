@@ -12,6 +12,7 @@ pub struct PoolConnection {
 }
 
 impl PoolConnection {
+    #[must_use]
     pub fn new(connection: Object, pg_config: Arc<Config>) -> Self {
         Self {
             connection,
@@ -31,6 +32,7 @@ pub struct SingleConnection {
 }
 
 impl SingleConnection {
+    #[must_use]
     pub fn new(connection: Client, pg_config: Arc<Config>) -> Self {
         Self {
             connection,

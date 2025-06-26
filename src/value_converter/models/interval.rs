@@ -22,10 +22,10 @@ impl<'py> IntoPyObject<'py> for InnerInterval {
         let months = self.0.months * 30;
         let _ = pydict.set_item("days", self.0.days + months);
         let _ = pydict.set_item("microseconds", self.0.microseconds);
-        let ret = td_cls
+        let timedelta = td_cls
             .call((), Some(&pydict))
             .expect("failed to call datetime.timedelta(days=<>, microseconds=<>)");
-        match ret.into_pyobject(py) {
+        match timedelta.into_pyobject(py) {
             Ok(res) => Ok(res),
             Err(_) => unreachable!(),
         }

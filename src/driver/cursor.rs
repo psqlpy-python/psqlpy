@@ -32,6 +32,7 @@ pub struct Cursor {
 }
 
 impl Cursor {
+    #[must_use]
     pub fn new(
         conn: Option<Arc<RwLock<PSQLPyConnection>>>,
         querystring: Option<String>,
@@ -90,7 +91,8 @@ impl Cursor {
         slf
     }
 
-    async fn __aenter__<'a>(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
+    #[allow(clippy::single_match_else)]
+    async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         let (conn, querystring, parameters, statement) = Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (
@@ -132,8 +134,8 @@ impl Cursor {
         Ok(slf)
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    async fn __aexit__<'a>(
+    #[allow(clippy::needless_pass_by_value, clippy::unused_async)]
+    async fn __aexit__(
         &mut self,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
@@ -174,7 +176,7 @@ impl Cursor {
                         "Iteration is over, no more results in portal",
                     )
                     .into());
-                };
+                }
 
                 Ok(result)
             })
@@ -183,6 +185,7 @@ impl Cursor {
         Ok(Some(py_future?))
     }
 
+    #[allow(clippy::single_match_else)]
     async fn start(&mut self) -> PSQLPyResult<()> {
         let Some(conn) = &self.conn else {
             return Err(RustPSQLDriverError::ConnectionClosedError);

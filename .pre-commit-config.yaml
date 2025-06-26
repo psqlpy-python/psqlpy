@@ -58,8 +58,8 @@ repos:
           - clippy::all
           - -W
           - clippy::pedantic
-          # - -D
-          # - warnings
+          - -D
+          - warnings
 
       - id: check
         types:

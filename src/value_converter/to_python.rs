@@ -136,7 +136,7 @@ where
                         );
                         final_list.append(inner_pylist).unwrap();
                         lower_bound += next_dimension.len as usize;
-                    };
+                    }
                 }
 
                 return final_list.unbind();
