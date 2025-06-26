@@ -22,7 +22,7 @@ impl ChannelCallbacks {
             Entry::Occupied(mut e) => {
                 e.get_mut().push(callback);
             }
-        };
+        }
     }
 
     #[must_use]

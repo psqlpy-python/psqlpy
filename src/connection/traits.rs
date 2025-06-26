@@ -57,7 +57,7 @@ pub trait Transaction {
         if let Some(level) = isolation_level {
             let level = &level.to_str_level();
             querystring.push_str(format!(" ISOLATION LEVEL {level}").as_str());
-        };
+        }
 
         querystring.push_str(match read_variant {
             Some(ReadVariant::ReadOnly) => " READ ONLY",

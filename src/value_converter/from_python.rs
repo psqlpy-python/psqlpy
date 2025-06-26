@@ -581,7 +581,6 @@ pub fn py_sequence_into_flat_vec(
             final_vec.append(&mut next_vec);
         } else {
             final_vec.push(from_python_typed(&ok_seq_elem, type_)?);
-            continue;
         }
     }
 
@@ -627,7 +626,7 @@ fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> PSQLPyResult<V
                         "Incorrect types of coordinate values. It must be int or float".into(),
                     ))
                 }
-            };
+            }
         }
 
         Ok::<Vec<f64>, RustPSQLDriverError>(coord_values_vec)
@@ -693,7 +692,7 @@ pub fn build_geo_coords(
             return Err(RustPSQLDriverError::PyToRustValueConversionError(
                 "Inner coordinates must be passed as pairs of int/float in list/tuple/set or as flat structure with int/float values".into(),
             ));
-        };
+        }
         Ok::<Vec<Coord>, RustPSQLDriverError>(result_vec)
     })?;
 
@@ -735,7 +734,7 @@ pub fn build_flat_geo_coords(
             return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
                 "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
             )));
-        };
+        }
 
         let result_vec = convert_py_to_rust_coord_values(parameters)?;
 
@@ -744,7 +743,7 @@ pub fn build_flat_geo_coords(
             return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
                 "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
             )));
-        };
+        }
 
         Ok::<Vec<f64>, RustPSQLDriverError>(result_vec)
     })
@@ -783,7 +782,7 @@ fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> PSQLPyResult<Vec<Py<Py
         return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
             "Invalid sequence type, please use list/tuple/set, {bind_parameters}"
         )));
-    };
+    }
 
     Ok::<Vec<Py<PyAny>>, RustPSQLDriverError>(coord_values_sequence_vec)
 }

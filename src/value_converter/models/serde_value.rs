@@ -170,7 +170,7 @@ fn inner_pythondto_array_to_serde(
                             _ => unreachable!(),
                         }
                         lower_bound += next_dimension.len as usize;
-                    };
+                    }
                 }
 
                 return Ok(final_list);

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use once_cell::sync::Lazy;
 use postgres_types::Type;
 use tokio::sync::RwLock;
 use tokio_postgres::Statement;
@@ -54,5 +53,5 @@ impl StatementCacheInfo {
     }
 }
 
-pub(crate) static STMTS_CACHE: Lazy<RwLock<StatementsCache>> =
-    Lazy::new(|| RwLock::new(StatementsCache::default()));
+pub(crate) static STMTS_CACHE: std::sync::LazyLock<RwLock<StatementsCache>> =
+    std::sync::LazyLock::new(|| RwLock::new(StatementsCache::default()));

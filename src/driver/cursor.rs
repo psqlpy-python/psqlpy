@@ -176,7 +176,7 @@ impl Cursor {
                         "Iteration is over, no more results in portal",
                     )
                     .into());
-                };
+                }
 
                 Ok(result)
             })
