@@ -40,7 +40,7 @@ impl Column {
 
     #[getter]
     fn get_table_oid(&self) -> Option<u32> {
-        self.table_oid.clone()
+        self.table_oid
     }
 }
 
@@ -108,9 +108,9 @@ impl ParametersBuilder {
             return Ok(prepared_parameters);
         }
 
-        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+        Err(RustPSQLDriverError::PyToRustValueConversionError(
             "Parameters must be sequence or mapping".into(),
-        ));
+        ))
     }
 
     fn as_type<T: for<'a, 'py> FromPyObjectBound<'a, 'py>>(&self, gil: Python<'_>) -> Option<T> {
@@ -163,8 +163,8 @@ impl MappingParametersBuilder {
         parameters_names: Vec<String>,
     ) -> PSQLPyResult<PreparedParameters> {
         match self.types.clone() {
-            Some(types) => return self.prepare_typed(gil, parameters_names, types),
-            None => return self.prepare_not_typed(gil, parameters_names),
+            Some(types) => self.prepare_typed(gil, parameters_names, types),
+            None => self.prepare_not_typed(gil, parameters_names),
         }
     }
 
@@ -177,7 +177,7 @@ impl MappingParametersBuilder {
         let extracted_parameters = self.extract_parameters(gil, parameters_names)?;
         let zipped_params_types = zip(extracted_parameters, &types);
         let converted_parameters = zipped_params_types
-            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
+            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(
@@ -216,9 +216,10 @@ impl MappingParametersBuilder {
             match self.map_parameters.bind(gil).get_item(&param_name) {
                 Ok(param_value) => params_as_pyobject.push(param_value.unbind()),
                 Err(_) => {
-                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                        format!("Cannot find parameter with name <{}>", param_name).into(),
-                    ))
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+                        "Cannot find parameter with name <{}>",
+                        param_name
+                    )))
                 }
             }
         }
@@ -236,7 +237,7 @@ pub(crate) struct SequenceParametersBuilder {
 impl SequenceParametersBuilder {
     fn new(seq_parameters: Vec<PyObject>, types: Option<Vec<Type>>, columns: Vec<Column>) -> Self {
         Self {
-            seq_parameters: seq_parameters,
+            seq_parameters,
             types,
             columns,
         }
@@ -244,15 +245,15 @@ impl SequenceParametersBuilder {
 
     fn prepare(self, gil: Python<'_>) -> PSQLPyResult<PreparedParameters> {
         match self.types.clone() {
-            Some(types) => return self.prepare_typed(gil, types),
-            None => return self.prepare_not_typed(gil),
+            Some(types) => self.prepare_typed(gil, types),
+            None => self.prepare_not_typed(gil),
         }
     }
 
     fn prepare_typed(self, gil: Python<'_>, types: Vec<Type>) -> PSQLPyResult<PreparedParameters> {
         let zipped_params_types = zip(self.seq_parameters, &types);
         let converted_parameters = zipped_params_types
-            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), &type_))
+            .map(|(parameter, type_)| from_python_typed(parameter.bind(gil), type_))
             .collect::<PSQLPyResult<Vec<PythonDTO>>>()?;
 
         Ok(PreparedParameters::new(

@@ -40,7 +40,7 @@ impl<'a> StatementBuilder<'a> {
         if !self.prepared {
             {
                 let stmt_cache_guard = STMTS_CACHE.read().await;
-                if let Some(cached) = stmt_cache_guard.get_cache(&self.querystring) {
+                if let Some(cached) = stmt_cache_guard.get_cache(self.querystring) {
                     return self.build_with_cached(cached);
                 }
             }
@@ -52,28 +52,28 @@ impl<'a> StatementBuilder<'a> {
 
     fn build_with_cached(self, cached: StatementCacheInfo) -> PSQLPyResult<PsqlpyStatement> {
         let raw_parameters =
-            ParametersBuilder::new(&self.parameters, Some(cached.types()), cached.columns());
+            ParametersBuilder::new(self.parameters, Some(cached.types()), cached.columns());
 
-        let parameters_names = if let Some(converted_qs) = &cached.query.converted_qs {
-            Some(converted_qs.params_names().clone())
-        } else {
-            None
-        };
+        let parameters_names = cached
+            .query
+            .converted_qs
+            .as_ref()
+            .map(|converted_qs| converted_qs.params_names().clone());
 
         let prepared_parameters = raw_parameters.prepare(parameters_names)?;
 
-        return Ok(PsqlpyStatement::new(
+        Ok(PsqlpyStatement::new(
             cached.query,
             prepared_parameters,
             None,
-        ));
+        ))
     }
 
     async fn build_no_cached(
         self,
         cache_guard: RwLockWriteGuard<'_, StatementsCache>,
     ) -> PSQLPyResult<PsqlpyStatement> {
-        let mut querystring = QueryString::new(&self.querystring);
+        let mut querystring = QueryString::new(self.querystring);
         querystring.process_qs();
 
         let prepared_stmt = self.prepare_query(&querystring, self.prepared).await?;
@@ -81,34 +81,31 @@ impl<'a> StatementBuilder<'a> {
         let columns = prepared_stmt
             .columns()
             .iter()
-            .map(|column| Column::new(column.name().to_string(), column.table_oid().clone()))
+            .map(|column| Column::new(column.name().to_string(), column.table_oid()))
             .collect::<Vec<Column>>();
         let parameters_builder = ParametersBuilder::new(
-            &self.parameters,
+            self.parameters,
             Some(prepared_stmt.params().to_vec()),
             columns,
         );
 
-        let parameters_names = if let Some(converted_qs) = &querystring.converted_qs {
-            Some(converted_qs.params_names().clone())
-        } else {
-            None
-        };
+        let parameters_names = querystring
+            .converted_qs
+            .as_ref()
+            .map(|converted_qs| converted_qs.params_names().clone());
 
         let prepared_parameters = parameters_builder.prepare(parameters_names)?;
 
         match self.prepared {
-            true => {
-                return Ok(PsqlpyStatement::new(
-                    querystring,
-                    prepared_parameters,
-                    Some(prepared_stmt),
-                ))
-            }
+            true => Ok(PsqlpyStatement::new(
+                querystring,
+                prepared_parameters,
+                Some(prepared_stmt),
+            )),
             false => {
                 self.write_to_cache(cache_guard, &querystring, &prepared_stmt)
                     .await;
-                return Ok(PsqlpyStatement::new(querystring, prepared_parameters, None));
+                Ok(PsqlpyStatement::new(querystring, prepared_parameters, None))
             }
         }
     }

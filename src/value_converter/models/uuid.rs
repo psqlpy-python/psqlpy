@@ -2,7 +2,8 @@ use postgres_types::FromSql;
 use uuid::Uuid;
 
 use pyo3::{
-    types::PyAnyMethods, Bound, FromPyObject, PyAny, PyObject, PyResult, Python, ToPyObject,
+    types::{PyAnyMethods, PyString},
+    Bound, FromPyObject, IntoPyObject, PyAny, PyResult, Python,
 };
 use tokio_postgres::types::Type;
 
@@ -26,9 +27,17 @@ impl<'a> FromPyObject<'a> for InternalUuid {
     }
 }
 
-impl ToPyObject for InternalUuid {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.0.to_string().as_str().to_object(py)
+impl<'py> IntoPyObject<'py> for InternalUuid {
+    type Target = PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    /// Performs the conversion.
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self.0.to_string().as_str().into_pyobject(py) {
+            Ok(result) => Ok(result),
+            _ => unreachable!(),
+        }
     }
 }
 

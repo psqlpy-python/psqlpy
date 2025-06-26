@@ -34,12 +34,10 @@ impl PsqlpyStatement {
 
     pub fn statement_query(&self) -> PSQLPyResult<&Statement> {
         match &self.prepared_statement {
-            Some(prepared_stmt) => return Ok(prepared_stmt),
-            None => {
-                return Err(RustPSQLDriverError::ConnectionExecuteError(
-                    "No prepared parameters".into(),
-                ))
-            }
+            Some(prepared_stmt) => Ok(prepared_stmt),
+            None => Err(RustPSQLDriverError::ConnectionExecuteError(
+                "No prepared parameters".into(),
+            )),
         }
     }
 
@@ -52,6 +50,6 @@ impl PsqlpyStatement {
     }
 
     pub fn columns(&self) -> &Vec<Column> {
-        &self.prepared_parameters.columns()
+        self.prepared_parameters.columns()
     }
 }

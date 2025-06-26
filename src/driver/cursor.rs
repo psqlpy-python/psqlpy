@@ -59,7 +59,7 @@ impl Cursor {
         let Some(portal) = &self.inner else {
             return Err(RustPSQLDriverError::TransactionClosedError);
         };
-        transaction.query_portal(&portal, size).await
+        transaction.query_portal(portal, size).await
     }
 }
 
@@ -157,7 +157,7 @@ impl Cursor {
     fn __anext__(&self) -> PSQLPyResult<Option<PyObject>> {
         let txid = self.transaction.clone();
         let portal = self.inner.clone();
-        let size = self.array_size.clone();
+        let size = self.array_size;
 
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
@@ -167,7 +167,7 @@ impl Cursor {
                 let Some(portal) = &portal else {
                     return Err(RustPSQLDriverError::TransactionClosedError);
                 };
-                let result = txid.query_portal(&portal, size).await?;
+                let result = txid.query_portal(portal, size).await?;
 
                 if result.is_empty() {
                     return Err(PyStopAsyncIteration::new_err(
@@ -192,7 +192,7 @@ impl Cursor {
         let (txid, inner_portal) = match &self.querystring {
             Some(querystring) => {
                 write_conn_g
-                    .portal(Some(&querystring), &self.parameters, None)
+                    .portal(Some(querystring), &self.parameters, None)
                     .await?
             }
             None => {
@@ -201,7 +201,7 @@ impl Cursor {
                         "Cannot start cursor".into(),
                     ));
                 };
-                write_conn_g.portal(None, &None, Some(&statement)).await?
+                write_conn_g.portal(None, &None, Some(statement)).await?
             }
         };
 

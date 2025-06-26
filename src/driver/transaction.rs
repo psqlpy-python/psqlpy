@@ -78,7 +78,7 @@ impl Transaction {
             .start_transaction(isolation_level, read_variant, deferrable)
             .await?;
 
-        return Ok(self_);
+        Ok(self_)
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -114,7 +114,7 @@ impl Transaction {
                 let mut self_ = self_.borrow_mut(gil);
                 self_.conn = None;
             });
-            return Err(RustPSQLDriverError::RustPyError(py_err));
+            Err(RustPSQLDriverError::RustPyError(py_err))
         }
     }
 
@@ -277,7 +277,7 @@ impl Transaction {
             let mut futures = vec![];
             if let Some(queries) = queries {
                 let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
-                    for single_query in queries.into_bound(gil).iter() {
+                    for single_query in queries.into_bound(gil).try_iter() {
                         let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
                             RustPSQLDriverError::PyToRustValueConversionError(format!(
                                 "Cannot cast to tuple: {err}",
