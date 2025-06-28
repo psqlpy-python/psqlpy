@@ -180,7 +180,7 @@ async def main() -> None:
     ...
     connection = await db_pool.connection()
     # this will be an int value
-    query_result_value = await connection.fetch_row(
+    query_result_value = await connection.fetch_val(
         "SELECT COUNT(*) FROM users WHERE id > $1",
         [100],
     )
