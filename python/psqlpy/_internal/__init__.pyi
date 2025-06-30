@@ -1,4 +1,5 @@
 import types
+import typing
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
@@ -18,11 +19,33 @@ ParamsT: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
 class QueryResult:
     """Result."""
 
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[None] = None,
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[dict[str, Any]]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[False],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[dict[str, Any]]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[True],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[tuple[tuple[str, typing.Any], ...]]: ...
+    @typing.overload
     def result(
         self: Self,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
-    ) -> list[dict[Any, Any]]:
-        """Return result from database as a list of dicts.
+        as_tuple: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return result from database.
+
+        By default it returns result as a list of dicts.
 
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
@@ -84,11 +107,33 @@ class QueryResult:
 class SingleQueryResult:
     """Single result."""
 
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[None] = None,
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> dict[str, Any]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[False],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> dict[str, Any]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[True],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> tuple[tuple[str, typing.Any]]: ...
+    @typing.overload
     def result(
         self: Self,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+        as_tuple: bool | None = None,
     ) -> dict[Any, Any]:
-        """Return result from database as a dict.
+        """Return result from database.
+
+        By default it returns result as a dict.
 
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
