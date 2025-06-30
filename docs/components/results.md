@@ -15,6 +15,7 @@ Currently there are two results:
 
 #### Parameters
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+- `as_tuple`: return result as a tuple instead of dict.
 
 Get the result as a list of dicts
 
@@ -27,7 +28,13 @@ async def main() -> None:
         [],
     )
 
-    result: List[Dict[str, Any]] = query_result.result()
+    # Result as dict
+    list_dict_result: List[Dict[str, Any]] = query_result.result()
+
+    # Result as tuple
+    list_tuple_result: List[Tuple[Tuple[str, typing.Any], ...]] = query_result.result(
+        as_tuple=True,
+    )
 ```
 
 ### As class
@@ -72,6 +79,7 @@ async def main() -> None:
 
 #### Parameters
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+- `as_tuple`: return result as a tuple instead of dict.
 
 Get the result as a dict
 
@@ -84,7 +92,13 @@ async def main() -> None:
         [100],
     )
 
-    result: Dict[str, Any] = query_result.result()
+    # Result as dict
+    dict_result: Dict[str, Any] = query_result.result()
+
+    # Result as tuple
+    tuple_result: Tuple[Tuple[str, typing.Any], ...] = query_result.result(
+        as_tuple=True,
+    )
 ```
 
 ### As class

@@ -646,6 +646,35 @@ async def test_custom_decoder(
         assert result[0]["geo_point"] == "Just An Example"
 
 
+async def test_custom_decoder_as_tuple_result(
+    psql_pool: ConnectionPool,
+) -> None:
+    def point_encoder(point_bytes: bytes) -> str:  # noqa: ARG001
+        return "Just An Example"
+
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS for_test")
+        await conn.execute(
+            "CREATE TABLE for_test (geo_point POINT)",
+        )
+
+        await conn.execute(
+            "INSERT INTO for_test VALUES ('(1, 1)')",
+        )
+
+        qs_result = await conn.execute(
+            "SELECT * FROM for_test",
+        )
+        result = qs_result.result(
+            custom_decoders={
+                "geo_point": point_encoder,
+            },
+            as_tuple=True,
+        )
+
+        assert result[0][0][1] == "Just An Example"
+
+
 async def test_row_factory_query_result(
     psql_pool: ConnectionPool,
     table_name: str,
