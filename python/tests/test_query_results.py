@@ -39,7 +39,7 @@ async def test_result_as_tuple(
 
     assert isinstance(conn_result, QueryResult)
     assert isinstance(single_tuple_row, tuple)
-    assert single_tuple_row[0][0] == "id"
+    assert single_tuple_row[0] == 1
 
 
 async def test_single_result_as_dict(
@@ -73,4 +73,4 @@ async def test_single_result_as_tuple(
 
     assert isinstance(conn_result, SingleQueryResult)
     assert isinstance(result_tuple, tuple)
-    assert result_tuple[0][0] == "id"
+    assert result_tuple[0] == 1

@@ -604,7 +604,7 @@ pub fn raw_bytes_data_process(
 
         if let Ok(Some(py_encoder_func)) = py_encoder_func {
             return Ok(py_encoder_func
-                .call((raw_bytes_data.to_vec(),), None)?
+                .call1((PyBytes::new(py, raw_bytes_data),))?
                 .unbind());
         }
     }
