@@ -95,13 +95,9 @@ fn postgres_array_to_py<'py, T: IntoPyObject<'py> + Clone>(
     array: Option<Array<T>>,
 ) -> Option<Py<PyList>> {
     array.map(|array| {
-        inner_postgres_array_to_py(
-            py,
-            array.dimensions(),
-            array.iter().cloned().collect::<Vec<T>>(),
-            0,
-            0,
-        )
+        // Collect data once instead of creating copies in recursion
+        let data: Vec<T> = array.iter().cloned().collect();
+        inner_postgres_array_to_py(py, array.dimensions(), &data, 0, 0)
     })
 }
 
@@ -110,44 +106,60 @@ fn postgres_array_to_py<'py, T: IntoPyObject<'py> + Clone>(
 fn inner_postgres_array_to_py<'py, T>(
     py: Python<'py>,
     dimensions: &[Dimension],
-    data: Vec<T>,
+    data: &[T],
     dimension_index: usize,
-    mut lower_bound: usize,
+    data_offset: usize,
 ) -> Py<PyList>
 where
     T: IntoPyObject<'py> + Clone,
 {
-    let current_dimension = dimensions.get(dimension_index);
-
-    if let Some(current_dimension) = current_dimension {
-        let possible_next_dimension = dimensions.get(dimension_index + 1);
-        match possible_next_dimension {
-            Some(next_dimension) => {
-                let final_list = PyList::empty(py);
-
-                for _ in 0..current_dimension.len as usize {
-                    if dimensions.get(dimension_index + 1).is_some() {
-                        let inner_pylist = inner_postgres_array_to_py(
-                            py,
-                            dimensions,
-                            data[lower_bound..next_dimension.len as usize + lower_bound].to_vec(),
-                            dimension_index + 1,
-                            0,
-                        );
-                        final_list.append(inner_pylist).unwrap();
-                        lower_bound += next_dimension.len as usize;
-                    }
-                }
-
-                return final_list.unbind();
-            }
-            None => {
-                return PyList::new(py, data).unwrap().unbind(); // TODO unwrap is unsafe
-            }
-        }
+    // Check bounds early
+    if dimension_index >= dimensions.len() || data_offset >= data.len() {
+        return PyList::empty(py).unbind();
     }
 
-    PyList::empty(py).unbind()
+    let current_dimension = &dimensions[dimension_index];
+    let current_len = current_dimension.len as usize;
+
+    // If this is the last dimension, create a list with the actual data
+    if dimension_index + 1 >= dimensions.len() {
+        let end_offset = (data_offset + current_len).min(data.len());
+        let slice = &data[data_offset..end_offset];
+
+        // Create Python list more efficiently
+        return match PyList::new(py, slice.iter().cloned()) {
+            Ok(list) => list.unbind(),
+            Err(_) => PyList::empty(py).unbind(),
+        };
+    }
+
+    // For multi-dimensional arrays, recursively create nested lists
+    let final_list = PyList::empty(py);
+
+    // Calculate the size of each sub-array
+    let sub_array_size = dimensions[dimension_index + 1..]
+        .iter()
+        .map(|d| d.len as usize)
+        .product::<usize>();
+
+    let mut current_offset = data_offset;
+
+    for _ in 0..current_len {
+        if current_offset >= data.len() {
+            break;
+        }
+
+        let inner_list =
+            inner_postgres_array_to_py(py, dimensions, data, dimension_index + 1, current_offset);
+
+        if final_list.append(inner_list).is_err() {
+            break;
+        }
+
+        current_offset += sub_array_size;
+    }
+
+    final_list.unbind()
 }
 
 #[allow(clippy::too_many_lines)]

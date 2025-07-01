@@ -77,19 +77,13 @@ macro_rules! impl_config_py_methods {
             #[cfg(not(unix))]
             #[getter]
             fn hosts(&self) -> Vec<String> {
-                let mut hosts_vec = vec![];
-
-                let hosts = self.pg_config.get_hosts();
-                for host in hosts {
-                    match host {
-                        Host::Tcp(host) => {
-                            hosts_vec.push(host.to_string());
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-
-                hosts_vec
+                self.pg_config
+                    .get_hosts()
+                    .iter()
+                    .map(|host| match host {
+                        Host::Tcp(host) => host.to_string(),
+                    })
+                    .collect()
             }
 
             #[getter]
