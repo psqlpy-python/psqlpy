@@ -3,8 +3,8 @@ use postgres_types::FromSql;
 use serde_json::{json, Map, Value};
 
 use pyo3::{
-    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyTuple},
-    Bound, FromPyObject, IntoPyObject, Py, PyAny, PyResult, Python,
+    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods},
+    Bound, FromPyObject, IntoPyObject, PyAny, PyResult, Python,
 };
 use tokio_postgres::types::Type;
 
@@ -37,7 +37,7 @@ impl<'py> IntoPyObject<'py> for InternalSerdeValue {
     type Error = RustPSQLDriverError;
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        match build_python_from_serde_value(py, self.0.clone()) {
+        match build_python_from_serde_value(py, self.0) {
             Ok(ok_value) => Ok(ok_value.bind(py).clone()),
             Err(err) => Err(err),
         }
@@ -57,25 +57,30 @@ impl<'a> FromSql<'a> for InternalSerdeValue {
     }
 }
 
-fn serde_value_from_list(gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
-    let mut result_vec: Vec<Value> = vec![];
+fn serde_value_from_list(_gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
+    let py_list = bind_value.downcast::<PyList>().map_err(|e| {
+        RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Parameter must be a list, but it's not: {}",
+            e
+        ))
+    })?;
 
-    let params = bind_value.extract::<Vec<Py<PyAny>>>()?;
+    let mut result_vec: Vec<Value> = Vec::with_capacity(py_list.len());
 
-    for inner in params {
-        let inner_bind = inner.bind(gil);
-        if inner_bind.is_instance_of::<PyDict>() {
-            let python_dto = from_python_untyped(inner_bind)?;
+    for item in py_list.iter() {
+        if item.is_instance_of::<PyDict>() {
+            let python_dto = from_python_untyped(&item)?;
             result_vec.push(python_dto.to_serde_value()?);
-        } else if inner_bind.is_instance_of::<PyList>() {
-            let serde_value = build_serde_value(inner.bind(gil))?;
+        } else if item.is_instance_of::<PyList>() {
+            let serde_value = build_serde_value(&item)?;
             result_vec.push(serde_value);
         } else {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must have dicts.".to_string(),
+                "Items in JSON array must be dicts or lists.".to_string(),
             ));
         }
     }
+
     Ok(json!(result_vec))
 }
 
@@ -86,19 +91,18 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
         ))
     })?;
 
-    let mut serde_map: Map<String, Value> = Map::new();
+    let dict_len = dict.len();
+    let mut serde_map: Map<String, Value> = Map::with_capacity(dict_len);
 
-    for dict_item in dict.items() {
-        let py_list = dict_item.downcast::<PyTuple>().map_err(|error| {
+    for (key, value) in dict.iter() {
+        let key_str = key.extract::<String>().map_err(|error| {
             RustPSQLDriverError::PyToRustValueConversionError(format!(
-                "Cannot cast to list: {error}"
+                "Cannot extract dict key as string: {error}"
             ))
         })?;
 
-        let key = py_list.get_item(0)?.extract::<String>()?;
-        let value = from_python_untyped(&py_list.get_item(1)?)?;
-
-        serde_map.insert(key, value.to_serde_value()?);
+        let value_dto = from_python_untyped(&value)?;
+        serde_map.insert(key_str, value_dto.to_serde_value()?);
     }
 
     Ok(Value::Object(serde_map))
@@ -131,12 +135,10 @@ pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 /// May return error if cannot create serde value.
 pub fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> PSQLPyResult<Value> {
     match array {
-        Some(array) => inner_pythondto_array_to_serde(
-            array.dimensions(),
-            array.iter().collect::<Vec<&PythonDTO>>().as_slice(),
-            0,
-            0,
-        ),
+        Some(array) => {
+            let data: Vec<PythonDTO> = array.iter().cloned().collect();
+            inner_pythondto_array_to_serde(array.dimensions(), &data, 0, 0)
+        }
         None => Ok(Value::Null),
     }
 }
@@ -145,41 +147,49 @@ pub fn pythondto_array_to_serde(array: Option<Array<PythonDTO>>) -> PSQLPyResult
 #[allow(clippy::cast_sign_loss)]
 fn inner_pythondto_array_to_serde(
     dimensions: &[Dimension],
-    data: &[&PythonDTO],
+    data: &[PythonDTO],
     dimension_index: usize,
-    mut lower_bound: usize,
+    data_offset: usize,
 ) -> PSQLPyResult<Value> {
-    let current_dimension = dimensions.get(dimension_index);
-
-    if let Some(current_dimension) = current_dimension {
-        let possible_next_dimension = dimensions.get(dimension_index + 1);
-        match possible_next_dimension {
-            Some(next_dimension) => {
-                let mut final_list: Value = Value::Array(vec![]);
-
-                for _ in 0..current_dimension.len as usize {
-                    if dimensions.get(dimension_index + 1).is_some() {
-                        let inner_pylist = inner_pythondto_array_to_serde(
-                            dimensions,
-                            &data[lower_bound..next_dimension.len as usize + lower_bound],
-                            dimension_index + 1,
-                            0,
-                        )?;
-                        match final_list {
-                            Value::Array(ref mut array) => array.push(inner_pylist),
-                            _ => unreachable!(),
-                        }
-                        lower_bound += next_dimension.len as usize;
-                    }
-                }
-
-                return Ok(final_list);
-            }
-            None => {
-                return data.iter().map(|x| x.to_serde_value()).collect();
-            }
-        }
+    if dimension_index >= dimensions.len() || data_offset >= data.len() {
+        return Ok(Value::Array(vec![]));
     }
 
-    Ok(Value::Array(vec![]))
+    let current_dimension = &dimensions[dimension_index];
+    let current_len = current_dimension.len as usize;
+
+    if dimension_index + 1 >= dimensions.len() {
+        let end_offset = (data_offset + current_len).min(data.len());
+        let slice = &data[data_offset..end_offset];
+
+        let mut result_values = Vec::with_capacity(slice.len());
+        for item in slice {
+            result_values.push(item.to_serde_value()?);
+        }
+
+        return Ok(Value::Array(result_values));
+    }
+
+    let mut final_array = Vec::with_capacity(current_len);
+
+    let sub_array_size = dimensions[dimension_index + 1..]
+        .iter()
+        .map(|d| d.len as usize)
+        .product::<usize>();
+
+    let mut current_offset = data_offset;
+
+    for _ in 0..current_len {
+        if current_offset >= data.len() {
+            break;
+        }
+
+        let inner_value =
+            inner_pythondto_array_to_serde(dimensions, data, dimension_index + 1, current_offset)?;
+
+        final_array.push(inner_value);
+        current_offset += sub_array_size;
+    }
+
+    Ok(Value::Array(final_array))
 }
