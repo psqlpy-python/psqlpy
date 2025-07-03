@@ -42,14 +42,15 @@ fn row_to_tuple<'a>(
     postgres_row: &'a Row,
     custom_decoders: &Option<Py<PyDict>>,
 ) -> PSQLPyResult<Bound<'a, PyTuple>> {
-    let mut rows: Vec<Bound<'_, PyTuple>> = vec![];
+    let columns = postgres_row.columns();
+    let mut tuple_items = Vec::with_capacity(columns.len());
 
-    for (column_idx, column) in postgres_row.columns().iter().enumerate() {
-        let python_type = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
-        let timed_tuple = PyTuple::new(py, vec![column.name().into_py_any(py)?, python_type])?;
-        rows.push(timed_tuple);
+    for (column_idx, column) in columns.iter().enumerate() {
+        let python_value = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
+        tuple_items.push(python_value);
     }
-    Ok(PyTuple::new(py, rows)?)
+
+    Ok(PyTuple::new(py, tuple_items)?)
 }
 
 #[pyclass(name = "QueryResult")]

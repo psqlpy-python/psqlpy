@@ -14,8 +14,9 @@ Currently there are two results:
 ### Result
 
 #### Parameters
+
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
-- `as_tuple`: return result as a tuple instead of dict.
+- `as_tuple`: Headless tuple output
 
 Get the result as a list of dicts
 
@@ -32,7 +33,7 @@ async def main() -> None:
     list_dict_result: List[Dict[str, Any]] = query_result.result()
 
     # Result as tuple
-    list_tuple_result: List[Tuple[Tuple[str, typing.Any], ...]] = query_result.result(
+    list_tuple_result: List[Tuple[str, typing.Any], ...] = query_result.result(
         as_tuple=True,
     )
 ```
@@ -40,6 +41,7 @@ async def main() -> None:
 ### As class
 
 #### Parameters
+
 - `as_class`: Custom class from Python.
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 
@@ -68,6 +70,7 @@ async def main() -> None:
 ### Row Factory
 
 #### Parameters
+
 - `row_factory`: custom callable object.
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 
@@ -78,8 +81,9 @@ async def main() -> None:
 ### Result
 
 #### Parameters
+
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
-- `as_tuple`: return result as a tuple instead of dict.
+- `as_tuple`: Headless tuple output
 
 Get the result as a dict
 
@@ -96,7 +100,7 @@ async def main() -> None:
     dict_result: Dict[str, Any] = query_result.result()
 
     # Result as tuple
-    tuple_result: Tuple[Tuple[str, typing.Any], ...] = query_result.result(
+    tuple_result: Tuple[str, typing.Any] = query_result.result(
         as_tuple=True,
     )
 ```
@@ -104,6 +108,7 @@ async def main() -> None:
 ### As class
 
 #### Parameters
+
 - `as_class`: Custom class from Python.
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 
@@ -131,6 +136,7 @@ async def main() -> None:
 ### Row Factory
 
 #### Parameters
+
 - `row_factory`: custom callable object.
 - `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 

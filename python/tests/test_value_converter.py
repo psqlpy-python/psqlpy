@@ -672,7 +672,7 @@ async def test_custom_decoder_as_tuple_result(
             as_tuple=True,
         )
 
-        assert result[0][0][1] == "Just An Example"
+        assert result[0][0] == "Just An Example"
 
 
 async def test_row_factory_query_result(

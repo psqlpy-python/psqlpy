@@ -36,7 +36,7 @@ class QueryResult:
         self: Self,
         as_tuple: typing.Literal[True],
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
-    ) -> list[tuple[tuple[str, typing.Any], ...]]: ...
+    ) -> list[tuple[typing.Any, ...]]: ...
     @typing.overload
     def result(
         self: Self,
@@ -50,6 +50,7 @@ class QueryResult:
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
         """
+
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -83,6 +84,7 @@ class QueryResult:
             )
         ```
         """
+
     def row_factory(
         self,
         row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
@@ -124,7 +126,7 @@ class SingleQueryResult:
         self: Self,
         as_tuple: typing.Literal[True],
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
-    ) -> tuple[tuple[str, typing.Any]]: ...
+    ) -> tuple[typing.Any, ...]: ...
     @typing.overload
     def result(
         self: Self,
@@ -138,6 +140,7 @@ class SingleQueryResult:
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
         """
+
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -174,6 +177,7 @@ class SingleQueryResult:
             )
         ```
         """
+
     def row_factory(
         self,
         row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
@@ -328,11 +332,13 @@ class Cursor:
 
         Execute DECLARE command for the cursor.
         """
+
     def close(self: Self) -> None:
         """Close the cursor.
 
         Execute CLOSE command for the cursor.
         """
+
     async def execute(
         self: Self,
         querystring: str,
@@ -343,10 +349,13 @@ class Cursor:
         Method should be used instead of context manager
         and `start` method.
         """
+
     async def fetchone(self: Self) -> QueryResult:
         """Return next one row from the cursor."""
+
     async def fetchmany(self: Self, size: int | None = None) -> QueryResult:
         """Return <size> rows from the cursor."""
+
     async def fetchall(self: Self, size: int | None = None) -> QueryResult:
         """Return all remaining rows from the cursor."""
 
@@ -379,6 +388,7 @@ class Transaction:
 
         `begin()` can be called only once per transaction.
         """
+
     async def commit(self: Self) -> None:
         """Commit the transaction.
 
@@ -386,6 +396,7 @@ class Transaction:
 
         `commit()` can be called only once per transaction.
         """
+
     async def rollback(self: Self) -> None:
         """Rollback all queries in the transaction.
 
@@ -406,6 +417,7 @@ class Transaction:
             await transaction.rollback()
         ```
         """
+
     async def execute(
         self: Self,
         querystring: str,
@@ -443,6 +455,7 @@ class Transaction:
             await transaction.commit()
         ```
         """
+
     async def execute_batch(
         self: Self,
         querystring: str,
@@ -458,6 +471,7 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystrings separated by semicolons.
         """
+
     async def execute_many(
         self: Self,
         querystring: str,
@@ -516,6 +530,7 @@ class Transaction:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
+
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -555,6 +570,7 @@ class Transaction:
             await transaction.commit()
         ```
         """
+
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -595,6 +611,7 @@ class Transaction:
             )
         ```
         """
+
     async def pipeline(
         self,
         queries: list[tuple[str, list[Any] | None]],
@@ -659,6 +676,7 @@ class Transaction:
             )
         ```
         """
+
     async def create_savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
@@ -687,6 +705,7 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
+
     async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
@@ -712,6 +731,7 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
+
     async def release_savepoint(self: Self, savepoint_name: str) -> None:
         """Execute ROLLBACK TO SAVEPOINT.
 
@@ -736,6 +756,7 @@ class Transaction:
             await transaction.release_savepoint
         ```
         """
+
     def cursor(
         self: Self,
         querystring: str,
@@ -779,6 +800,7 @@ class Transaction:
             await cursor.close()
         ```
         """
+
     async def binary_copy_to_table(
         self: Self,
         source: bytes | bytearray | Buffer | BytesIO,
@@ -860,6 +882,7 @@ class Connection:
 
         Return representation of prepared statement.
         """
+
     async def execute(
         self: Self,
         querystring: str,
@@ -896,6 +919,7 @@ class Connection:
             dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
         """
+
     async def execute_batch(
         self: Self,
         querystring: str,
@@ -911,6 +935,7 @@ class Connection:
         ### Parameters:
         - `querystring`: querystrings separated by semicolons.
         """
+
     async def execute_many(
         self: Self,
         querystring: str,
@@ -964,6 +989,7 @@ class Connection:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
+
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -1000,6 +1026,7 @@ class Connection:
             dict_result: Dict[Any, Any] = query_result.result()
         ```
         """
+
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -1039,6 +1066,7 @@ class Connection:
             )
         ```
         """
+
     def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
@@ -1052,6 +1080,7 @@ class Connection:
         - `read_variant`: configure read variant of the transaction.
         - `deferrable`: configure deferrable of the transaction.
         """
+
     def cursor(
         self: Self,
         querystring: str,
@@ -1090,6 +1119,7 @@ class Connection:
                         ...  # do something with this result.
         ```
         """
+
     def close(self: Self) -> None:
         """Return connection back to the pool.
 
@@ -1234,6 +1264,7 @@ class ConnectionPool:
         - `ca_file`: Loads trusted root certificates from a file.
             The file should contain a sequence of PEM-formatted CA certificates.
         """
+
     def __iter__(self: Self) -> Self: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
@@ -1248,6 +1279,7 @@ class ConnectionPool:
         ### Returns
         `ConnectionPoolStatus`
         """
+
     def resize(self: Self, new_max_size: int) -> None:
         """Resize the connection pool.
 
@@ -1257,11 +1289,13 @@ class ConnectionPool:
         ### Parameters:
         - `new_max_size`: new size for the connection pool.
         """
+
     async def connection(self: Self) -> Connection:
         """Create new connection.
 
         It acquires new connection from the database pool.
         """
+
     def acquire(self: Self) -> Connection:
         """Create new connection for async context manager.
 
@@ -1279,6 +1313,7 @@ class ConnectionPool:
                 res = await connection.execute(...)
         ```
         """
+
     def listener(self: Self) -> Listener:
         """Create new listener."""
 
@@ -1390,6 +1425,7 @@ class ConnectionPoolBuilder:
 
     def __init__(self: Self) -> None:
         """Initialize new instance of `ConnectionPoolBuilder`."""
+
     def build(self: Self) -> ConnectionPool:
         """
         Build `ConnectionPool`.
@@ -1397,6 +1433,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPool`
         """
+
     def max_pool_size(self: Self, pool_size: int) -> Self:
         """
         Set maximum connection pool size.
@@ -1407,6 +1444,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def conn_recycling_method(
         self: Self,
         conn_recycling_method: ConnRecyclingMethod,
@@ -1422,6 +1460,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def user(self: Self, user: str) -> Self:
         """
         Set username to `PostgreSQL`.
@@ -1432,6 +1471,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def password(self: Self, password: str) -> Self:
         """
         Set password for `PostgreSQL`.
@@ -1442,6 +1482,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def dbname(self: Self, dbname: str) -> Self:
         """
         Set database name for the `PostgreSQL`.
@@ -1452,6 +1493,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def options(self: Self, options: str) -> Self:
         """
         Set command line options used to configure the server.
@@ -1462,6 +1504,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def application_name(self: Self, application_name: str) -> Self:
         """
         Set the value of the `application_name` runtime parameter.
@@ -1472,6 +1515,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def ssl_mode(self: Self, ssl_mode: SslMode) -> Self:
         """
         Set the SSL configuration.
@@ -1482,6 +1526,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def ca_file(self: Self, ca_file: str) -> Self:
         """
         Set ca_file for SSL.
@@ -1492,6 +1537,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def host(self: Self, host: str) -> Self:
         """
         Add a host to the configuration.
@@ -1509,6 +1555,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def hostaddr(self: Self, hostaddr: IPv4Address | IPv6Address) -> Self:
         """
         Add a hostaddr to the configuration.
@@ -1524,6 +1571,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def port(self: Self, port: int) -> Self:
         """
         Add a port to the configuration.
@@ -1540,6 +1588,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def connect_timeout(self: Self, connect_timeout: int) -> Self:
         """
         Set the timeout applied to socket-level connection attempts.
@@ -1554,6 +1603,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def tcp_user_timeout(self: Self, tcp_user_timeout: int) -> Self:
         """
         Set the TCP user timeout.
@@ -1569,6 +1619,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def target_session_attrs(
         self: Self,
         target_session_attrs: TargetSessionAttrs,
@@ -1586,6 +1637,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def load_balance_hosts(
         self: Self,
         load_balance_hosts: LoadBalanceHosts,
@@ -1601,6 +1653,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives(
         self: Self,
         keepalives: bool,
@@ -1618,6 +1671,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_idle(
         self: Self,
         keepalives_idle: int,
@@ -1636,6 +1690,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_interval(
         self: Self,
         keepalives_interval: int,
@@ -1655,6 +1710,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_retries(
         self: Self,
         keepalives_retries: int,
@@ -1747,11 +1803,13 @@ class Listener:
 
         Each listener MUST be started up.
         """
+
     async def shutdown(self: Self) -> None:
         """Shutdown the listener.
 
         Abort listen and release underlying connection.
         """
+
     async def add_callback(
         self: Self,
         channel: str,
@@ -1814,7 +1872,9 @@ class Column:
 class PreparedStatement:
     async def execute(self: Self) -> QueryResult:
         """Execute prepared statement."""
+
     def cursor(self: Self) -> Cursor:
         """Create new server-side cursor based on prepared statement."""
+
     def columns(self: Self) -> list[Column]:
         """Return information about statement columns."""
