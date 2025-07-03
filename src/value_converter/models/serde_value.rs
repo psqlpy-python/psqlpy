@@ -60,8 +60,7 @@ impl<'a> FromSql<'a> for InternalSerdeValue {
 fn serde_value_from_list(_gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     let py_list = bind_value.downcast::<PyList>().map_err(|e| {
         RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "Parameter must be a list, but it's not: {}",
-            e
+            "Parameter must be a list, but it's not: {e}"
         ))
     })?;
 
