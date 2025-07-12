@@ -65,6 +65,7 @@ export default sidebar({
             "litestar",
             "blacksheep",
             "robyn",
+            "panther",
           ]
         },
       ],
