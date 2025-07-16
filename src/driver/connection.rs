@@ -237,8 +237,13 @@ impl Connection {
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
-            let res = read_conn_g.execute(querystring, parameters, prepared).await;
-            return res;
+            return {
+                if parameters.is_some() {
+                    read_conn_g.execute(querystring, parameters, prepared).await
+                } else {
+                    read_conn_g.execute_no_params(querystring, prepared).await
+                }
+            };
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)
@@ -318,7 +323,13 @@ impl Connection {
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
-            return read_conn_g.execute(querystring, parameters, prepared).await;
+            return {
+                if parameters.is_some() {
+                    read_conn_g.execute(querystring, parameters, prepared).await
+                } else {
+                    read_conn_g.execute_no_params(querystring, prepared).await
+                }
+            };
         }
 
         Err(RustPSQLDriverError::ConnectionClosedError)

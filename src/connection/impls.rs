@@ -367,6 +367,31 @@ impl PSQLPyConnection {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Execute raw querystring without parameters.
+    ///
+    /// # Errors
+    /// May return error if there is some problem with DB communication.
+    pub async fn execute_no_params(
+        &self,
+        querystring: String,
+        prepared: Option<bool>,
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        let prepared = prepared.unwrap_or(true);
+        let result = if prepared {
+            self.query(&querystring, &[]).await
+        } else {
+            self.query_typed(&querystring, &[]).await
+        };
+
+        let return_result = result.map_err(|err| {
+            RustPSQLDriverError::ConnectionExecuteError(format!(
+                "Cannot execute query, error - {err}"
+            ))
+        })?;
+
+        Ok(PSQLDriverPyQueryResult::new(return_result))
+    }
+
     /// Execute raw query with parameters.
     ///
     /// # Errors

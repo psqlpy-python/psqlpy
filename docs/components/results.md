@@ -33,7 +33,7 @@ async def main() -> None:
     list_dict_result: List[Dict[str, Any]] = query_result.result()
 
     # Result as tuple
-    list_tuple_result: List[Tuple[str, typing.Any], ...] = query_result.result(
+    list_tuple_result: List[Tuple[t.Any, ...]] = query_result.result(
         as_tuple=True,
     )
 ```
@@ -100,7 +100,7 @@ async def main() -> None:
     dict_result: Dict[str, Any] = query_result.result()
 
     # Result as tuple
-    tuple_result: Tuple[str, typing.Any] = query_result.result(
+    tuple_result: Tuple[typing.Any, ...] = query_result.result(
         as_tuple=True,
     )
 ```
