@@ -51,7 +51,7 @@ rust_decimal = { git = "https://github.com/psqlpy-python/rust-decimal.git", bran
     "db-tokio-postgres",
 ] }
 postgres_array = { git = "https://github.com/psqlpy-python/rust-postgres-array.git", branch = "psqlpy" }
-openssl = { version = "0.10.64", features = ["vendored"] }
+openssl = { version = "= 0.10.64", features = ["vendored"] }
 itertools = "0.12.1"
 openssl-src = "300.2.2"
 openssl-sys = "0.9.102"
