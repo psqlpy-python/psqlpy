@@ -367,6 +367,31 @@ impl PSQLPyConnection {
         Ok(PSQLDriverPyQueryResult::new(result))
     }
 
+    /// Execute raw querystring without parameters.
+    ///
+    /// # Errors
+    /// May return error if there is some problem with DB communication.
+    pub async fn execute_no_params(
+        &self,
+        querystring: String,
+        prepared: Option<bool>,
+    ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        let prepared = prepared.unwrap_or(true);
+        let result = if prepared {
+            self.query(&querystring, &[]).await
+        } else {
+            self.query_typed(&querystring, &[]).await
+        };
+
+        let return_result = result.map_err(|err| {
+            RustPSQLDriverError::ConnectionExecuteError(format!(
+                "Cannot execute query, error - {err}"
+            ))
+        })?;
+
+        Ok(PSQLDriverPyQueryResult::new(return_result))
+    }
+
     /// Execute raw query with parameters.
     ///
     /// # Errors
@@ -409,42 +434,62 @@ impl PSQLPyConnection {
         parameters: Option<Vec<pyo3::Py<PyAny>>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<()> {
-        let mut statements: Vec<PsqlpyStatement> = vec![];
-        if let Some(parameters) = parameters {
-            for vec_of_py_any in parameters {
-                // TODO: Fix multiple qs creation
-                let statement =
-                    StatementBuilder::new(&querystring, &Some(vec_of_py_any), self, prepared)
-                        .build()
-                        .await?;
-
-                statements.push(statement);
-            }
-        }
+        let Some(parameters) = parameters else {
+            return Ok(());
+        };
 
         let prepared = prepared.unwrap_or(true);
 
-        for statement in statements {
-            let querystring_result = if prepared {
-                let prepared_stmt = &self.prepare(statement.raw_query(), true).await;
-                if let Err(error) = prepared_stmt {
-                    return Err(RustPSQLDriverError::ConnectionExecuteError(format!(
-                        "Cannot prepare statement in execute_many, operation rolled back {error}",
-                    )));
-                }
-                self.query(
-                    &self.prepare(statement.raw_query(), true).await?,
-                    &statement.params(),
-                )
-                .await
-            } else {
-                self.query(statement.raw_query(), &statement.params()).await
-            };
+        let mut statements: Vec<PsqlpyStatement> = Vec::with_capacity(parameters.len());
 
-            if let Err(error) = querystring_result {
-                return Err(RustPSQLDriverError::ConnectionExecuteError(format!(
-                    "Error occured in `execute_many` statement: {error}"
-                )));
+        for param_set in parameters {
+            let statement =
+                StatementBuilder::new(&querystring, &Some(param_set), self, Some(prepared))
+                    .build()
+                    .await
+                    .map_err(|err| {
+                        RustPSQLDriverError::ConnectionExecuteError(format!(
+                            "Cannot build statement in execute_many: {err}"
+                        ))
+                    })?;
+            statements.push(statement);
+        }
+
+        if statements.is_empty() {
+            return Ok(());
+        }
+
+        if prepared {
+            let first_statement = &statements[0];
+            let prepared_stmt = self
+                .prepare(first_statement.raw_query(), true)
+                .await
+                .map_err(|err| {
+                    RustPSQLDriverError::ConnectionExecuteError(format!(
+                        "Cannot prepare statement in execute_many: {err}"
+                    ))
+                })?;
+
+            // Execute all statements using the same prepared statement
+            for statement in statements {
+                self.query(&prepared_stmt, &statement.params())
+                    .await
+                    .map_err(|err| {
+                        RustPSQLDriverError::ConnectionExecuteError(format!(
+                            "Error occurred in `execute_many` statement: {err}"
+                        ))
+                    })?;
+            }
+        } else {
+            // Execute each statement without preparation
+            for statement in statements {
+                self.query(statement.raw_query(), &statement.params())
+                    .await
+                    .map_err(|err| {
+                        RustPSQLDriverError::ConnectionExecuteError(format!(
+                            "Error occurred in `execute_many` statement: {err}"
+                        ))
+                    })?;
             }
         }
 

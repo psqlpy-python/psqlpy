@@ -4,7 +4,7 @@ use postgres_types::Type;
 pub fn array_type_to_single_type(array_type: &Type) -> Type {
     match *array_type {
         Type::BOOL_ARRAY => Type::BOOL,
-        Type::UUID_ARRAY => Type::UUID_ARRAY,
+        Type::UUID_ARRAY => Type::UUID,
         Type::VARCHAR_ARRAY => Type::VARCHAR,
         Type::TEXT_ARRAY => Type::TEXT,
         Type::INT2_ARRAY => Type::INT2,

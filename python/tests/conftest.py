@@ -134,21 +134,24 @@ async def create_default_data_for_tests(
     table_name: str,
     number_database_records: int,
 ) -> AsyncGenerator[None, None]:
-    connection = await psql_pool.connection()
-    await connection.execute(
-        f"CREATE TABLE {table_name} (id SERIAL, name VARCHAR(255))",
-    )
-
-    for table_id in range(1, number_database_records + 1):
-        new_name = random_string()
+    async with psql_pool.acquire() as connection:
         await connection.execute(
-            querystring=f"INSERT INTO {table_name} VALUES ($1, $2)",
-            parameters=[table_id, new_name],
+            f"CREATE TABLE {table_name} (id SERIAL, name VARCHAR(255))",
         )
+
+        for table_id in range(1, number_database_records + 1):
+            new_name = random_string()
+            await connection.execute(
+                querystring=f"INSERT INTO {table_name} VALUES ($1, $2)",
+                parameters=[table_id, new_name],
+            )
+
     yield
-    await connection.execute(
-        f"DROP TABLE {table_name}",
-    )
+
+    async with psql_pool.acquire() as connection:
+        await connection.execute(
+            f"DROP TABLE {table_name}",
+        )
 
 
 @pytest.fixture
@@ -156,17 +159,19 @@ async def create_table_for_listener_tests(
     psql_pool: ConnectionPool,
     listener_table_name: str,
 ) -> AsyncGenerator[None, None]:
-    connection = await psql_pool.connection()
-    await connection.execute(
-        f"CREATE TABLE {listener_table_name}"
-        f"(id SERIAL, payload VARCHAR(255),"
-        f"channel VARCHAR(255), process_id INT)",
-    )
+    async with psql_pool.acquire() as connection:
+        await connection.execute(
+            f"CREATE TABLE {listener_table_name}"
+            f"(id SERIAL, payload VARCHAR(255),"
+            f"channel VARCHAR(255), process_id INT)",
+        )
 
     yield
-    await connection.execute(
-        f"DROP TABLE {listener_table_name}",
-    )
+
+    async with psql_pool.acquire() as connection:
+        await connection.execute(
+            f"DROP TABLE {listener_table_name}",
+        )
 
 
 @pytest.fixture
@@ -174,16 +179,18 @@ async def create_table_for_map_parameters_test(
     psql_pool: ConnectionPool,
     map_parameters_table_name: str,
 ) -> AsyncGenerator[None, None]:
-    connection = await psql_pool.connection()
-    await connection.execute(
-        f"CREATE TABLE {map_parameters_table_name}"
-        "(id SERIAL, name VARCHAR(255),surname VARCHAR(255), age SMALLINT)",
-    )
+    async with psql_pool.acquire() as connection:
+        await connection.execute(
+            f"CREATE TABLE {map_parameters_table_name}"
+            "(id SERIAL, name VARCHAR(255),surname VARCHAR(255), age SMALLINT)",
+        )
 
     yield
-    await connection.execute(
-        f"DROP TABLE {map_parameters_table_name}",
-    )
+
+    async with psql_pool.acquire() as connection:
+        await connection.execute(
+            f"DROP TABLE {map_parameters_table_name}",
+        )
 
 
 @pytest.fixture
@@ -191,12 +198,12 @@ async def test_cursor(
     psql_pool: ConnectionPool,
     table_name: str,
 ) -> AsyncGenerator[Cursor, None]:
-    connection = await psql_pool.connection()
-    transaction = connection.transaction()
-    await transaction.begin()
-    cursor = transaction.cursor(
-        querystring=f"SELECT * FROM {table_name}",
-    )
-    await cursor.start()
-    yield cursor
-    await transaction.commit()
+    async with psql_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.begin()
+        cursor = transaction.cursor(
+            querystring=f"SELECT * FROM {table_name}",
+        )
+        await cursor.start()
+        yield cursor
+        await transaction.commit()
