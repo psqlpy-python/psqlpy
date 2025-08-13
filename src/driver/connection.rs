@@ -401,7 +401,7 @@ impl Connection {
     /// Create new transaction object.
     ///
     /// # Errors
-    /// May return Err Result if db_client is None.
+    /// May return Err Result if `db_client` is None.
     #[pyo3(signature = (
         isolation_level=None,
         read_variant=None,

@@ -108,17 +108,17 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 /// # Errors
 /// May return error if cannot convert Python type into Rust one.
 #[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_return)]
 pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     Python::with_gil(|gil| {
         if value.is_instance_of::<PyList>() {
-            serde_value_from_list(gil, value)
+            return serde_value_from_list(gil, value);
         } else if value.is_instance_of::<PyDict>() {
             return serde_value_from_dict(value);
-        } else {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must be dict or list value.".to_string(),
-            ));
         }
+        Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "PyJSON must be dict or list value.".to_string(),
+        ))
     })
 }
 

@@ -97,7 +97,7 @@ impl Text {
 
 #[pymethods]
 impl Text {
-    /// Create new PyText from Python str.
+    /// Create new `PyText` from Python str.
     #[new]
     #[allow(clippy::missing_errors_doc)]
     #[must_use]
@@ -121,7 +121,7 @@ impl VarChar {
 
 #[pymethods]
 impl VarChar {
-    /// Create new PyVarChar from Python str.
+    /// Create new `PyVarChar` from Python str.
     #[new]
     #[allow(clippy::missing_errors_doc)]
     #[must_use]

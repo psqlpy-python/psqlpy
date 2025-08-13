@@ -309,7 +309,7 @@ impl Transaction {
     /// Execute many queries in a transaction.
     ///
     /// More information in a documentation:
-    /// https://psqlpy-python.github.io/components/transaction.html#pipeline
+    /// `<https://psqlpy-python.github.io/components/transaction.html#pipeline>`
     ///
     /// # Errors
     /// Can return error if there is a problem with DB communication.

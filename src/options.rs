@@ -175,7 +175,7 @@ pub enum SynchronousCommit {
     /// As the name indicates, the commit acknowledgment can come before
     /// flushing the records to disk.
     /// This is generally called as an asynchronous commit.
-    /// If the PostgreSQL instance crashes,
+    /// If the `PostgreSQL` instance crashes,
     /// the last few asynchronous commits might be lost.
     Off,
     /// WAL records are written and flushed to local disks.
