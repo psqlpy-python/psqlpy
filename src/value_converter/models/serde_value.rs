@@ -67,16 +67,12 @@ fn serde_value_from_list(_gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQ
     let mut result_vec: Vec<Value> = Vec::with_capacity(py_list.len());
 
     for item in py_list.iter() {
-        if item.is_instance_of::<PyDict>() {
-            let python_dto = from_python_untyped(&item)?;
-            result_vec.push(python_dto.to_serde_value()?);
-        } else if item.is_instance_of::<PyList>() {
+        if item.is_instance_of::<PyList>() {
             let serde_value = build_serde_value(&item)?;
             result_vec.push(serde_value);
         } else {
-            return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "Items in JSON array must be dicts or lists.".to_string(),
-            ));
+            let python_dto = from_python_untyped(&item)?;
+            result_vec.push(python_dto.to_serde_value()?);
         }
     }
 
@@ -120,7 +116,7 @@ pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
             return serde_value_from_dict(value);
         } else {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(
-                "PyJSON must be dict value.".to_string(),
+                "PyJSON must be dict or list value.".to_string(),
             ));
         }
     })
