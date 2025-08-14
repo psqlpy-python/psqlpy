@@ -76,7 +76,7 @@ impl ConnectionPoolBuilder {
         ))
     }
 
-    /// Set ca_file for ssl_mode in PostgreSQL.
+    /// Set `ca_file` for `ssl_mode` in `PostgreSQL`.
     fn ca_file(self_: Py<Self>, ca_file: String) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -241,7 +241,7 @@ impl ConnectionPoolBuilder {
     /// Sets the TCP user timeout.
     ///
     /// This is ignored for Unix domain socket connections. It is only supported on systems where
-    /// TCP_USER_TIMEOUT is available and will default to the system default if omitted or set to 0;
+    /// `TCP_USER_TIMEOUT` is available and will default to the system default if omitted or set to 0;
     /// on other systems, it has no effect.
     #[must_use]
     pub fn tcp_user_timeout(self_: Py<Self>, tcp_user_timeout: u64) -> Py<Self> {
@@ -314,7 +314,7 @@ impl ConnectionPoolBuilder {
     }
 
     /// Sets the time interval between TCP keepalive probes.
-    /// On Windows, this sets the value of the tcp_keepalive struct’s keepaliveinterval field.
+    /// On Windows, this sets the value of the `tcp_keepalive` struct’s keepaliveinterval field.
     ///
     /// This is ignored for Unix domain sockets, or if the `keepalives` option is disabled.
     #[must_use]

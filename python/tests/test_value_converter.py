@@ -179,6 +179,11 @@ async def test_as_class(
             [{"array": "json"}, {"one more": "test"}],
         ),
         (
+            "JSONB",
+            JSONB([1, "1", 1.0]),
+            [1, "1", 1.0],
+        ),
+        (
             "JSON",
             {
                 "test": ["something", 123, "here"],
@@ -193,6 +198,11 @@ async def test_as_class(
             "JSON",
             JSON([{"array": "json"}, {"one more": "test"}]),
             [{"array": "json"}, {"one more": "test"}],
+        ),
+        (
+            "JSON",
+            JSON([1, "1", 1.0]),
+            [1, "1", 1.0],
         ),
         (
             "MACADDR",
