@@ -308,15 +308,8 @@ class Cursor:
     """
 
     array_size: int
-    cursor_name: str
     querystring: str
     parameters: ParamsT = None
-    prepared: bool | None
-    conn_dbname: str | None
-    user: str | None
-    host_addrs: list[str]
-    hosts: list[str]
-    ports: list[int]
 
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> QueryResult: ...

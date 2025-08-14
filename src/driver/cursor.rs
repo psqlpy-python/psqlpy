@@ -74,6 +74,16 @@ impl Drop for Cursor {
 #[pymethods]
 impl Cursor {
     #[getter]
+    fn get_querystring(&self) -> Option<String> {
+        self.querystring.clone()
+    }
+
+    #[getter]
+    fn get_parameters(&self) -> Option<Py<PyAny>> {
+        self.parameters.clone()
+    }
+
+    #[getter]
     fn get_array_size(&self) -> i32 {
         self.array_size
     }
