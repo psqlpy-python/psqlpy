@@ -48,8 +48,6 @@ Create new instance of ConnectionPool and start querying.
 You don't need to startup connection pool, the connection pool will create connections as needed.
 
 ```python
-from typing import Any
-
 from psqlpy import ConnectionPool, QueryResult
 
 
