@@ -136,7 +136,7 @@ async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
     connection: Connection = await db_pool.connection()
-    
+
     list_for_jsonb_field = [
         {"some": "dict"},
         [
