@@ -48,19 +48,20 @@ And we want to INSERT new data to this table:
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import SmallInt, Integer, BigInt, Float32, Float64
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO numbers (index, elf_life, elon_musk_money) VALUES ($1, $2, $3, $4, $5)",
         [SmallInt(101), Integer(10500), BigInt(300000000000), Float32(123.11), Float64(222.12)],
     )
-    db_pool.close()
+    connection.close()
 ```
 
 ::: important
@@ -81,24 +82,25 @@ Let's assume we have table `banners` in the database:
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import PyText
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO banners (title, description) VALUES ($1, $2)",
         ["SomeTitle", PyText("Very long description")],
     )
     # Alternatively, you can do this:
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO banners (title, description) VALUES ($1, $2)",
         [PyVarChar("SomeTitle"), PyText("Very long description")],
     )
-    db_pool.close()
+    connection.close()
 ```
 
 ## PyJSON & PyJSONB
@@ -126,13 +128,15 @@ Let's assume we have table `users` in the database, and field `additional_user_i
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import PyJSON
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
+    
     list_for_jsonb_field = [
         {"some": "dict"},
         [
@@ -147,16 +151,16 @@ async def main() -> None:
         ]
     }
 
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO users (additional_user_info) VALUES ($1)",
         [PyJSONB(list_for_jsonb_field)],
     )
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO users (additional_user_info) VALUES ($1)",
         [dict_for_jsonb_field,],
     )
 
-    db_pool.close()
+    connection.close()
 ```
 
 ## PyMacAddr6 & PyMacAddr8
@@ -171,15 +175,16 @@ Let's assume we have table `devices` in the database:
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import PyMacAddr6, PyMacAddr8
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO devices (device_macaddr6, device_macaddr8) VALUES ($1, $2)",
         [
             PyMacAddr6("08:00:2b:01:02:03"),
@@ -187,7 +192,7 @@ async def main() -> None:
         ],
     )
 
-    db_pool.close()
+    connection.close()
 ```
 
 ## Geo Types
@@ -207,15 +212,16 @@ Let's assume we have table `geo_info` with all PostgreSQL geo types in the datab
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import Point, Box, Path, Line, LineSegment, Circle
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
-    await db_pool.execute(
+    await connection.execute(
         "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
         [
             Point([1.5, 2]),
@@ -227,5 +233,5 @@ async def main() -> None:
         ],
     )
 
-    db_pool.close()
+    connection.close()
 ```

@@ -79,15 +79,16 @@ Now we can see what result will be returned.
 ```python
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 from psqlpy.extra_types import SmallInt, Integer, BigInt
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
-    result = await db_pool.execute(
+    result = await connection.execute(
         "SELECT user_info FROM custom_table",
     )
     print(result.result()[0])
@@ -121,7 +122,7 @@ Let's see how we can INSERT and SELECT such data.
 from enum import Enum
 from typing import Final
 
-from psqlpy import ConnectionPool, QueryResult
+from psqlpy import Connection, ConnectionPool, QueryResult
 
 
 class Weather(str, Enum):
@@ -132,20 +133,21 @@ class Weather(str, Enum):
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+    connection: Connection = await db_pool.connection()
 
     # Insert new data
-    await db_pool.execute(
+    await connection.execute(
         querystring="INSERT INTO weather_plus VALUES($1)",
         parameters=[Weather.SUN],
     )
 
     # Or you can pass string directly
-    await db_pool.execute(
+    await connection.execute(
         querystring="INSERT INTO weather_plus VALUES($1)",
         parameters=["sun"],
     )
 
-    result = await db_pool.execute(
+    result = await connection.execute(
         querystring="SELECT * FROM weather_plus",
     )
     print(result.result()[0])

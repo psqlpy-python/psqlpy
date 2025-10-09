@@ -36,13 +36,14 @@ For type safety and better performance we have predefined array types.
 ### Example:
 
 ```python
-from psqlpy import ConnectionPool
+from psqlpy import Connection, ConnectionPool
 from psqlpy.extra_types import TextArray
 
 
 async def main() -> None:
     pool = ConnectionPool()
-    result = await pool.execute(
+    connection: Connection = await pool.connection()
+    result = await connection.execute(
         querystring="SELECT * FROM users WHERE name = ANY($1)",
         parameters=[
             TextArray(["Alex", "Dev", "Who"]),
