@@ -79,19 +79,19 @@ Now we can see what result will be returned.
 ```python
 from typing import Final
 
-from psqlpy import Connection, ConnectionPool, QueryResult
+from psqlpy import ConnectionPool, QueryResult
 from psqlpy.extra_types import SmallInt, Integer, BigInt
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    connection: Connection = await db_pool.connection()
-
-    result = await connection.execute(
-        "SELECT user_info FROM custom_table",
-    )
-    print(result.result()[0])
+    
+    async with db_pool.acquire() as connection:
+        result = await connection.execute(
+            "SELECT user_info FROM custom_table",
+        )
+        print(result.result()[0])
 ```
 It will return:
 ```json
@@ -122,7 +122,7 @@ Let's see how we can INSERT and SELECT such data.
 from enum import Enum
 from typing import Final
 
-from psqlpy import Connection, ConnectionPool, QueryResult
+from psqlpy import ConnectionPool, QueryResult
 
 
 class Weather(str, Enum):
@@ -133,23 +133,22 @@ class Weather(str, Enum):
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    connection: Connection = await db_pool.connection()
+    async with db_pool.acquire() as connection:
+        # Insert new data
+        await connection.execute(
+            querystring="INSERT INTO weather_plus VALUES($1)",
+            parameters=[Weather.SUN],
+        )
 
-    # Insert new data
-    await connection.execute(
-        querystring="INSERT INTO weather_plus VALUES($1)",
-        parameters=[Weather.SUN],
-    )
+        # Or you can pass string directly
+        await connection.execute(
+            querystring="INSERT INTO weather_plus VALUES($1)",
+            parameters=["sun"],
+        )
 
-    # Or you can pass string directly
-    await connection.execute(
-        querystring="INSERT INTO weather_plus VALUES($1)",
-        parameters=["sun"],
-    )
-
-    result = await connection.execute(
-        querystring="SELECT * FROM weather_plus",
-    )
+        result = await connection.execute(
+            querystring="SELECT * FROM weather_plus",
+        )
     print(result.result()[0])
 ```
 You will receive:

@@ -15,20 +15,19 @@ Let's assume we have table `for_test` in the database and `PSQLPy` doesn't suppo
 ```python
 from typing import Final
 
-from psqlpy import Connection, ConnectionPool
+from psqlpy import ConnectionPool
 from psqlpy.extra_types import CustomType
 
 
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    connection: Connection = await db_pool.connection()
-
-    await connection.execute(
-        "INSERT INTO for_test (nickname) VALUES ($1)",
-        [CustomType(b"SomeDataInBytes")],
-    )
-    connection.close()
+    
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO for_test (nickname) VALUES ($1)",
+            [CustomType(b"SomeDataInBytes")],
+        )
 ```
 
 Here we pass `CustomType` into the parameters. It accepts only bytes.
@@ -49,7 +48,7 @@ Let's assume we have table `for_test` in the database and `PSQLPy` doesn't suppo
 ```python
 from typing import Final, Any
 
-from psqlpy import Connection, ConnectionPool, QueryResult
+from psqlpy import ConnectionPool, QueryResult
 from psqlpy.extra_types import CustomType
 
 
@@ -60,19 +59,18 @@ def nickname_decoder(bytes_from_psql: bytes | None) -> str:
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    connection: Connection = await db_pool.connection()
 
-    result: QueryResult = await connection.execute(
-        "SELECT * FROM for_test",
-        [CustomType(b"SomeDataInBytes")],
-    )
+    async with db_pool.acquire() as connection:
+        result: QueryResult = await connection.execute(
+            "SELECT * FROM for_test",
+            [CustomType(b"SomeDataInBytes")],
+        )
 
     parsed_result: list[dict[str, Any]] = result.result(
         custom_decoders={
             "nickname": nickname_decoder,
         },
     )
-    connection.close()
 ```
 
 ::: important
