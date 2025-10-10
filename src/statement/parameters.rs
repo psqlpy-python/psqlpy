@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-pub type QueryParameter = (dyn ToSql + Sync);
+pub type QueryParameter = dyn ToSql + Sync;
 
 #[pyclass]
 #[derive(Default, Clone, Debug)]

@@ -180,14 +180,11 @@ fn postgres_bytes_to_py(
             }
             Ok(py.None())
         }
-        Type::OID => Ok(
-            composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?
-                .into_py_any(py)?,
-        ),
-        Type::NAME => Ok(
-            composite_field_postgres_to_py::<Option<String>>(type_, buf, is_simple)?
-                .into_py_any(py)?,
-        ),
+        // Convert Integer into i32, then into int
+        Type::OID | Type::INT4 => Ok(composite_field_postgres_to_py::<Option<i32>>(
+            type_, buf, is_simple,
+        )?
+        .into_py_any(py)?),
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
         Type::TEXT | Type::VARCHAR | Type::XML => Ok(composite_field_postgres_to_py::<
@@ -204,11 +201,6 @@ fn postgres_bytes_to_py(
         // Convert SmallInt into i16, then into int
         Type::INT2 => Ok(
             composite_field_postgres_to_py::<Option<i16>>(type_, buf, is_simple)?
-                .into_py_any(py)?,
-        ),
-        // Convert Integer into i32, then into int
-        Type::INT4 => Ok(
-            composite_field_postgres_to_py::<Option<i32>>(type_, buf, is_simple)?
                 .into_py_any(py)?,
         ),
         // Convert BigInt into i64, then into int
@@ -363,7 +355,8 @@ fn postgres_bytes_to_py(
             composite_field_postgres_to_py::<Option<Array<bool>>>(type_, buf, is_simple)?,
         )
         .into_py_any(py)?),
-        Type::OID_ARRAY => Ok(postgres_array_to_py(
+        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
+        Type::OID_ARRAY | Type::INT4_ARRAY => Ok(postgres_array_to_py(
             py,
             composite_field_postgres_to_py::<Option<Array<i32>>>(type_, buf, is_simple)?,
         )
@@ -379,12 +372,6 @@ fn postgres_bytes_to_py(
         Type::INT2_ARRAY => Ok(postgres_array_to_py(
             py,
             composite_field_postgres_to_py::<Option<Array<i16>>>(type_, buf, is_simple)?,
-        )
-        .into_py_any(py)?),
-        // Convert ARRAY of Integer into Vec<i32>, then into list[int]
-        Type::INT4_ARRAY => Ok(postgres_array_to_py(
-            py,
-            composite_field_postgres_to_py::<Option<Array<i32>>>(type_, buf, is_simple)?,
         )
         .into_py_any(py)?),
         // Convert ARRAY of BigInt into Vec<i64>, then into list[int]
