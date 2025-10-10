@@ -86,7 +86,7 @@ from psqlpy.extra_types import SmallInt, Integer, BigInt
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    
+
     async with db_pool.acquire() as connection:
         result = await connection.execute(
             "SELECT user_info FROM custom_table",

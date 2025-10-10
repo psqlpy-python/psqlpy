@@ -22,7 +22,7 @@ from psqlpy.extra_types import CustomType
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    
+
     async with db_pool.acquire() as connection:
         await connection.execute(
             "INSERT INTO for_test (nickname) VALUES ($1)",

@@ -139,7 +139,7 @@ from psqlpy.extra_types import PyJSON
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    
+
     list_for_jsonb_field = [
         {"some": "dict"},
         [
@@ -184,7 +184,7 @@ from psqlpy.extra_types import PyMacAddr6, PyMacAddr8
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    
+
     async with db_pool.acquire() as connection:
         await connection.execute(
             "INSERT INTO devices (device_macaddr6, device_macaddr8) VALUES ($1, $2)",
@@ -219,7 +219,7 @@ from psqlpy.extra_types import Point, Box, Path, Line, LineSegment, Circle
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-    
+
     async with db_pool.acquire() as connection:
         await connection.execute(
             "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
