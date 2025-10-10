@@ -13,10 +13,13 @@ from psqlpy._internal import (
     ReadVariant,
     SingleQueryResult,
     SslMode,
-    SynchronousCommit,
     TargetSessionAttrs,
     Transaction,
     connect,
+    connect_pool,
+)
+from psqlpy.exceptions import (
+    Error,
 )
 
 __all__ = [
@@ -25,6 +28,7 @@ __all__ = [
     "ConnectionPool",
     "ConnectionPoolBuilder",
     "Cursor",
+    "Error",
     "IsolationLevel",
     "KeepaliveConfig",
     "Listener",
@@ -34,8 +38,8 @@ __all__ = [
     "ReadVariant",
     "SingleQueryResult",
     "SslMode",
-    "SynchronousCommit",
     "TargetSessionAttrs",
     "Transaction",
     "connect",
+    "connect_pool",
 ]

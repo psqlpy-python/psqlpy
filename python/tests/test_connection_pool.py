@@ -5,11 +5,11 @@ from psqlpy import (
     ConnRecyclingMethod,
     LoadBalanceHosts,
     TargetSessionAttrs,
-    connect,
+    connect_pool,
 )
 from psqlpy.exceptions import (
     ConnectionPoolConfigurationError,
-    RustPSQLDriverPyBaseError,
+    InterfaceError,
 )
 
 pytestmark = pytest.mark.anyio
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.anyio
 
 async def test_connect_func() -> None:
     """Test that connect function makes new connection pool."""
-    pg_pool = connect(
+    pg_pool = connect_pool(
         dsn="postgres://postgres:postgres@localhost:5432/psqlpy_test",
     )
 
@@ -106,7 +106,7 @@ async def test_pool_target_session_attrs(
     )
 
     if target_session_attrs == TargetSessionAttrs.ReadOnly:
-        with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
+        with pytest.raises(expected_exception=InterfaceError):
             await pg_pool.connection()
     else:
         conn = await pg_pool.connection()
@@ -143,7 +143,7 @@ async def test_close_connection_pool() -> None:
 
     pg_pool.close()
 
-    with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
+    with pytest.raises(expected_exception=InterfaceError):
         await pg_pool.connection()
 
 
@@ -156,5 +156,5 @@ async def test_connection_pool_as_context_manager() -> None:
         res = await conn.execute("SELECT 1")
         assert res.result()
 
-    with pytest.raises(expected_exception=RustPSQLDriverPyBaseError):
+    with pytest.raises(expected_exception=InterfaceError):
         await pg_pool.connection()

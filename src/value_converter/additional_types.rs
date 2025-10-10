@@ -7,15 +7,19 @@ use macaddr::{MacAddr6, MacAddr8};
 use postgres_protocol::types;
 use postgres_types::{to_sql_checked, IsNull, ToSql};
 use pyo3::{
-    types::{PyList, PyTuple},
-    IntoPy, Py, PyAny, PyObject, Python, ToPyObject,
+    types::{PyFloat, PyList, PyTuple},
+    Bound, IntoPyObject, PyAny, Python,
 };
 use serde::{Deserialize, Serialize};
 use tokio_postgres::types::{FromSql, Type};
 
+use crate::exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError};
+
+pub struct NonePyType;
+
 macro_rules! build_additional_rust_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         pub struct $st_name {
             inner: $rust_type,
         }
@@ -78,51 +82,118 @@ build_additional_rust_type!(RustRect, Rect);
 build_additional_rust_type!(RustLineString, LineString);
 build_additional_rust_type!(RustLineSegment, LineSegment);
 
-impl ToPyObject for RustPoint {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
+macro_rules! new_py_any_vec {
+    ($py_struct:ident, $py:expr, $vec:expr) => {
+        match $py_struct::new($py, $vec) {
+            Ok(t) => Ok(t.into_any()),
+            Err(_) => Err(RustPSQLDriverError::RustToPyValueConversionError(
+                "TODO".into(),
+            )),
+        }
+    };
 }
 
-impl ToPyObject for RustRect {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
+fn coord_to_pytuple_any<'py>(py: Python<'py>, coord: &Coord) -> PSQLPyResult<Bound<'py, PyAny>> {
+    let tuple_vec = vec![
+        coord.x.into_pyobject(py).unwrap(),
+        coord.y.into_pyobject(py).unwrap(),
+    ];
+    new_py_any_vec!(PyTuple, py, tuple_vec)
 }
 
-impl ToPyObject for RustLineString {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
-}
+impl<'py> IntoPyObject<'py> for RustPoint {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
 
-impl ToPyObject for RustLineSegment {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
-}
-
-impl ToPyObject for Line {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
-}
-
-impl ToPyObject for Circle {
-    fn to_object(&self, py: Python<'_>) -> PyObject {
-        self.into_py(py)
-    }
-}
-
-impl IntoPy<PyObject> for &RustPoint {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let inner_value = self.inner();
-        PyTuple::new_bound(
-            py,
-            vec![inner_value.x().into_py(py), inner_value.y().into_py(py)],
-        )
-        .into()
+        coord_to_pytuple_any(py, &inner_value.0)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for RustRect {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Bound<PyAny>> = vec![];
+        let coordinates = vec![inner_value.max(), inner_value.min()];
+        for one_coordinate in coordinates {
+            result_vec.push(coord_to_pytuple_any(py, &one_coordinate)?);
+        }
+        new_py_any_vec!(PyTuple, py, result_vec)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for RustLineString {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Bound<PyAny>> = vec![];
+        for coordinate in inner_value {
+            result_vec.push(coord_to_pytuple_any(py, coordinate)?);
+        }
+
+        if inner_value.is_closed() {
+            return new_py_any_vec!(PyTuple, py, result_vec);
+        }
+        new_py_any_vec!(PyList, py, result_vec)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for RustLineSegment {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let inner_value = self.inner();
+
+        let mut result_vec: Vec<Bound<PyAny>> = vec![];
+        for coordinate in [inner_value.start, inner_value.end] {
+            result_vec.push(coord_to_pytuple_any(py, &coordinate)?);
+        }
+        new_py_any_vec!(PyList, py, result_vec)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Line {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let result_vec: Vec<Bound<PyFloat>> = vec![
+            self.a().into_pyobject(py).unwrap(),
+            self.b().into_pyobject(py).unwrap(),
+            self.c().into_pyobject(py).unwrap(),
+        ];
+
+        new_py_any_vec!(PyTuple, py, result_vec)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Circle {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = RustPSQLDriverError;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let center = self.center();
+
+        let result_vec: Vec<Bound<PyAny>> = vec![
+            coord_to_pytuple_any(py, &center)?,
+            self.radius().into_pyobject(py).unwrap().into_any(),
+        ];
+        new_py_any_vec!(PyTuple, py, result_vec)
     }
 }
 
@@ -157,26 +228,6 @@ impl<'a> FromSql<'a> for RustPoint {
     }
 }
 
-impl IntoPy<PyObject> for &RustRect {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let inner_value = self.inner();
-
-        let mut result_vec: Vec<Py<PyAny>> = vec![];
-        let coordinates = vec![inner_value.max(), inner_value.min()];
-        for one_coordinate in coordinates {
-            result_vec.push(
-                PyTuple::new_bound(
-                    py,
-                    vec![one_coordinate.x.into_py(py), one_coordinate.y.into_py(py)],
-                )
-                .into(),
-            );
-        }
-        PyTuple::new_bound(py, result_vec).into()
-    }
-}
-
 impl ToSql for RustRect {
     fn to_sql(
         &self,
@@ -208,26 +259,6 @@ impl<'a> FromSql<'a> for RustRect {
     }
 }
 
-impl IntoPy<PyObject> for &RustLineString {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let inner_value = self.inner();
-
-        let mut result_vec: Vec<Py<PyAny>> = vec![];
-        for coordinate in inner_value {
-            result_vec.push(
-                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
-                    .into(),
-            );
-        }
-
-        if inner_value.is_closed() {
-            return PyTuple::new_bound(py, result_vec).into();
-        }
-        PyList::new_bound(py, result_vec).into()
-    }
-}
-
 impl ToSql for RustLineString {
     fn to_sql(
         &self,
@@ -256,23 +287,6 @@ impl<'a> FromSql<'a> for RustLineString {
 
     fn accepts(_ty: &Type) -> bool {
         true
-    }
-}
-
-impl IntoPy<PyObject> for &RustLineSegment {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let inner_value = self.inner();
-
-        let mut result_vec: Vec<Py<PyAny>> = vec![];
-        for coordinate in [inner_value.start, inner_value.end] {
-            result_vec.push(
-                PyTuple::new_bound(py, vec![coordinate.x.into_py(py), coordinate.y.into_py(py)])
-                    .into(),
-            );
-        }
-
-        PyList::new_bound(py, result_vec).into()
     }
 }
 
@@ -445,19 +459,6 @@ impl<T: CoordNum> DivAssign<T> for Line<T> {
     }
 }
 
-impl IntoPy<PyObject> for &Line {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let result_vec: Vec<Py<PyAny>> = vec![
-            self.a().into_py(py),
-            self.b().into_py(py),
-            self.c().into_py(py),
-        ];
-
-        PyTuple::new_bound(py, result_vec).into()
-    }
-}
-
 impl ToSql for Line {
     fn to_sql(
         &self,
@@ -560,20 +561,6 @@ impl<T: CoordFloat> Circle<T> {
 
     pub fn intersects(self, other: &Self) -> bool {
         self.distance_from_center_to(&other.center) <= self.radius + other.radius
-    }
-}
-
-impl IntoPy<PyObject> for &Circle {
-    #[inline]
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let center = self.center();
-
-        let result_vec: Vec<Py<PyAny>> = vec![
-            PyTuple::new_bound(py, vec![center.x.into_py(py), center.y.into_py(py)]).into(),
-            self.radius().into_py(py),
-        ];
-
-        PyTuple::new_bound(py, result_vec).into()
     }
 }
 

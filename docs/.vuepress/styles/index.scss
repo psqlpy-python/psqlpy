@@ -1,0 +1,19 @@
+// place your custom styles here
+.vp-site-name {
+    visibility: hidden;
+}
+
+.vp-hero-info {
+    img {
+        max-width: 60% !important;
+        padding: 1rem;
+    }
+}
+
+.vp-hero-title {
+  font-size: 3rem;
+}
+
+.vp-actions {
+    align-items: flex-end;
+}

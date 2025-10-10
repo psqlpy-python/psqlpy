@@ -1,7 +1,12 @@
-use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, Py, PyAny, Python, ToPyObject};
+use pyo3::{
+    prelude::*,
+    pyclass, pymethods,
+    types::{PyDict, PyTuple},
+    IntoPyObjectExt, Py, PyAny, Python,
+};
 use tokio_postgres::Row;
 
-use crate::{exceptions::rust_errors::RustPSQLDriverPyResult, value_converter::postgres_to_py};
+use crate::{exceptions::rust_errors::PSQLPyResult, value_converter::to_python::postgres_to_py};
 
 /// Convert postgres `Row` into Python Dict.
 ///
@@ -15,19 +20,43 @@ fn row_to_dict<'a>(
     py: Python<'a>,
     postgres_row: &'a Row,
     custom_decoders: &Option<Py<PyDict>>,
-) -> RustPSQLDriverPyResult<pyo3::Bound<'a, PyDict>> {
+) -> PSQLPyResult<Bound<'a, PyDict>> {
     let python_dict = PyDict::new(py);
     for (column_idx, column) in postgres_row.columns().iter().enumerate() {
         let python_type = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
-        python_dict.set_item(column.name().to_object(py), python_type)?;
+        python_dict.set_item(column.name().into_py_any(py)?, python_type)?;
     }
     Ok(python_dict)
+}
+
+/// Convert postgres `Row` into Python Tuple.
+///
+/// # Errors
+///
+/// May return Err Result if can not convert
+/// postgres type to python or set new key-value pair
+/// in python dict.
+#[allow(clippy::ref_option)]
+fn row_to_tuple<'a>(
+    py: Python<'a>,
+    postgres_row: &'a Row,
+    custom_decoders: &Option<Py<PyDict>>,
+) -> PSQLPyResult<Bound<'a, PyTuple>> {
+    let columns = postgres_row.columns();
+    let mut tuple_items = Vec::with_capacity(columns.len());
+
+    for (column_idx, column) in columns.iter().enumerate() {
+        let python_value = postgres_to_py(py, postgres_row, column, column_idx, custom_decoders)?;
+        tuple_items.push(python_value);
+    }
+
+    Ok(PyTuple::new(py, tuple_items)?)
 }
 
 #[pyclass(name = "QueryResult")]
 #[allow(clippy::module_name_repetitions)]
 pub struct PSQLDriverPyQueryResult {
-    inner: Vec<Row>,
+    pub inner: Vec<Row>,
 }
 
 impl PSQLDriverPyQueryResult {
@@ -56,18 +85,29 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python or set new key-value pair
     /// in python dict.
-    #[pyo3(signature = (custom_decoders=None))]
+    #[pyo3(signature = (custom_decoders=None, as_tuple=None))]
     #[allow(clippy::needless_pass_by_value)]
     pub fn result(
         &self,
         py: Python<'_>,
         custom_decoders: Option<Py<PyDict>>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let mut result: Vec<pyo3::Bound<'_, PyDict>> = vec![];
-        for row in &self.inner {
-            result.push(row_to_dict(py, row, &custom_decoders)?);
+        as_tuple: Option<bool>,
+    ) -> PSQLPyResult<Py<PyAny>> {
+        let as_tuple = as_tuple.unwrap_or(false);
+
+        if as_tuple {
+            let mut tuple_rows: Vec<Bound<'_, PyTuple>> = vec![];
+            for row in &self.inner {
+                tuple_rows.push(row_to_tuple(py, row, &custom_decoders)?);
+            }
+            return Ok(tuple_rows.into_py_any(py)?);
         }
-        Ok(result.to_object(py))
+
+        let mut dict_rows: Vec<Bound<'_, PyDict>> = vec![];
+        for row in &self.inner {
+            dict_rows.push(row_to_dict(py, row, &custom_decoders)?);
+        }
+        Ok(dict_rows.into_py_any(py)?)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -77,19 +117,15 @@ impl PSQLDriverPyQueryResult {
     /// May return Err Result if can not convert
     /// postgres type to python or create new Python class.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn as_class<'a>(
-        &'a self,
-        py: Python<'a>,
-        as_class: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let mut res: Vec<Py<PyAny>> = vec![];
+    pub fn as_class<'a>(&'a self, py: Python<'a>, as_class: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
+        let mut result: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &None)?;
             let convert_class_inst = as_class.call(py, (), Some(&pydict))?;
-            res.push(convert_class_inst);
+            result.push(convert_class_inst);
         }
 
-        Ok(res.to_object(py))
+        Ok(result.into_py_any(py)?)
     }
 
     /// Convert result from database with function passed from Python.
@@ -105,14 +141,14 @@ impl PSQLDriverPyQueryResult {
         py: Python<'a>,
         row_factory: Py<PyAny>,
         custom_decoders: Option<Py<PyDict>>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let mut res: Vec<Py<PyAny>> = vec![];
+    ) -> PSQLPyResult<Py<PyAny>> {
+        let mut result: Vec<Py<PyAny>> = vec![];
         for row in &self.inner {
             let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, row, &custom_decoders)?;
             let row_factory_class = row_factory.call(py, (pydict,), None)?;
-            res.push(row_factory_class);
+            result.push(row_factory_class);
         }
-        Ok(res.to_object(py))
+        Ok(result.into_py_any(py)?)
     }
 }
 
@@ -147,13 +183,20 @@ impl PSQLDriverSinglePyQueryResult {
     /// postgres type to python, can not set new key-value pair
     /// in python dict or there are no result.
     #[allow(clippy::needless_pass_by_value)]
-    #[pyo3(signature = (custom_decoders=None))]
+    #[pyo3(signature = (custom_decoders=None, as_tuple=None))]
     pub fn result(
         &self,
         py: Python<'_>,
         custom_decoders: Option<Py<PyDict>>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py))
+        as_tuple: Option<bool>,
+    ) -> PSQLPyResult<Py<PyAny>> {
+        let as_tuple = as_tuple.unwrap_or(false);
+
+        if as_tuple {
+            return Ok(row_to_tuple(py, &self.inner, &custom_decoders)?.into_py_any(py)?);
+        }
+
+        Ok(row_to_dict(py, &self.inner, &custom_decoders)?.into_py_any(py)?)
     }
 
     /// Convert result from database to any class passed from Python.
@@ -164,11 +207,7 @@ impl PSQLDriverSinglePyQueryResult {
     /// postgres type to python, can not create new Python class
     /// or there are no results.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn as_class<'a>(
-        &'a self,
-        py: Python<'a>,
-        as_class: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
+    pub fn as_class<'a>(&'a self, py: Python<'a>, as_class: Py<PyAny>) -> PSQLPyResult<Py<PyAny>> {
         let pydict: pyo3::Bound<'_, PyDict> = row_to_dict(py, &self.inner, &None)?;
         Ok(as_class.call(py, (), Some(&pydict))?)
     }
@@ -186,8 +225,8 @@ impl PSQLDriverSinglePyQueryResult {
         py: Python<'a>,
         row_factory: Py<PyAny>,
         custom_decoders: Option<Py<PyDict>>,
-    ) -> RustPSQLDriverPyResult<Py<PyAny>> {
-        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.to_object(py);
+    ) -> PSQLPyResult<Py<PyAny>> {
+        let pydict = row_to_dict(py, &self.inner, &custom_decoders)?.into_py_any(py)?;
         Ok(row_factory.call(py, (pydict,), None)?)
     }
 }

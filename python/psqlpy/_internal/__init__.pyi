@@ -1,4 +1,5 @@
 import types
+import typing
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
@@ -18,15 +19,38 @@ ParamsT: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
 class QueryResult:
     """Result."""
 
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[None] = None,
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[dict[str, Any]]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[False],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[dict[str, Any]]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[True],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> list[tuple[typing.Any, ...]]: ...
+    @typing.overload
     def result(
         self: Self,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
-    ) -> list[dict[Any, Any]]:
-        """Return result from database as a list of dicts.
+        as_tuple: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return result from database.
+
+        By default it returns result as a list of dicts.
 
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
         """
+
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -60,6 +84,7 @@ class QueryResult:
             )
         ```
         """
+
     def row_factory(
         self,
         row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
@@ -84,15 +109,38 @@ class QueryResult:
 class SingleQueryResult:
     """Single result."""
 
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[None] = None,
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> dict[str, Any]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[False],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> dict[str, Any]: ...
+    @typing.overload
+    def result(
+        self: Self,
+        as_tuple: typing.Literal[True],
+        custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+    ) -> tuple[typing.Any, ...]: ...
+    @typing.overload
     def result(
         self: Self,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
+        as_tuple: bool | None = None,
     ) -> dict[Any, Any]:
-        """Return result from database as a dict.
+        """Return result from database.
+
+        By default it returns result as a dict.
 
         `custom_decoders` must be used when you use
         PostgreSQL Type which isn't supported, read more in our docs.
         """
+
     def as_class(
         self: Self,
         as_class: Callable[..., _CustomClass],
@@ -129,6 +177,7 @@ class SingleQueryResult:
             )
         ```
         """
+
     def row_factory(
         self,
         row_factory: Callable[[dict[str, Any]], _RowFactoryRV],
@@ -149,38 +198,6 @@ class SingleQueryResult:
         ### Returns:
         Type that return passed function.
         """
-
-class SynchronousCommit(Enum):
-    """
-    Synchronous_commit option for transactions.
-
-    ### Variants:
-    - `On`: The meaning may change based on whether you have
-        a synchronous standby or not.
-        If there is a synchronous standby,
-        setting the value to on will result in waiting till “remote flush”.
-    - `Off`: As the name indicates, the commit acknowledgment can come before
-        flushing the records to disk.
-        This is generally called as an asynchronous commit.
-        If the PostgreSQL instance crashes,
-        the last few asynchronous commits might be lost.
-    - `Local`: WAL records are written and flushed to local disks.
-        In this case, the commit will be acknowledged after the
-        local WAL Write and WAL flush completes.
-    - `RemoteWrite`: WAL records are successfully handed over to
-        remote instances which acknowledged back
-        about the write (not flush).
-    - `RemoteApply`: This will result in commits waiting until replies from the
-        current synchronous standby(s) indicate they have received
-        the commit record of the transaction and applied it so
-        that it has become visible to queries on the standby(s).
-    """
-
-    On = 1
-    Off = 2
-    Local = 3
-    RemoteWrite = 4
-    RemoteApply = 5
 
 class IsolationLevel(Enum):
     """Isolation Level for transactions."""
@@ -285,20 +302,14 @@ class KeepaliveConfig:
         """Initialize new config."""
 
 class Cursor:
-    """Represent opened cursor in a transaction.
+    """Represent binary cursor in a transaction.
 
     It can be used as an asynchronous iterator.
     """
 
-    cursor_name: str
+    array_size: int
     querystring: str
     parameters: ParamsT = None
-    prepared: bool | None
-    conn_dbname: str | None
-    user: str | None
-    host_addrs: list[str]
-    hosts: list[str]
-    ports: list[int]
 
     def __aiter__(self: Self) -> Self: ...
     async def __anext__(self: Self) -> QueryResult: ...
@@ -314,118 +325,32 @@ class Cursor:
 
         Execute DECLARE command for the cursor.
         """
-    async def close(self: Self) -> None:
+
+    def close(self: Self) -> None:
         """Close the cursor.
 
         Execute CLOSE command for the cursor.
         """
-    async def fetch(
+
+    async def execute(
         self: Self,
-        fetch_number: int | None = None,
+        querystring: str,
+        parameters: ParamsT = None,
     ) -> QueryResult:
-        """Fetch next <fetch_number> rows.
+        """Start cursor with querystring and parameters.
 
-        By default fetches 10 next rows.
-
-        ### Parameters:
-        - `fetch_number`: how many rows need to fetch.
-
-        ### Returns:
-        result as `QueryResult`.
+        Method should be used instead of context manager
+        and `start` method.
         """
-    async def fetch_next(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch next row.
 
-        Execute FETCH NEXT
+    async def fetchone(self: Self) -> QueryResult:
+        """Return next one row from the cursor."""
 
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_prior(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch previous row.
+    async def fetchmany(self: Self, size: int | None = None) -> QueryResult:
+        """Return <size> rows from the cursor."""
 
-        Execute FETCH PRIOR
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_first(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch first row.
-
-        Execute FETCH FIRST
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_last(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch last row.
-
-        Execute FETCH LAST
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_absolute(
-        self: Self,
-        absolute_number: int,
-    ) -> QueryResult:
-        """Fetch absolute rows.
-
-        Execute FETCH ABSOLUTE <absolute_number>.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_relative(
-        self: Self,
-        relative_number: int,
-    ) -> QueryResult:
-        """Fetch absolute rows.
-
-        Execute FETCH RELATIVE <relative_number>.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_forward_all(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch forward all rows.
-
-        Execute FETCH FORWARD ALL.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_backward(
-        self: Self,
-        backward_count: int,
-    ) -> QueryResult:
-        """Fetch backward rows.
-
-        Execute FETCH BACKWARD <backward_count>.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
-    async def fetch_backward_all(
-        self: Self,
-    ) -> QueryResult:
-        """Fetch backward all rows.
-
-        Execute FETCH BACKWARD ALL.
-
-        ### Returns:
-        result as `QueryResult`.
-        """
+    async def fetchall(self: Self, size: int | None = None) -> QueryResult:
+        """Return all remaining rows from the cursor."""
 
 class Transaction:
     """Single connection for executing queries.
@@ -456,6 +381,7 @@ class Transaction:
 
         `begin()` can be called only once per transaction.
         """
+
     async def commit(self: Self) -> None:
         """Commit the transaction.
 
@@ -463,6 +389,28 @@ class Transaction:
 
         `commit()` can be called only once per transaction.
         """
+
+    async def rollback(self: Self) -> None:
+        """Rollback all queries in the transaction.
+
+        It can be done only one, after execution transaction marked
+        as `done`.
+
+        ### Example:
+        ```python
+        import asyncio
+
+        from psqlpy import PSQLPool, QueryResult
+
+        async def main() -> None:
+            db_pool = PSQLPool()
+            connection = await db_pool.connection()
+            transaction = connection.transaction()
+            await transaction.execute(...)
+            await transaction.rollback()
+        ```
+        """
+
     async def execute(
         self: Self,
         querystring: str,
@@ -500,6 +448,7 @@ class Transaction:
             await transaction.commit()
         ```
         """
+
     async def execute_batch(
         self: Self,
         querystring: str,
@@ -515,6 +464,7 @@ class Transaction:
         ### Parameters:
         - `querystring`: querystrings separated by semicolons.
         """
+
     async def execute_many(
         self: Self,
         querystring: str,
@@ -573,6 +523,7 @@ class Transaction:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
+
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -612,6 +563,7 @@ class Transaction:
             await transaction.commit()
         ```
         """
+
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -652,6 +604,7 @@ class Transaction:
             )
         ```
         """
+
     async def pipeline(
         self,
         queries: list[tuple[str, list[Any] | None]],
@@ -716,6 +669,7 @@ class Transaction:
             )
         ```
         """
+
     async def create_savepoint(self: Self, savepoint_name: str) -> None:
         """Create new savepoint.
 
@@ -744,26 +698,7 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
-    async def rollback(self: Self) -> None:
-        """Rollback all queries in the transaction.
 
-        It can be done only one, after execution transaction marked
-        as `done`.
-
-        ### Example:
-        ```python
-        import asyncio
-
-        from psqlpy import PSQLPool, QueryResult
-
-        async def main() -> None:
-            db_pool = PSQLPool()
-            connection = await db_pool.connection()
-            transaction = connection.transaction()
-            await transaction.execute(...)
-            await transaction.rollback()
-        ```
-        """
     async def rollback_savepoint(self: Self, savepoint_name: str) -> None:
         """ROLLBACK to the specified `savepoint_name`.
 
@@ -789,6 +724,7 @@ class Transaction:
             await transaction.rollback_savepoint("my_savepoint")
         ```
         """
+
     async def release_savepoint(self: Self, savepoint_name: str) -> None:
         """Execute ROLLBACK TO SAVEPOINT.
 
@@ -813,13 +749,12 @@ class Transaction:
             await transaction.release_savepoint
         ```
         """
+
     def cursor(
         self: Self,
         querystring: str,
         parameters: ParamsT = None,
         fetch_number: int | None = None,
-        scroll: bool | None = None,
-        prepared: bool = True,
     ) -> Cursor:
         """Create new cursor object.
 
@@ -829,9 +764,6 @@ class Transaction:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
-        - `scroll`: SCROLL or NO SCROLL cursor.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
 
         ### Returns:
         new initialized cursor.
@@ -861,6 +793,7 @@ class Transaction:
             await cursor.close()
         ```
         """
+
     async def binary_copy_to_table(
         self: Self,
         source: bytes | bytearray | Buffer | BytesIO,
@@ -886,6 +819,34 @@ class Transaction:
         number of inserted rows;
         """
 
+async def connect(
+    dsn: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+    host: str | None = None,
+    hosts: list[str] | None = None,
+    port: int | None = None,
+    ports: list[int] | None = None,
+    db_name: str | None = None,
+    target_session_attrs: TargetSessionAttrs | None = None,
+    options: str | None = None,
+    application_name: str | None = None,
+    connect_timeout_sec: int | None = None,
+    connect_timeout_nanosec: int | None = None,
+    tcp_user_timeout_sec: int | None = None,
+    tcp_user_timeout_nanosec: int | None = None,
+    keepalives: bool | None = None,
+    keepalives_idle_sec: int | None = None,
+    keepalives_idle_nanosec: int | None = None,
+    keepalives_interval_sec: int | None = None,
+    keepalives_interval_nanosec: int | None = None,
+    keepalives_retries: int | None = None,
+    load_balance_hosts: LoadBalanceHosts | None = None,
+    ssl_mode: SslMode | None = None,
+    ca_file: str | None = None,
+) -> Connection:
+    """Create new standalone connection."""
+
 class Connection:
     """Connection from Database Connection Pool.
 
@@ -905,6 +866,16 @@ class Connection:
         exception: BaseException | None,
         traceback: types.TracebackType | None,
     ) -> None: ...
+    async def prepare(
+        self,
+        querystring: str,
+        parameters: ParamsT = None,
+    ) -> PreparedStatement:
+        """Prepare statement.
+
+        Return representation of prepared statement.
+        """
+
     async def execute(
         self: Self,
         querystring: str,
@@ -941,6 +912,7 @@ class Connection:
             dict_result: List[Dict[Any, Any]] = query_result.result()
         ```
         """
+
     async def execute_batch(
         self: Self,
         querystring: str,
@@ -956,6 +928,7 @@ class Connection:
         ### Parameters:
         - `querystring`: querystrings separated by semicolons.
         """
+
     async def execute_many(
         self: Self,
         querystring: str,
@@ -1009,6 +982,7 @@ class Connection:
         - `prepared`: should the querystring be prepared before the request.
             By default any querystring will be prepared.
         """
+
     async def fetch_row(
         self: Self,
         querystring: str,
@@ -1045,6 +1019,7 @@ class Connection:
             dict_result: Dict[Any, Any] = query_result.result()
         ```
         """
+
     async def fetch_val(
         self: Self,
         querystring: str,
@@ -1084,12 +1059,12 @@ class Connection:
             )
         ```
         """
+
     def transaction(
         self,
         isolation_level: IsolationLevel | None = None,
         read_variant: ReadVariant | None = None,
         deferrable: bool | None = None,
-        synchronous_commit: SynchronousCommit | None = None,
     ) -> Transaction:
         """Create new transaction.
 
@@ -1097,15 +1072,13 @@ class Connection:
         - `isolation_level`: configure isolation level of the transaction.
         - `read_variant`: configure read variant of the transaction.
         - `deferrable`: configure deferrable of the transaction.
-        - `synchronous_commit`: configure synchronous_commit option for transaction.
         """
+
     def cursor(
         self: Self,
         querystring: str,
         parameters: ParamsT = None,
         fetch_number: int | None = None,
-        scroll: bool | None = None,
-        prepared: bool = True,
     ) -> Cursor:
         """Create new cursor object.
 
@@ -1115,9 +1088,6 @@ class Connection:
         - `querystring`: querystring to execute.
         - `parameters`: list of parameters to pass in the query.
         - `fetch_number`: how many rows need to fetch.
-        - `scroll`: SCROLL or NO SCROLL cursor.
-        - `prepared`: should the querystring be prepared before the request.
-            By default any querystring will be prepared.
 
         ### Returns:
         new initialized cursor.
@@ -1142,12 +1112,14 @@ class Connection:
                         ...  # do something with this result.
         ```
         """
-    def back_to_pool(self: Self) -> None:
+
+    def close(self: Self) -> None:
         """Return connection back to the pool.
 
         It necessary to commit all transactions and close all cursor
         made by this connection. Otherwise, it won't have any practical usage.
         """
+
     async def binary_copy_to_table(
         self: Self,
         source: bytes | bytearray | Buffer | BytesIO,
@@ -1285,6 +1257,7 @@ class ConnectionPool:
         - `ca_file`: Loads trusted root certificates from a file.
             The file should contain a sequence of PEM-formatted CA certificates.
         """
+
     def __iter__(self: Self) -> Self: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
@@ -1299,6 +1272,7 @@ class ConnectionPool:
         ### Returns
         `ConnectionPoolStatus`
         """
+
     def resize(self: Self, new_max_size: int) -> None:
         """Resize the connection pool.
 
@@ -1308,11 +1282,13 @@ class ConnectionPool:
         ### Parameters:
         - `new_max_size`: new size for the connection pool.
         """
+
     async def connection(self: Self) -> Connection:
         """Create new connection.
 
         It acquires new connection from the database pool.
         """
+
     def acquire(self: Self) -> Connection:
         """Create new connection for async context manager.
 
@@ -1330,13 +1306,14 @@ class ConnectionPool:
                 res = await connection.execute(...)
         ```
         """
+
     def listener(self: Self) -> Listener:
         """Create new listener."""
 
     def close(self: Self) -> None:
         """Close the connection pool."""
 
-def connect(
+def connect_pool(
     dsn: str | None = None,
     username: str | None = None,
     password: str | None = None,
@@ -1441,6 +1418,7 @@ class ConnectionPoolBuilder:
 
     def __init__(self: Self) -> None:
         """Initialize new instance of `ConnectionPoolBuilder`."""
+
     def build(self: Self) -> ConnectionPool:
         """
         Build `ConnectionPool`.
@@ -1448,6 +1426,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPool`
         """
+
     def max_pool_size(self: Self, pool_size: int) -> Self:
         """
         Set maximum connection pool size.
@@ -1458,6 +1437,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def conn_recycling_method(
         self: Self,
         conn_recycling_method: ConnRecyclingMethod,
@@ -1473,6 +1453,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def user(self: Self, user: str) -> Self:
         """
         Set username to `PostgreSQL`.
@@ -1483,6 +1464,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def password(self: Self, password: str) -> Self:
         """
         Set password for `PostgreSQL`.
@@ -1493,6 +1475,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def dbname(self: Self, dbname: str) -> Self:
         """
         Set database name for the `PostgreSQL`.
@@ -1503,6 +1486,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def options(self: Self, options: str) -> Self:
         """
         Set command line options used to configure the server.
@@ -1513,6 +1497,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def application_name(self: Self, application_name: str) -> Self:
         """
         Set the value of the `application_name` runtime parameter.
@@ -1523,6 +1508,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def ssl_mode(self: Self, ssl_mode: SslMode) -> Self:
         """
         Set the SSL configuration.
@@ -1533,6 +1519,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def ca_file(self: Self, ca_file: str) -> Self:
         """
         Set ca_file for SSL.
@@ -1543,6 +1530,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def host(self: Self, host: str) -> Self:
         """
         Add a host to the configuration.
@@ -1560,6 +1548,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def hostaddr(self: Self, hostaddr: IPv4Address | IPv6Address) -> Self:
         """
         Add a hostaddr to the configuration.
@@ -1575,6 +1564,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def port(self: Self, port: int) -> Self:
         """
         Add a port to the configuration.
@@ -1591,6 +1581,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def connect_timeout(self: Self, connect_timeout: int) -> Self:
         """
         Set the timeout applied to socket-level connection attempts.
@@ -1605,6 +1596,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def tcp_user_timeout(self: Self, tcp_user_timeout: int) -> Self:
         """
         Set the TCP user timeout.
@@ -1620,6 +1612,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def target_session_attrs(
         self: Self,
         target_session_attrs: TargetSessionAttrs,
@@ -1637,6 +1630,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def load_balance_hosts(
         self: Self,
         load_balance_hosts: LoadBalanceHosts,
@@ -1652,6 +1646,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives(
         self: Self,
         keepalives: bool,
@@ -1669,6 +1664,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_idle(
         self: Self,
         keepalives_idle: int,
@@ -1687,6 +1683,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_interval(
         self: Self,
         keepalives_interval: int,
@@ -1706,6 +1703,7 @@ class ConnectionPoolBuilder:
         ### Returns:
         `ConnectionPoolBuilder`
         """
+
     def keepalives_retries(
         self: Self,
         keepalives_retries: int,
@@ -1798,11 +1796,13 @@ class Listener:
 
         Each listener MUST be started up.
         """
+
     async def shutdown(self: Self) -> None:
         """Shutdown the listener.
 
         Abort listen and release underlying connection.
         """
+
     async def add_callback(
         self: Self,
         channel: str,
@@ -1857,3 +1857,17 @@ class ListenerNotificationMsg:
     channel: str
     payload: str
     connection: Connection
+
+class Column:
+    name: str
+    table_oid: int | None
+
+class PreparedStatement:
+    async def execute(self: Self) -> QueryResult:
+        """Execute prepared statement."""
+
+    def cursor(self: Self) -> Cursor:
+        """Create new server-side cursor based on prepared statement."""
+
+    def columns(self: Self) -> list[Column]:
+        """Return information about statement columns."""

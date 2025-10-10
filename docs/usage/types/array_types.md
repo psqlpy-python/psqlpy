@@ -1,6 +1,13 @@
 ---
-title: Array Types
+title: Array Types (Deprecated)
 ---
+
+::: important
+Deprecated functionality.
+
+Use any Python Sequence as a parameter.
+:::
+
 For type safety and better performance we have predefined array types.
 
 | PSQLPy Array Type | PostgreSQL Array Type |

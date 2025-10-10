@@ -28,10 +28,9 @@ highlights:
         details: PSQLPy is under active development.
 ---
 ## What is PSQLPy
-`PSQLPy` is a new Python driver for `PostgreSQL` fully written in Rust. It was inspired by `Psycopg3` and `AsyncPG`.
+`PSQLPy` is a Python driver for `PostgreSQL` fully written in Rust. It was inspired by `Psycopg3` and `AsyncPG`.
 This project has two main goals:
-Make a interaction with the database as fast as possible and now `PSQLPy` shows itself to be times faster than the above drivers.
-Don't make useless abstractions and make it like a mirror to `PostgreSQL`.
+We found that communication with the database can be faster and safer, so we tried to implement a new PostgreSQL driver in Rust for Python.
 
 It has all necessary components to create high-load and fault tolerance applications.
 
@@ -60,3 +59,4 @@ pip install git+https://github.com/psqlpy-python/psqlpy
 ## Join community!
 You can get support from the creators and users of `PSQLPy` in some social media:
 - [Telegram](https://t.me/+f3Y8mYKgXxhmYThi)
+- [Discord](https://discord.gg/ugNhzmhZ)

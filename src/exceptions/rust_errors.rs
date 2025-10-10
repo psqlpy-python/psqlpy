@@ -8,13 +8,13 @@ use super::python_errors::{
     BaseConnectionError, BaseConnectionPoolError, BaseCursorError, BaseListenerError,
     BaseTransactionError, ConnectionClosedError, ConnectionExecuteError, ConnectionPoolBuildError,
     ConnectionPoolConfigurationError, ConnectionPoolExecuteError, CursorCloseError,
-    CursorClosedError, CursorFetchError, CursorStartError, DriverError, ListenerCallbackError,
+    CursorClosedError, CursorFetchError, CursorStartError, DatabaseError, ListenerCallbackError,
     ListenerClosedError, ListenerStartError, MacAddrParseError, RuntimeJoinError, SSLError,
     TransactionBeginError, TransactionClosedError, TransactionCommitError, TransactionExecuteError,
     TransactionRollbackError, TransactionSavepointError, UUIDValueConvertError,
 };
 
-pub type RustPSQLDriverPyResult<T> = Result<T, RustPSQLDriverError>;
+pub type PSQLPyResult<T> = Result<T, RustPSQLDriverError>;
 
 #[derive(Error, Debug)]
 pub enum RustPSQLDriverError {
@@ -29,9 +29,9 @@ pub enum RustPSQLDriverError {
     ConnectionPoolExecuteError(String),
 
     // Connection Errors
-    #[error("Connection error: {0}.")]
+    #[error("{0}")]
     BaseConnectionError(String),
-    #[error("Connection execute error: {0}.")]
+    #[error("{0}")]
     ConnectionExecuteError(String),
     #[error("Underlying connection is returned to the pool")]
     ConnectionClosedError,
@@ -76,12 +76,12 @@ pub enum RustPSQLDriverError {
 
     #[error("Can't convert value from driver to python type: {0}")]
     RustToPyValueConversionError(String),
-    #[error("Can't convert value from python to rust type: {0}")]
+    #[error("{0}")]
     PyToRustValueConversionError(String),
 
     #[error("Python exception: {0}.")]
     RustPyError(#[from] pyo3::PyErr),
-    #[error("Database engine exception: {0}.")]
+    #[error("{0}")]
     RustDriverError(#[from] deadpool_postgres::tokio_postgres::Error),
     #[error("Database engine pool exception: {0}")]
     RustConnectionPoolError(#[from] deadpool_postgres::PoolError),
@@ -104,7 +104,7 @@ impl From<RustPSQLDriverError> for pyo3::PyErr {
         let error_desc = error.to_string();
         match error {
             RustPSQLDriverError::RustPyError(err) => err,
-            RustPSQLDriverError::RustDriverError(_) => DriverError::new_err((error_desc,)),
+            RustPSQLDriverError::RustDriverError(_) => DatabaseError::new_err((error_desc,)),
             RustPSQLDriverError::RustMacAddrConversionError(_) => {
                 MacAddrParseError::new_err((error_desc,))
             }

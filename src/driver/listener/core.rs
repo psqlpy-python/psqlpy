@@ -12,13 +12,16 @@ use tokio::{
 use tokio_postgres::{AsyncMessage, Config};
 
 use crate::{
+    connection::{
+        structs::{PSQLPyConnection, SingleConnection},
+        traits::Connection as _,
+    },
     driver::{
-        common_options::SslMode,
         connection::Connection,
-        inner_connection::PsqlpyConnection,
         utils::{build_tls, is_coroutine_function, ConfiguredTLS},
     },
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::SslMode,
     runtime::{rustdriver_future, tokio_runtime},
 };
 
@@ -42,7 +45,11 @@ pub struct Listener {
 
 impl Listener {
     #[must_use]
-    pub fn new(pg_config: Arc<Config>, ca_file: Option<String>, ssl_mode: Option<SslMode>) -> Self {
+    pub fn new(
+        pg_config: &Arc<Config>,
+        ca_file: Option<String>,
+        ssl_mode: Option<SslMode>,
+    ) -> Self {
         Listener {
             pg_config: pg_config.clone(),
             ca_file,
@@ -89,17 +96,17 @@ impl Listener {
     }
 
     #[allow(clippy::unused_async)]
-    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
+    async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         Ok(slf)
     }
 
     #[allow(clippy::unused_async)]
-    async fn __aexit__<'a>(
+    async fn __aexit__(
         slf: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
+    ) -> PSQLPyResult<()> {
         let (client, is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
             let self_ = slf.borrow(gil);
             (
@@ -126,7 +133,7 @@ impl Listener {
         Err(RustPSQLDriverError::ListenerClosedError)
     }
 
-    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<Py<PyAny>>> {
+    fn __anext__(&self) -> PSQLPyResult<Option<Py<PyAny>>> {
         let Some(client) = self.connection.db_client() else {
             return Err(RustPSQLDriverError::ListenerStartError(
                 "Listener doesn't have underlying client, please call startup".into(),
@@ -167,7 +174,7 @@ impl Listener {
     }
 
     #[getter]
-    fn connection(&self) -> RustPSQLDriverPyResult<Connection> {
+    fn connection(&self) -> PSQLPyResult<Connection> {
         if !self.is_started {
             return Err(RustPSQLDriverError::ListenerStartError(
                 "Listener isn't started up".into(),
@@ -177,7 +184,7 @@ impl Listener {
         Ok(self.connection.clone())
     }
 
-    async fn startup(&mut self) -> RustPSQLDriverPyResult<()> {
+    async fn startup(&mut self) -> PSQLPyResult<()> {
         if self.is_started {
             return Err(RustPSQLDriverError::ListenerStartError(
                 "Listener is already started".into(),
@@ -219,7 +226,9 @@ impl Listener {
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
         self.connection = Connection::new(
-            Some(Arc::new(PsqlpyConnection::SingleConn(client))),
+            Some(Arc::new(RwLock::new(PSQLPyConnection::SingleConnection(
+                SingleConnection::new(client, self.pg_config.clone()),
+            )))),
             None,
             self.pg_config.clone(),
         );
@@ -229,6 +238,8 @@ impl Listener {
         Ok(())
     }
 
+    /// TODO: remove clippy ignore after removing async
+    #[allow(clippy::unused_async)]
     async fn shutdown(&mut self) {
         self.abort_listen();
         std::mem::take(&mut self.connection);
@@ -238,11 +249,7 @@ impl Listener {
     }
 
     #[pyo3(signature = (channel, callback))]
-    async fn add_callback(
-        &mut self,
-        channel: String,
-        callback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
+    async fn add_callback(&mut self, channel: String, callback: Py<PyAny>) -> PSQLPyResult<()> {
         if !is_coroutine_function(callback.clone())? {
             return Err(RustPSQLDriverError::ListenerCallbackError);
         }
@@ -279,7 +286,7 @@ impl Listener {
         self.update_listen_query().await;
     }
 
-    fn listen(&mut self) -> RustPSQLDriverPyResult<()> {
+    fn listen(&mut self) -> PSQLPyResult<()> {
         let Some(client) = self.connection.db_client() else {
             return Err(RustPSQLDriverError::ListenerStartError(
                 "Cannot start listening, underlying connection doesn't exist".into(),
@@ -343,7 +350,7 @@ async fn dispatch_callback(
     listener_callback: &ListenerCallback,
     listener_notification: ListenerNotification,
     connection: Connection,
-) -> RustPSQLDriverPyResult<()> {
+) -> PSQLPyResult<()> {
     listener_callback
         .call(listener_notification.clone(), connection)
         .await?;
@@ -354,8 +361,9 @@ async fn dispatch_callback(
 async fn execute_listen(
     is_listened: &Arc<RwLock<bool>>,
     listen_query: &Arc<RwLock<String>>,
-    client: &Arc<PsqlpyConnection>,
-) -> RustPSQLDriverPyResult<()> {
+    client: &Arc<RwLock<PSQLPyConnection>>,
+) -> PSQLPyResult<()> {
+    let read_conn_g = client.read().await;
     let mut write_is_listened = is_listened.write().await;
 
     if !write_is_listened.eq(&true) {
@@ -364,14 +372,14 @@ async fn execute_listen(
             String::from(read_listen_query.as_str())
         };
 
-        client.batch_execute(listen_q.as_str()).await?;
+        read_conn_g.batch_execute(listen_q.as_str()).await?;
     }
 
     *write_is_listened = true;
     Ok(())
 }
 
-fn process_message(message: Option<AsyncMessage>) -> RustPSQLDriverPyResult<ListenerNotification> {
+fn process_message(message: Option<AsyncMessage>) -> PSQLPyResult<ListenerNotification> {
     let Some(async_message) = message else {
         return Err(RustPSQLDriverError::ListenerError("Wow".into()));
     };

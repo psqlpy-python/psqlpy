@@ -96,9 +96,16 @@ ignore = [
     "D103", # Missing docstring in public function
     "S311", # Standard pseudo-random generators are not suitable for security/cryptographic purposes
 ]
+"python/psqlpy/_internal/exceptions.pyi" = [
+    "D205",
+    "RUF002",
+]
 "./psqlpy-stress/psqlpy_stress/migrations/env.py" = ["INP001"]
 "examples/*" = ["INP001"]
 
 [tool.ruff.pydocstyle]
 convention = "pep257"
 ignore-decorators = ["typing.overload"]
+
+[project.entry-points."sqlalchemy.dialects"]
+psqlpy = "psqlpy_sqlalchemy.dialect:PSQLPyAsyncDialect"

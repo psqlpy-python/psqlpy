@@ -1,177 +1,84 @@
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 import pytest
 
 if TYPE_CHECKING:
-    from psqlpy import ConnectionPool, Cursor, QueryResult, Transaction
+    from psqlpy import ConnectionPool, Cursor
 
 pytestmark = pytest.mark.anyio
 
 
-async def test_cursor_fetch(
+async def test_cursor_fetchmany(
     number_database_records: int,
     test_cursor: Cursor,
 ) -> None:
     """Test cursor fetch with custom number of fetch."""
-    result = await test_cursor.fetch(fetch_number=number_database_records // 2)
+    result = await test_cursor.fetchmany(size=number_database_records // 2)
     assert len(result.result()) == number_database_records // 2
 
 
-async def test_cursor_fetch_next(
+async def test_cursor_fetchone(
     test_cursor: Cursor,
 ) -> None:
-    """Test cursor fetch next."""
-    result = await test_cursor.fetch_next()
+    result = await test_cursor.fetchone()
     assert len(result.result()) == 1
 
 
-async def test_cursor_fetch_prior(
-    test_cursor: Cursor,
-) -> None:
-    """Test cursor fetch prior."""
-    result = await test_cursor.fetch_prior()
-    assert len(result.result()) == 0
-
-    await test_cursor.fetch(fetch_number=2)
-    result = await test_cursor.fetch_prior()
-    assert len(result.result()) == 1
-
-
-async def test_cursor_fetch_first(
-    test_cursor: Cursor,
-) -> None:
-    """Test cursor fetch first."""
-    fetch_first = await test_cursor.fetch(fetch_number=1)
-
-    await test_cursor.fetch(fetch_number=3)
-
-    first = await test_cursor.fetch_first()
-
-    assert fetch_first.result() == first.result()
-
-
-async def test_cursor_fetch_last(
-    test_cursor: Cursor,
+async def test_cursor_fetchall(
     number_database_records: int,
-) -> None:
-    """Test cursor fetch last."""
-    all_res = await test_cursor.fetch(
-        fetch_number=number_database_records,
-    )
-
-    last_res = await test_cursor.fetch_last()
-
-    assert all_res.result()[-1] == last_res.result()[0]
-
-
-async def test_cursor_fetch_absolute(
-    test_cursor: Cursor,
-    number_database_records: int,
-) -> None:
-    """Test cursor fetch Absolute."""
-    all_res = await test_cursor.fetch(
-        fetch_number=number_database_records,
-    )
-
-    first_record = await test_cursor.fetch_absolute(
-        absolute_number=1,
-    )
-    last_record = await test_cursor.fetch_absolute(
-        absolute_number=-1,
-    )
-
-    assert all_res.result()[0] == first_record.result()[0]
-    assert all_res.result()[-1] == last_record.result()[0]
-
-
-async def test_cursor_fetch_relative(
-    test_cursor: Cursor,
-    number_database_records: int,
-) -> None:
-    """Test cursor fetch Relative."""
-    first_absolute = await test_cursor.fetch_relative(
-        relative_number=1,
-    )
-
-    assert first_absolute.result()
-
-    await test_cursor.fetch(
-        fetch_number=number_database_records,
-    )
-    records = await test_cursor.fetch_relative(
-        relative_number=1,
-    )
-
-    assert not (records.result())
-
-
-async def test_cursor_fetch_forward_all(
-    test_cursor: Cursor,
-    number_database_records: int,
-) -> None:
-    """Test that cursor execute FETCH FORWARD ALL correctly."""
-    default_fetch_number = 2
-    await test_cursor.fetch(fetch_number=default_fetch_number)
-
-    rest_results = await test_cursor.fetch_forward_all()
-
-    assert len(rest_results.result()) == number_database_records - default_fetch_number
-
-
-async def test_cursor_fetch_backward(
     test_cursor: Cursor,
 ) -> None:
-    """Test cursor backward fetch."""
-    must_be_empty = await test_cursor.fetch_backward(backward_count=10)
-    assert not (must_be_empty.result())
-
-    default_fetch_number = 5
-    await test_cursor.fetch(fetch_number=default_fetch_number)
-
-    expected_number_of_results = 3
-    must_not_be_empty = await test_cursor.fetch_backward(
-        backward_count=expected_number_of_results,
-    )
-    assert len(must_not_be_empty.result()) == expected_number_of_results
+    result = await test_cursor.fetchall()
+    assert len(result.result()) == number_database_records
 
 
-async def test_cursor_fetch_backward_all(
-    test_cursor: Cursor,
-) -> None:
-    """Test cursor `fetch_backward_all`."""
-    must_be_empty = await test_cursor.fetch_backward_all()
-    assert not (must_be_empty.result())
-
-    default_fetch_number = 5
-    await test_cursor.fetch(fetch_number=default_fetch_number)
-
-    must_not_be_empty = await test_cursor.fetch_backward_all()
-    assert len(must_not_be_empty.result()) == default_fetch_number - 1
-
-
-async def test_cursor_as_async_manager(
+async def test_cursor_start(
     psql_pool: ConnectionPool,
     table_name: str,
     number_database_records: int,
 ) -> None:
-    """Test cursor async manager and async iterator."""
     connection = await psql_pool.connection()
-    transaction: Transaction
-    cursor: Cursor
-    all_results: list[QueryResult] = []
-    expected_num_results = math.ceil(number_database_records / 3)
-    fetch_number = 3
-    async with connection.transaction() as transaction, transaction.cursor(
+    cursor = connection.cursor(
         querystring=f"SELECT * FROM {table_name}",
-        fetch_number=fetch_number,
-    ) as cursor:
-        async for result in cursor:
-            all_results.append(result)  # noqa: PERF401
+    )
+    await cursor.start()
+    results = await cursor.fetchall()
 
-    assert len(all_results) == expected_num_results
+    assert len(results.result()) == number_database_records
+
+    cursor.close()
+
+
+async def test_cursor_as_async_context_manager(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    connection = await psql_pool.connection()
+    async with connection.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+    ) as cursor:
+        results = await cursor.fetchall()
+
+    assert len(results.result()) == number_database_records
+
+
+async def test_cursor_as_async_iterator(
+    psql_pool: ConnectionPool,
+    table_name: str,
+    number_database_records: int,
+) -> None:
+    connection = await psql_pool.connection()
+    all_results = []
+    async with connection.cursor(
+        querystring=f"SELECT * FROM {table_name}",
+    ) as cursor:
+        async for results in cursor:
+            all_results.extend(results.result())
+
+    assert len(all_results) == number_database_records
 
 
 async def test_cursor_send_underlying_connection_to_pool(
@@ -184,7 +91,7 @@ async def test_cursor_send_underlying_connection_to_pool(
             async with transaction.cursor(
                 querystring=f"SELECT * FROM {table_name}",
             ) as cursor:
-                await cursor.fetch(10)
+                await cursor.fetchmany(10)
                 assert not psql_pool.status().available
             assert not psql_pool.status().available
         assert not psql_pool.status().available
@@ -200,9 +107,9 @@ async def test_cursor_send_underlying_connection_to_pool_manually(
         async with connection.transaction() as transaction:
             cursor = transaction.cursor(querystring=f"SELECT * FROM {table_name}")
             await cursor.start()
-            await cursor.fetch(10)
+            await cursor.fetchmany(10)
             assert not psql_pool.status().available
-            await cursor.close()
+            cursor.close()
             assert not psql_pool.status().available
         assert not psql_pool.status().available
     assert psql_pool.status().available == 1

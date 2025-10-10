@@ -20,6 +20,17 @@ async def main() -> None:
     connection = await db_pool.connection()
 ```
 
+@tab single connection
+```python
+from psqlpy import connect
+
+async def main() -> None:
+    db_connection: Final = await connect(
+        dsn="postgres://postgres:postgres@localhost:5432/postgres",
+    )
+    await db_connection.execute(...)
+```
+
 @tab async context manager
 ```python
 from psqlpy import ConnectionPool
@@ -83,28 +94,6 @@ async def main() -> None:
     )
 ```
 
-### Fetch
-
-#### Parameters:
-
-- `querystring`: Statement string.
-- `parameters`: List of parameters for the statement string.
-- `prepared`: Prepare statement before execution or not.
-
-The same as the `execute` method, for some people this naming is preferable.
-
-```python
-async def main() -> None:
-    ...
-    connection = await db_pool.connection()
-    results: QueryResult = await connection.fetch(
-        "SELECT * FROM users WHERE id = $1 and username = $2",
-        [100, "Alex"],
-    )
-
-    dict_results: list[dict[str, Any]] = results.result()
-```
-
 ### Execute Many
 
 #### Parameters:
@@ -125,6 +114,28 @@ async def main() -> None:
         "INSERT INTO users (name, age) VALUES ($1, $2)",
         [["boba", 10], ["boba", 20]],
     )
+```
+
+### Fetch
+
+#### Parameters:
+
+- `querystring`: Statement string.
+- `parameters`: List of parameters for the statement string.
+- `prepared`: Prepare statement before execution or not.
+
+The same as the `execute` method, for some people this naming is preferable.
+
+```python
+async def main() -> None:
+    ...
+    connection = await db_pool.connection()
+    results: QueryResult = await connection.fetch(
+        "SELECT * FROM users WHERE id = $1 and username = $2",
+        [100, "Alex"],
+    )
+
+    dict_results: list[dict[str, Any]] = results.result()
 ```
 
 ### Fetch Row
@@ -169,7 +180,7 @@ async def main() -> None:
     ...
     connection = await db_pool.connection()
     # this will be an int value
-    query_result_value = await connection.fetch_row(
+    query_result_value = await connection.fetch_val(
         "SELECT COUNT(*) FROM users WHERE id > $1",
         [100],
     )
@@ -177,17 +188,14 @@ async def main() -> None:
 
 ### Transaction
 
-`Connection` is the only object that can be used to build `Transaction` object.
-
 #### Parameters:
 
 - `isolation_level`: level of isolation. Default how it is in PostgreSQL.
 - `read_variant`: configure read variant of the transaction. Default how it is in PostgreSQL.
 - `deferrable`: configure deferrable of the transaction. Default how it is in PostgreSQL.
-- `synchronous_commit`: configure [synchronous_commit](https://postgresqlco.nf/doc/en/param/synchronous_commit/) option for transaction. Default how it is in PostgreSQL.
 
 ```python
-from psqlpy import IsolationLevel, ReadVariant, SynchronousCommit
+from psqlpy import IsolationLevel, ReadVariant
 
 async def main() -> None:
     ...
@@ -196,11 +204,48 @@ async def main() -> None:
         isolation_level=IsolationLevel.Serializable,
         read_variant=ReadVariant.ReadWrite,
         deferrable=True,
-        synchronous_commit=SynchronousCommit.On,
     )
 ```
 
-### Back To Pool
+### Cursor
+Create new server-side cursor
+
+#### Parameters
+- `querystring`: querystring for cursor.
+- `parameters`: parameters for querystring.
+- `fetch_number`: default value for fetch number, can be changed.
+
+```python
+async def main() -> None:
+    ...
+    connection = await db_pool.connection()
+    cursor = connection.cursor(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+        fetch_number=5,
+    )
+```
+
+### Prepare
+Prepare statement and return new instance.
+
+#### Parameters:
+- `querystring`: querystring for statement.
+- `parameters`: parameters for querystring.
+
+```python
+from psqlpy import IsolationLevel, ReadVariant
+
+async def main() -> None:
+    ...
+    connection = await db_pool.connection()
+    prepared_stmt = await connection.prepare(
+        querystring="SELECT * FROM users WHERE id > $1",
+        parameters=[100],
+    )
+```
+
+### Close
 Returns connection to the pool.
 It's crucial to commit all transactions and close all cursor which are made from the connection.
 Otherwise, this method won't do anything useful.
@@ -213,5 +258,5 @@ There is no need in this method if you use async context manager.
 async def main() -> None:
     ...
     connection = await db_pool.connection()
-    connection.back_to_pool()
+    connection.close()
 ```

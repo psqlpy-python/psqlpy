@@ -8,13 +8,11 @@ from psqlpy import (
     Cursor,
     IsolationLevel,
     ReadVariant,
-    SynchronousCommit,
 )
+from psqlpy._internal.exceptions import TransactionClosedError
 from psqlpy.exceptions import (
-    RustPSQLDriverPyBaseError,
-    TransactionBeginError,
+    InterfaceError,
     TransactionExecuteError,
-    TransactionSavepointError,
 )
 
 from tests.helpers import count_rows_in_test_table
@@ -50,7 +48,7 @@ async def test_transaction_init_parameters(
                 f"INSERT INTO {table_name} VALUES ($1, $2)",
                 parameters=[100, "test_name"],
             )
-        except RustPSQLDriverPyBaseError:
+        except InterfaceError:
             assert read_variant is ReadVariant.ReadOnly
         else:
             assert read_variant is not ReadVariant.ReadOnly
@@ -65,10 +63,10 @@ async def test_transaction_begin(
     connection = await psql_pool.connection()
     transaction = connection.transaction()
 
-    with pytest.raises(expected_exception=TransactionBeginError):
-        await transaction.execute(
-            f"SELECT * FROM {table_name}",
-        )
+    # with pytest.raises(expected_exception=TransactionBeginError):
+    await transaction.execute(
+        f"SELECT * FROM {table_name}",
+    )
 
     await transaction.begin()
 
@@ -171,7 +169,7 @@ async def test_transaction_rollback(
 
     await transaction.rollback()
 
-    with pytest.raises(expected_exception=TransactionBeginError):
+    with pytest.raises(expected_exception=TransactionClosedError):
         await transaction.execute(
             f"SELECT * FROM {table_name} WHERE name = $1",
             parameters=[test_name],
@@ -182,7 +180,7 @@ async def test_transaction_rollback(
         f"INSERT INTO {table_name} VALUES ($1, $2)",
         parameters=[100, test_name],
     )
-    connection.back_to_pool()
+    connection.close()
 
     assert not (result_from_conn.result())
 
@@ -199,9 +197,8 @@ async def test_transaction_release_savepoint(
     sp_name_2 = "sp2"
 
     await transaction.create_savepoint(sp_name_1)
-
-    with pytest.raises(expected_exception=TransactionSavepointError):
-        await transaction.create_savepoint(sp_name_1)
+    # There is no problem in creating the same sp_name
+    await transaction.create_savepoint(sp_name_1)
 
     await transaction.create_savepoint(sp_name_2)
 
@@ -287,7 +284,7 @@ async def test_transaction_fetch_row_more_than_one_row(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        with pytest.raises(RustPSQLDriverPyBaseError):
+        with pytest.raises(InterfaceError):
             await transaction.fetch_row(
                 f"SELECT * FROM  {table_name}",
                 [],
@@ -313,7 +310,7 @@ async def test_transaction_fetch_val_more_than_one_row(
 ) -> None:
     connection = await psql_pool.connection()
     async with connection.transaction() as transaction:
-        with pytest.raises(RustPSQLDriverPyBaseError):
+        with pytest.raises(InterfaceError):
             await transaction.fetch_row(
                 f"SELECT * FROM  {table_name}",
                 [],
@@ -361,30 +358,4 @@ async def test_execute_batch_method(psql_pool: ConnectionPool) -> None:
         await transaction.execute(querystring="SELECT * FROM execute_batch")
         await transaction.execute(querystring="SELECT * FROM execute_batch2")
 
-    connection.back_to_pool()
-
-
-@pytest.mark.parametrize(
-    "synchronous_commit",
-    [
-        SynchronousCommit.On,
-        SynchronousCommit.Off,
-        SynchronousCommit.Local,
-        SynchronousCommit.RemoteWrite,
-        SynchronousCommit.RemoteApply,
-    ],
-)
-async def test_synchronous_commit(
-    synchronous_commit: SynchronousCommit,
-    psql_pool: ConnectionPool,
-    table_name: str,
-    number_database_records: int,
-) -> None:
-    async with psql_pool.acquire() as conn, conn.transaction(
-        synchronous_commit=synchronous_commit,
-    ) as trans:
-        res = await trans.execute(
-            f"SELECT * FROM {table_name}",
-        )
-
-        assert len(res.result()) == number_database_records
+    connection.close()

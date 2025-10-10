@@ -1,229 +1,98 @@
-use std::{net::IpAddr, sync::Arc};
+use std::sync::Arc;
 
 use pyo3::{
     exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
 };
-use tokio_postgres::{config::Host, Config};
+use tokio::sync::RwLock;
+use tokio_postgres::{Config, Portal as tp_Portal};
 
 use crate::{
-    exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult},
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     query_result::PSQLDriverPyQueryResult,
     runtime::rustdriver_future,
+    statement::statement::PsqlpyStatement,
+    transaction::structs::PSQLPyTransaction,
 };
 
-use super::inner_connection::PsqlpyConnection;
+use crate::connection::structs::PSQLPyConnection;
 
-/// Additional implementation for the `Object` type.
-#[allow(clippy::ref_option)]
-trait CursorObjectTrait {
-    async fn cursor_start(
-        &self,
-        cursor_name: &str,
-        scroll: &Option<bool>,
-        querystring: &str,
-        prepared: &Option<bool>,
-        parameters: &Option<Py<PyAny>>,
-    ) -> RustPSQLDriverPyResult<()>;
-
-    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()>;
-}
-
-impl CursorObjectTrait for PsqlpyConnection {
-    /// Start the cursor.
-    ///
-    /// Execute `DECLARE` command with parameters.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute querystring.
-    #[allow(clippy::ref_option)]
-    async fn cursor_start(
-        &self,
-        cursor_name: &str,
-        scroll: &Option<bool>,
-        querystring: &str,
-        prepared: &Option<bool>,
-        parameters: &Option<Py<PyAny>>,
-    ) -> RustPSQLDriverPyResult<()> {
-        let mut cursor_init_query = format!("DECLARE {cursor_name}");
-        if let Some(scroll) = scroll {
-            if *scroll {
-                cursor_init_query.push_str(" SCROLL");
-            } else {
-                cursor_init_query.push_str(" NO SCROLL");
-            }
-        }
-
-        cursor_init_query.push_str(format!(" CURSOR FOR {querystring}").as_str());
-
-        self.execute(cursor_init_query, parameters.clone(), *prepared)
-            .await
-            .map_err(|err| {
-                RustPSQLDriverError::CursorStartError(format!("Cannot start cursor, error - {err}"))
-            })?;
-
-        Ok(())
-    }
-
-    /// Close the cursor.
-    ///
-    /// Execute `CLOSE` command.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute querystring.
-    async fn cursor_close(&self, closed: &bool, cursor_name: &str) -> RustPSQLDriverPyResult<()> {
-        if *closed {
-            return Err(RustPSQLDriverError::CursorCloseError(
-                "Cursor is already closed".into(),
-            ));
-        }
-
-        self.execute(
-            format!("CLOSE {cursor_name}"),
-            Option::default(),
-            Some(false),
-        )
-        .await?;
-
-        Ok(())
-    }
-}
-
-#[pyclass(subclass)]
+#[pyclass]
 pub struct Cursor {
-    db_transaction: Option<Arc<PsqlpyConnection>>,
-    pg_config: Arc<Config>,
-    querystring: String,
+    pub conn: Option<Arc<RwLock<PSQLPyConnection>>>,
+    querystring: Option<String>,
     parameters: Option<Py<PyAny>>,
-    cursor_name: String,
-    fetch_number: usize,
-    scroll: Option<bool>,
-    prepared: Option<bool>,
-    is_started: bool,
-    closed: bool,
+    array_size: i32,
+
+    statement: Option<PsqlpyStatement>,
+
+    transaction: Option<Arc<PSQLPyTransaction>>,
+    inner: Option<tp_Portal>,
+
+    pub pg_config: Arc<Config>,
 }
 
 impl Cursor {
     #[must_use]
     pub fn new(
-        db_transaction: Arc<PsqlpyConnection>,
-        pg_config: Arc<Config>,
-        querystring: String,
+        conn: Option<Arc<RwLock<PSQLPyConnection>>>,
+        querystring: Option<String>,
         parameters: Option<Py<PyAny>>,
-        cursor_name: String,
-        fetch_number: usize,
-        scroll: Option<bool>,
-        prepared: Option<bool>,
+        array_size: Option<i32>,
+        pg_config: Arc<Config>,
+        statement: Option<PsqlpyStatement>,
     ) -> Self {
-        Cursor {
-            db_transaction: Some(db_transaction),
-            pg_config,
+        Self {
+            conn,
+            transaction: None,
+            inner: None,
             querystring,
             parameters,
-            cursor_name,
-            fetch_number,
-            scroll,
-            prepared,
-            is_started: false,
-            closed: false,
+            array_size: array_size.unwrap_or(1),
+            pg_config,
+            statement,
         }
+    }
+
+    async fn query_portal(&self, size: i32) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        let Some(transaction) = &self.transaction else {
+            return Err(RustPSQLDriverError::TransactionClosedError);
+        };
+        let Some(portal) = &self.inner else {
+            return Err(RustPSQLDriverError::TransactionClosedError);
+        };
+        transaction.query_portal(portal, size).await
+    }
+}
+
+impl Drop for Cursor {
+    fn drop(&mut self) {
+        self.transaction = None;
+        self.conn = None;
     }
 }
 
 #[pymethods]
 impl Cursor {
     #[getter]
-    fn conn_dbname(&self) -> Option<&str> {
-        self.pg_config.get_dbname()
+    fn get_querystring(&self) -> Option<String> {
+        self.querystring.clone()
     }
 
     #[getter]
-    fn user(&self) -> Option<&str> {
-        self.pg_config.get_user()
+    fn get_parameters(&self) -> Option<Py<PyAny>> {
+        self.parameters.clone()
     }
 
     #[getter]
-    fn host_addrs(&self) -> Vec<String> {
-        let mut host_addrs_vec = vec![];
-
-        let host_addrs = self.pg_config.get_hostaddrs();
-        for ip_addr in host_addrs {
-            match ip_addr {
-                IpAddr::V4(ipv4) => {
-                    host_addrs_vec.push(ipv4.to_string());
-                }
-                IpAddr::V6(ipv6) => {
-                    host_addrs_vec.push(ipv6.to_string());
-                }
-            }
-        }
-
-        host_addrs_vec
+    fn get_array_size(&self) -> i32 {
+        self.array_size
     }
 
-    #[cfg(unix)]
-    #[getter]
-    fn hosts(&self) -> Vec<String> {
-        let mut hosts_vec = vec![];
-
-        let hosts = self.pg_config.get_hosts();
-        for host in hosts {
-            match host {
-                Host::Tcp(host) => {
-                    hosts_vec.push(host.to_string());
-                }
-                Host::Unix(host) => {
-                    hosts_vec.push(host.display().to_string());
-                }
-            }
-        }
-
-        hosts_vec
+    #[setter]
+    fn set_array_size(&mut self, value: i32) {
+        self.array_size = value;
     }
 
-    #[cfg(not(unix))]
-    #[getter]
-    fn hosts(&self) -> Vec<String> {
-        let mut hosts_vec = vec![];
-
-        let hosts = self.pg_config.get_hosts();
-        for host in hosts {
-            match host {
-                Host::Tcp(host) => {
-                    hosts_vec.push(host.to_string());
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        hosts_vec
-    }
-
-    #[getter]
-    fn ports(&self) -> Vec<&u16> {
-        return self.pg_config.get_ports().iter().collect::<Vec<&u16>>();
-    }
-
-    #[getter]
-    fn cursor_name(&self) -> String {
-        return self.cursor_name.clone();
-    }
-
-    #[getter]
-    fn querystring(&self) -> String {
-        return self.querystring.clone();
-    }
-
-    #[getter]
-    fn parameters(&self) -> Option<Py<PyAny>> {
-        return self.parameters.clone();
-    }
-
-    #[getter]
-    fn prepared(&self) -> Option<bool> {
-        return self.prepared.clone();
-    }
-
-    #[must_use]
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
@@ -232,478 +101,161 @@ impl Cursor {
         slf
     }
 
-    async fn __aenter__<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<Py<Self>> {
-        let (db_transaction, cursor_name, scroll, querystring, prepared, parameters) =
-            Python::with_gil(|gil| {
-                let self_ = slf.borrow(gil);
-                (
-                    self_.db_transaction.clone(),
-                    self_.cursor_name.clone(),
-                    self_.scroll,
-                    self_.querystring.clone(),
-                    self_.prepared,
-                    self_.parameters.clone(),
-                )
-            });
+    #[allow(clippy::single_match_else)]
+    async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
+        let (conn, querystring, parameters, statement) = Python::with_gil(|gil| {
+            let self_ = slf.borrow(gil);
+            (
+                self_.conn.clone(),
+                self_.querystring.clone(),
+                self_.parameters.clone(),
+                self_.statement.clone(),
+            )
+        });
 
-        if let Some(db_transaction) = db_transaction {
-            db_transaction
-                .cursor_start(&cursor_name, &scroll, &querystring, &prepared, &parameters)
-                .await?;
-            Python::with_gil(|gil| {
-                let mut self_ = slf.borrow_mut(gil);
-                self_.is_started = true;
-            });
-            return Ok(slf);
-        }
-        Err(RustPSQLDriverError::CursorClosedError)
+        let Some(conn) = conn else {
+            return Err(RustPSQLDriverError::CursorClosedError);
+        };
+        let mut write_conn_g = conn.write().await;
+
+        let (txid, inner_portal) = match querystring {
+            Some(querystring) => {
+                write_conn_g
+                    .portal(Some(&querystring), &parameters, None)
+                    .await?
+            }
+            None => {
+                let Some(statement) = statement else {
+                    return Err(RustPSQLDriverError::CursorStartError(
+                        "Cannot start cursor".into(),
+                    ));
+                };
+                write_conn_g.portal(None, &None, Some(&statement)).await?
+            }
+        };
+
+        Python::with_gil(|gil| {
+            let mut self_ = slf.borrow_mut(gil);
+
+            self_.transaction = Some(Arc::new(txid));
+            self_.inner = Some(inner_portal);
+        });
+
+        Ok(slf)
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    async fn __aexit__<'a>(
-        slf: Py<Self>,
+    #[allow(clippy::needless_pass_by_value, clippy::unused_async)]
+    async fn __aexit__(
+        &mut self,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> RustPSQLDriverPyResult<()> {
-        let (db_transaction, closed, cursor_name, is_exception_none, py_err) =
-            pyo3::Python::with_gil(|gil| {
-                let self_ = slf.borrow(gil);
-                (
-                    self_.db_transaction.clone(),
-                    self_.closed,
-                    self_.cursor_name.clone(),
-                    exception.is_none(gil),
-                    PyErr::from_value(exception.into_bound(gil)),
-                )
-            });
+    ) -> PSQLPyResult<()> {
+        self.close();
 
-        if let Some(db_transaction) = db_transaction {
-            db_transaction
-                .cursor_close(&closed, &cursor_name)
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorCloseError(format!(
-                        "Cannot close the cursor, error - {err}"
-                    ))
-                })?;
-            pyo3::Python::with_gil(|gil| {
-                let mut self_ = slf.borrow_mut(gil);
-                std::mem::take(&mut self_.db_transaction);
-            });
-            if !is_exception_none {
-                return Err(RustPSQLDriverError::RustPyError(py_err));
-            }
-            return Ok(());
+        let (is_exc_none, py_err) = pyo3::Python::with_gil(|gil| {
+            (
+                exception.is_none(gil),
+                PyErr::from_value(exception.into_bound(gil)),
+            )
+        });
+
+        if !is_exc_none {
+            return Err(RustPSQLDriverError::RustPyError(py_err));
         }
-        Err(RustPSQLDriverError::CursorClosedError)
+        Ok(())
     }
 
-    /// Return next result from the SQL statement.
-    ///
-    /// Execute FETCH <number> FROM <cursor name>
-    ///
-    /// This is the only place where we use `rustdriver_future` cuz
-    /// we didn't find any solution how to implement it without
-    /// # Errors
-    /// May return Err Result if can't execute querystring.
-    fn __anext__(&self) -> RustPSQLDriverPyResult<Option<PyObject>> {
-        let db_transaction = self.db_transaction.clone();
-        let fetch_number = self.fetch_number;
-        let cursor_name = self.cursor_name.clone();
+    fn __anext__(&self) -> PSQLPyResult<Option<PyObject>> {
+        let txid = self.transaction.clone();
+        let portal = self.inner.clone();
+        let size = self.array_size;
+
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
-                if let Some(db_transaction) = db_transaction {
-                    let result = db_transaction
-                        .execute(
-                            format!("FETCH {fetch_number} FROM {cursor_name}"),
-                            None,
-                            Some(false),
-                        )
-                        .await?;
+                let Some(txid) = &txid else {
+                    return Err(RustPSQLDriverError::TransactionClosedError);
+                };
+                let Some(portal) = &portal else {
+                    return Err(RustPSQLDriverError::TransactionClosedError);
+                };
+                let result = txid.query_portal(portal, size).await?;
 
-                    if result.is_empty() {
-                        return Err(PyStopAsyncIteration::new_err(
-                            "Iteration is over, no more results in cursor",
-                        )
-                        .into());
-                    };
-
-                    return Ok(result);
+                if result.is_empty() {
+                    return Err(PyStopAsyncIteration::new_err(
+                        "Iteration is over, no more results in portal",
+                    )
+                    .into());
                 }
-                Err(RustPSQLDriverError::CursorClosedError)
+
+                Ok(result)
             })
         });
 
         Ok(Some(py_future?))
     }
 
-    /// Start the cursor
-    ///
-    /// # Errors
-    /// May return Err Result
-    /// if cannot execute querystring for cursor declaration.
-    pub async fn start(&mut self) -> RustPSQLDriverPyResult<()> {
-        let db_transaction_arc = self.db_transaction.clone();
+    #[allow(clippy::single_match_else)]
+    async fn start(&mut self) -> PSQLPyResult<()> {
+        let Some(conn) = &self.conn else {
+            return Err(RustPSQLDriverError::ConnectionClosedError);
+        };
+        let mut write_conn_g = conn.write().await;
 
-        if let Some(db_transaction) = db_transaction_arc {
-            db_transaction
-                .cursor_start(
-                    &self.cursor_name,
-                    &self.scroll,
-                    &self.querystring,
-                    &self.prepared,
-                    &self.parameters,
-                )
-                .await?;
+        let (txid, inner_portal) = match &self.querystring {
+            Some(querystring) => {
+                write_conn_g
+                    .portal(Some(querystring), &self.parameters, None)
+                    .await?
+            }
+            None => {
+                let Some(statement) = &self.statement else {
+                    return Err(RustPSQLDriverError::CursorStartError(
+                        "Cannot start cursor".into(),
+                    ));
+                };
+                write_conn_g.portal(None, &None, Some(statement)).await?
+            }
+        };
 
-            self.is_started = true;
-            return Ok(());
-        }
+        self.transaction = Some(Arc::new(txid));
+        self.inner = Some(inner_portal);
 
-        Err(RustPSQLDriverError::CursorClosedError)
+        Ok(())
     }
 
-    /// Close the cursor.
-    ///
-    /// It executes CLOSE command to close cursor in the transaction.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn close(&mut self) -> RustPSQLDriverPyResult<()> {
-        let db_transaction_arc = self.db_transaction.clone();
-
-        if let Some(db_transaction) = db_transaction_arc {
-            db_transaction
-                .cursor_close(&self.closed, &self.cursor_name)
-                .await?;
-
-            self.closed = true;
-            std::mem::take(&mut self.db_transaction);
-            return Ok(());
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
+    fn close(&mut self) {
+        self.transaction = None;
+        self.conn = None;
     }
 
-    /// Fetch data from cursor.
-    ///
-    /// It's possible to specify fetch number.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    #[pyo3(signature = (fetch_number=None))]
-    pub async fn fetch<'a>(
-        slf: Py<Self>,
-        fetch_number: Option<usize>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, inner_fetch_number, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (
-                self_.db_transaction.clone(),
-                self_.fetch_number,
-                self_.cursor_name.clone(),
-            )
-        });
+    #[pyo3(signature = (
+        querystring,
+        parameters=None,
+    ))]
+    async fn execute(
+        &mut self,
+        querystring: String,
+        parameters: Option<Py<PyAny>>,
+    ) -> PSQLPyResult<()> {
+        self.querystring = Some(querystring);
+        self.parameters = parameters;
 
-        if let Some(db_transaction) = db_transaction {
-            let fetch_number = match fetch_number {
-                Some(usize) => usize,
-                None => inner_fetch_number,
-            };
+        self.start().await?;
 
-            let result = db_transaction
-                .execute(
-                    format!("FETCH {fetch_number} FROM {cursor_name}"),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
+        Ok(())
     }
 
-    /// Fetch row from cursor.
-    ///
-    /// Execute FETCH NEXT.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_next<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(format!("FETCH NEXT FROM {cursor_name}"), None, Some(false))
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
+    async fn fetchone(&self) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        self.query_portal(1).await
     }
 
-    /// Fetch previous from cursor.
-    ///
-    /// Execute FETCH PRIOR.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_prior<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(format!("FETCH PRIOR FROM {cursor_name}"), None, Some(false))
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
+    #[pyo3(signature = (size=None))]
+    async fn fetchmany(&self, size: Option<i32>) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        self.query_portal(size.unwrap_or(self.array_size)).await
     }
 
-    /// Fetch first row from cursor.
-    ///
-    /// Execute FETCH FIRST (same as ABSOLUTE 1)
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_first<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(format!("FETCH FIRST FROM {cursor_name}"), None, Some(false))
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch last row from cursor.
-    ///
-    /// Execute FETCH LAST (same as ABSOLUTE -1)
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_last<'a>(slf: Py<Self>) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(format!("FETCH LAST FROM {cursor_name}"), None, Some(false))
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch absolute row from cursor.
-    ///
-    /// Execute FETCH ABSOLUTE<absolute_number>.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_absolute<'a>(
-        slf: Py<Self>,
-        absolute_number: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(
-                    format!("FETCH ABSOLUTE {absolute_number} FROM {cursor_name}"),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch absolute row from cursor.
-    ///
-    /// Execute FETCH ABSOLUTE<absolute_number>.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_relative<'a>(
-        slf: Py<Self>,
-        relative_number: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(
-                    format!("FETCH  RELATIVE {relative_number} FROM {cursor_name}"),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch forward all from cursor.
-    ///
-    /// Execute FORWARD ALL.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_forward_all<'a>(
-        slf: Py<Self>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(
-                    format!("FETCH FORWARD ALL FROM {cursor_name}"),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch backward from cursor.
-    ///
-    /// Execute BACKWARD <backward_count>.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_backward<'a>(
-        slf: Py<Self>,
-        backward_count: i64,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(
-                    format!("FETCH BACKWARD {backward_count} FROM {cursor_name}",),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
-    }
-
-    /// Fetch backward from cursor.
-    ///
-    /// Execute BACKWARD <backward_count>.
-    ///
-    /// # Errors
-    /// May return Err Result if cannot execute query.
-    pub async fn fetch_backward_all<'a>(
-        slf: Py<Self>,
-    ) -> RustPSQLDriverPyResult<PSQLDriverPyQueryResult> {
-        let (db_transaction, cursor_name) = Python::with_gil(|gil| {
-            let self_ = slf.borrow(gil);
-            (self_.db_transaction.clone(), self_.cursor_name.clone())
-        });
-
-        if let Some(db_transaction) = db_transaction {
-            let result = db_transaction
-                .execute(
-                    format!("FETCH BACKWARD ALL FROM {cursor_name}"),
-                    None,
-                    Some(false),
-                )
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::CursorFetchError(format!(
-                        "Cannot fetch data from cursor, error - {err}"
-                    ))
-                })?;
-            return Ok(result);
-        }
-
-        Err(RustPSQLDriverError::CursorClosedError)
+    async fn fetchall(&self) -> PSQLPyResult<PSQLDriverPyQueryResult> {
+        self.query_portal(-1).await
     }
 }

@@ -14,7 +14,9 @@ Currently there are two results:
 ### Result
 
 #### Parameters
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
+
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+- `as_tuple`: Headless tuple output
 
 Get the result as a list of dicts
 
@@ -27,14 +29,21 @@ async def main() -> None:
         [],
     )
 
-    result: List[Dict[str, Any]] = query_result.result()
+    # Result as dict
+    list_dict_result: List[Dict[str, Any]] = query_result.result()
+
+    # Result as tuple
+    list_tuple_result: List[Tuple[t.Any, ...]] = query_result.result(
+        as_tuple=True,
+    )
 ```
 
 ### As class
 
 #### Parameters
+
 - `as_class`: Custom class from Python.
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 
 Get the result as a list of passed class instances.
 Passed class can easily be either pydantic or msgspec model.
@@ -61,17 +70,20 @@ async def main() -> None:
 ### Row Factory
 
 #### Parameters
-- `row_factory`: custom callable object.
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
 
-[Read more](./../../usage/row_factories/overall_usage.md)
+- `row_factory`: custom callable object.
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+
+[Read more](/usage/row_factories/row_factories.md)
 
 ## SingleQueryResult methods
 
 ### Result
 
 #### Parameters
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
+
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+- `as_tuple`: Headless tuple output
 
 Get the result as a dict
 
@@ -84,14 +96,21 @@ async def main() -> None:
         [100],
     )
 
-    result: Dict[str, Any] = query_result.result()
+    # Result as dict
+    dict_result: Dict[str, Any] = query_result.result()
+
+    # Result as tuple
+    tuple_result: Tuple[typing.Any, ...] = query_result.result(
+        as_tuple=True,
+    )
 ```
 
 ### As class
 
 #### Parameters
+
 - `as_class`: Custom class from Python.
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
 
 Get the result as a passed class instance.
 Passed class can easily be either pydantic or msgspec model.
@@ -117,7 +136,8 @@ async def main() -> None:
 ### Row Factory
 
 #### Parameters
-- `row_factory`: custom callable object.
-- `custom_decoders`: custom decoders for unsupported types. [Read more](./../../usage/types/advanced_type_usage.md)
 
-[Read more](./../../usage/row_factories/overall_usage.md)
+- `row_factory`: custom callable object.
+- `custom_decoders`: custom decoders for unsupported types. [Read more](/usage/types/advanced_type_usage.md)
+
+[Read more](/usage/row_factories/row_factories.md)

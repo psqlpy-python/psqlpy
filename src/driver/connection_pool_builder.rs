@@ -3,10 +3,12 @@ use std::{net::IpAddr, time::Duration};
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use pyo3::{pyclass, pymethods, Py, Python};
 
-use crate::exceptions::rust_errors::{RustPSQLDriverError, RustPSQLDriverPyResult};
+use crate::{
+    exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    options::{ConnRecyclingMethod, LoadBalanceHosts, SslMode, TargetSessionAttrs},
+};
 
 use super::{
-    common_options,
     connection_pool::ConnectionPool,
     utils::{build_manager, build_tls},
 };
@@ -17,7 +19,8 @@ pub struct ConnectionPoolBuilder {
     max_db_pool_size: Option<usize>,
     conn_recycling_method: Option<RecyclingMethod>,
     ca_file: Option<String>,
-    ssl_mode: Option<common_options::SslMode>,
+    ssl_mode: Option<SslMode>,
+    prepare: Option<bool>,
 }
 
 #[pymethods]
@@ -31,6 +34,7 @@ impl ConnectionPoolBuilder {
             conn_recycling_method: None,
             ca_file: None,
             ssl_mode: None,
+            prepare: None,
         }
     }
 
@@ -38,7 +42,7 @@ impl ConnectionPoolBuilder {
     ///
     /// # Errors
     /// May return error if cannot build new connection pool.
-    fn build(&self) -> RustPSQLDriverPyResult<ConnectionPool> {
+    fn build(&self) -> PSQLPyResult<ConnectionPool> {
         let mgr_config: ManagerConfig;
         if let Some(conn_recycling_method) = self.conn_recycling_method.as_ref() {
             mgr_config = ManagerConfig {
@@ -48,7 +52,7 @@ impl ConnectionPoolBuilder {
             mgr_config = ManagerConfig {
                 recycling_method: RecyclingMethod::Fast,
             };
-        };
+        }
 
         let mgr: Manager = build_manager(
             mgr_config,
@@ -68,10 +72,11 @@ impl ConnectionPoolBuilder {
             self.config.clone(),
             self.ca_file.clone(),
             self.ssl_mode,
+            self.prepare,
         ))
     }
 
-    /// Set ca_file for ssl_mode in PostgreSQL.
+    /// Set `ca_file` for `ssl_mode` in `PostgreSQL`.
     fn ca_file(self_: Py<Self>, ca_file: String) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -84,7 +89,7 @@ impl ConnectionPoolBuilder {
     ///
     /// # Error
     /// If size more than 2.
-    fn max_pool_size(self_: Py<Self>, pool_size: usize) -> RustPSQLDriverPyResult<Py<Self>> {
+    fn max_pool_size(self_: Py<Self>, pool_size: usize) -> PSQLPyResult<Py<Self>> {
         if pool_size < 2 {
             return Err(RustPSQLDriverError::ConnectionPoolConfigurationError(
                 "Maximum database pool size must be more than 1".into(),
@@ -101,7 +106,7 @@ impl ConnectionPoolBuilder {
     /// Set connection recycling method.
     fn conn_recycling_method(
         self_: Py<Self>,
-        conn_recycling_method: super::common_options::ConnRecyclingMethod,
+        conn_recycling_method: ConnRecyclingMethod,
     ) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -168,7 +173,7 @@ impl ConnectionPoolBuilder {
     ///
     /// Defaults to `prefer`.
     #[must_use]
-    pub fn ssl_mode(self_: Py<Self>, ssl_mode: crate::driver::common_options::SslMode) -> Py<Self> {
+    pub fn ssl_mode(self_: Py<Self>, ssl_mode: SslMode) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.ssl_mode = Some(ssl_mode);
@@ -236,7 +241,7 @@ impl ConnectionPoolBuilder {
     /// Sets the TCP user timeout.
     ///
     /// This is ignored for Unix domain socket connections. It is only supported on systems where
-    /// TCP_USER_TIMEOUT is available and will default to the system default if omitted or set to 0;
+    /// `TCP_USER_TIMEOUT` is available and will default to the system default if omitted or set to 0;
     /// on other systems, it has no effect.
     #[must_use]
     pub fn tcp_user_timeout(self_: Py<Self>, tcp_user_timeout: u64) -> Py<Self> {
@@ -256,7 +261,7 @@ impl ConnectionPoolBuilder {
     #[must_use]
     pub fn target_session_attrs(
         self_: Py<Self>,
-        target_session_attrs: super::common_options::TargetSessionAttrs,
+        target_session_attrs: TargetSessionAttrs,
     ) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
@@ -271,10 +276,7 @@ impl ConnectionPoolBuilder {
     ///
     /// Defaults to `disable`.
     #[must_use]
-    pub fn load_balance_hosts(
-        self_: Py<Self>,
-        load_balance_hosts: super::common_options::LoadBalanceHosts,
-    ) -> Py<Self> {
+    pub fn load_balance_hosts(self_: Py<Self>, load_balance_hosts: LoadBalanceHosts) -> Py<Self> {
         Python::with_gil(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
@@ -312,7 +314,7 @@ impl ConnectionPoolBuilder {
     }
 
     /// Sets the time interval between TCP keepalive probes.
-    /// On Windows, this sets the value of the tcp_keepalive struct’s keepaliveinterval field.
+    /// On Windows, this sets the value of the `tcp_keepalive` struct’s keepaliveinterval field.
     ///
     /// This is ignored for Unix domain sockets, or if the `keepalives` option is disabled.
     #[must_use]

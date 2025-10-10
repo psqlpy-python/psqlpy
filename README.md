@@ -1,5 +1,7 @@
 [![PyPI - Python Version](https://img.shields.io/badge/PYTHON-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?style=for-the-badge
 )](https://pypi.org/project/psqlpy/)
+[![PyPI - Python Version](https://img.shields.io/badge/Tested%20On%20PostgreSQL-14%20%7C%2015%20%7C%2016%20%7C17-2be28a?style=for-the-badge
+)](https://pypi.org/project/psqlpy/)
 [![PyPI](https://img.shields.io/pypi/v/psqlpy?style=for-the-badge)](https://pypi.org/project/psqlpy/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/psqlpy?style=for-the-badge)](https://pypistats.org/packages/psqlpy)
 
@@ -13,24 +15,30 @@ You can find full documentation here - [PSQLPy documentation](https://psqlpy-pyt
 
 ## Installation
 
-You can install package with `pip` or `poetry`.
+You can install package with `pip`, `poetry` or `uv`.
 
 poetry:
 
 ```bash
-> poetry add psqlpy
+poetry add psqlpy
 ```
 
 pip:
 
 ```bash
-> pip install psqlpy
+pip install psqlpy
+```
+
+uv:
+
+```bash
+uv add psqlpy
 ```
 
 Or you can build it by yourself. To do it, install stable rust and [maturin](https://github.com/PyO3/maturin).
 
 ```
-> maturin develop --release
+maturin develop --release
 ```
 
 ## Usage

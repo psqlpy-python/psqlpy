@@ -29,7 +29,15 @@ async def test_success_default_map_parameters(
 
 
 @pytest.mark.usefixtures("create_table_for_map_parameters_test")
+@pytest.mark.parametrize(
+    "prepared",
+    [
+        True,
+        False,
+    ],
+)
 async def test_success_multiple_same_parameters(
+    prepared: bool,
     psql_pool: ConnectionPool,
     map_parameters_table_name: str,
 ) -> None:
@@ -54,6 +62,7 @@ async def test_success_multiple_same_parameters(
                 "WHERE name = $(name)p OR surname = $(name)p"
             ),
             parameters={"name": test_name_surname},
+            prepared=prepared,
         )
 
     assert res.result()[0]["name"] == test_name_surname

@@ -1,12 +1,15 @@
-pub mod additional_types;
 pub mod common;
+pub mod connection;
 pub mod driver;
 pub mod exceptions;
 pub mod extra_types;
 pub mod format_helpers;
+pub mod options;
 pub mod query_result;
 pub mod row_factories;
 pub mod runtime;
+pub mod statement;
+pub mod transaction;
 pub mod value_converter;
 
 use common::add_module;
@@ -25,20 +28,26 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<driver::connection_pool::ConnectionPool>()?;
     pymod.add_class::<driver::connection_pool::ConnectionPoolStatus>()?;
     pymod.add_class::<driver::connection_pool_builder::ConnectionPoolBuilder>()?;
-    pymod.add_function(wrap_pyfunction!(driver::connection_pool::connect, pymod)?)?;
+    pymod.add_function(wrap_pyfunction!(
+        driver::connection_pool::connect_pool,
+        pymod
+    )?)?;
     pymod.add_class::<driver::connection::Connection>()?;
+    pymod.add_function(wrap_pyfunction!(driver::connection::connect, pymod)?)?;
     pymod.add_class::<driver::transaction::Transaction>()?;
+    // pymod.add_class::<driver::cursor::Cursor>()?;
+    pymod.add_class::<statement::parameters::Column>()?;
+    pymod.add_class::<driver::prepared_statement::PreparedStatement>()?;
     pymod.add_class::<driver::cursor::Cursor>()?;
     pymod.add_class::<driver::listener::core::Listener>()?;
     pymod.add_class::<driver::listener::structs::ListenerNotificationMsg>()?;
-    pymod.add_class::<driver::transaction_options::IsolationLevel>()?;
-    pymod.add_class::<driver::transaction_options::SynchronousCommit>()?;
-    pymod.add_class::<driver::transaction_options::ReadVariant>()?;
-    pymod.add_class::<driver::common_options::ConnRecyclingMethod>()?;
-    pymod.add_class::<driver::common_options::LoadBalanceHosts>()?;
-    pymod.add_class::<driver::common_options::TargetSessionAttrs>()?;
-    pymod.add_class::<driver::common_options::SslMode>()?;
-    pymod.add_class::<driver::common_options::KeepaliveConfig>()?;
+    pymod.add_class::<options::IsolationLevel>()?;
+    pymod.add_class::<options::ReadVariant>()?;
+    pymod.add_class::<options::ConnRecyclingMethod>()?;
+    pymod.add_class::<options::LoadBalanceHosts>()?;
+    pymod.add_class::<options::TargetSessionAttrs>()?;
+    pymod.add_class::<options::SslMode>()?;
+    pymod.add_class::<options::KeepaliveConfig>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;
