@@ -62,12 +62,11 @@ from psqlpy.extra_types import SmallInt, Integer, BigInt, Float32, Float64
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
-
-    await db_pool.execute(
-        "INSERT INTO numbers (index, elf_life, elon_musk_money) VALUES ($1, $2, $3, $4, $5)",
-        [SmallInt(101), Integer(10500), BigInt(300000000000), Float32(123.11), Float64(222.12)],
-    )
-    db_pool.close()
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO numbers (index, elf_life, elon_musk_money) VALUES ($1, $2, $3, $4, $5)",
+            [SmallInt(101), Integer(10500), BigInt(300000000000), Float32(123.11), Float64(222.12)],
+        )
 ```
 
 ::: important
@@ -96,16 +95,16 @@ async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
 
-    await db_pool.execute(
-        "INSERT INTO banners (title, description) VALUES ($1, $2)",
-        ["SomeTitle", PyText("Very long description")],
-    )
-    # Alternatively, you can do this:
-    await db_pool.execute(
-        "INSERT INTO banners (title, description) VALUES ($1, $2)",
-        [PyVarChar("SomeTitle"), PyText("Very long description")],
-    )
-    db_pool.close()
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO banners (title, description) VALUES ($1, $2)",
+            ["SomeTitle", PyText("Very long description")],
+        )
+        # Alternatively, you can do this:
+        await connection.execute(
+            "INSERT INTO banners (title, description) VALUES ($1, $2)",
+            [PyVarChar("SomeTitle"), PyText("Very long description")],
+        )
 ```
 
 ## PyJSON & PyJSONB
@@ -140,6 +139,7 @@ from psqlpy.extra_types import PyJSON
 async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
+
     list_for_jsonb_field = [
         {"some": "dict"},
         [
@@ -154,16 +154,15 @@ async def main() -> None:
         ]
     }
 
-    await db_pool.execute(
-        "INSERT INTO users (additional_user_info) VALUES ($1)",
-        [PyJSONB(list_for_jsonb_field)],
-    )
-    await db_pool.execute(
-        "INSERT INTO users (additional_user_info) VALUES ($1)",
-        [dict_for_jsonb_field,],
-    )
-
-    db_pool.close()
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO users (additional_user_info) VALUES ($1)",
+            [PyJSONB(list_for_jsonb_field)],
+        )
+        await connection.execute(
+            "INSERT INTO users (additional_user_info) VALUES ($1)",
+            [dict_for_jsonb_field,],
+        )
 ```
 
 ## PyMacAddr6 & PyMacAddr8
@@ -186,15 +185,14 @@ async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
 
-    await db_pool.execute(
-        "INSERT INTO devices (device_macaddr6, device_macaddr8) VALUES ($1, $2)",
-        [
-            PyMacAddr6("08:00:2b:01:02:03"),
-            PyMacAddr8("08:00:2b:01:02:03:04:05"),
-        ],
-    )
-
-    db_pool.close()
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO devices (device_macaddr6, device_macaddr8) VALUES ($1, $2)",
+            [
+                PyMacAddr6("08:00:2b:01:02:03"),
+                PyMacAddr8("08:00:2b:01:02:03:04:05"),
+            ],
+        )
 ```
 
 ## Geo Types
@@ -222,17 +220,16 @@ async def main() -> None:
     # It uses default connection parameters
     db_pool: Final = ConnectionPool()
 
-    await db_pool.execute(
-        "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
-        [
-            Point([1.5, 2]),
-            Box([(1.7, 2.8), (9, 9)]),
-            Path([(3.5, 3), (9, 9), (8, 8)]),
-            Line([1, -2, 3]),
-            LineSegment([(5.6, 3.1), (4, 5)]),
-            Circle([5, 1.8, 10]),
-        ],
-    )
-
-    db_pool.close()
+    async with db_pool.acquire() as connection:
+        await connection.execute(
+            "INSERT INTO geo_info VALUES ($1, $2, $3, $4, $5, $6)",
+            [
+                Point([1.5, 2]),
+                Box([(1.7, 2.8), (9, 9)]),
+                Path([(3.5, 3), (9, 9), (8, 8)]),
+                Line([1, -2, 3]),
+                LineSegment([(5.6, 3.1), (4, 5)]),
+                Circle([5, 1.8, 10]),
+            ],
+        )
 ```

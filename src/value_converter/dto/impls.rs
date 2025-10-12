@@ -177,17 +177,13 @@ impl ToSql for PythonDTO {
                 <Vec<u8> as ToSql>::to_sql(pybytes, ty, out)?;
             }
             PythonDTO::PyBool(boolean) => types::bool_to_sql(*boolean, out),
-            PythonDTO::PyVarChar(string) => {
-                <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
-            }
-            PythonDTO::PyText(string) => {
+            PythonDTO::PyVarChar(string)
+            | PythonDTO::PyText(string)
+            | PythonDTO::PyString(string) => {
                 <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
             }
             PythonDTO::PyUUID(pyuuid) => {
                 <Uuid as ToSql>::to_sql(pyuuid, ty, out)?;
-            }
-            PythonDTO::PyString(string) => {
-                <&str as ToSql>::to_sql(&string.as_str(), ty, out)?;
             }
             PythonDTO::PyIntI16(int) => out.put_i16(*int),
             PythonDTO::PyIntI32(int) => out.put_i32(*int),

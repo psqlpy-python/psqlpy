@@ -22,7 +22,7 @@ One of the best ways is follow [maturin offical documentation](https://www.matur
 ```bash
 > python3 -m venv .venv
 > source .venv/bin/activate
-> pip install -U pip maturin
+> pip install -U pip maturin pre-commit pytest pytest-anyio pydantic pgpq
 ```
 
 Then you need to build `PSQLPy` project.
