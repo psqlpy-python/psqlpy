@@ -1,6 +1,7 @@
 import os
 import random
 from typing import AsyncGenerator
+from urllib import parse
 
 import pytest
 from psqlpy import ConnectionPool, Cursor
@@ -76,6 +77,17 @@ def listener_table_name() -> str:
 @pytest.fixture
 def map_parameters_table_name() -> str:
     return random_string()
+
+
+@pytest.fixture
+def dsn(
+    postgres_host: str,
+    postgres_user: str,
+    postgres_password: str,
+    postgres_port: int,
+    postgres_dbname: str,
+) -> str:
+    return f"postgres://{postgres_user}:{parse.quote(postgres_password)}@{postgres_host}:{postgres_port}/{postgres_dbname}"
 
 
 @pytest.fixture
