@@ -22,7 +22,7 @@ class QueryResult:
     @typing.overload
     def result(
         self: Self,
-        as_tuple: typing.Literal[None] = None,
+        as_tuple: None = None,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> list[dict[str, Any]]: ...
     @typing.overload
@@ -112,7 +112,7 @@ class SingleQueryResult:
     @typing.overload
     def result(
         self: Self,
-        as_tuple: typing.Literal[None] = None,
+        as_tuple: None = None,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> dict[str, Any]: ...
     @typing.overload
