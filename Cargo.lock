@@ -992,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "psqlpy"
-version = "0.11.7"
+version = "0.11.8"
 dependencies = [
  "byteorder",
  "bytes",
@@ -1086,6 +1086,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "458eb0c55e7ece017adeba38f2248ff3ac615e53660d7c71a238d7d2a01c7598"
 dependencies = [
  "once_cell",
+ "python3-dll-a",
  "target-lexicon",
 ]
 
@@ -1122,6 +1123,15 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn 2.0.104",
+]
+
+[[package]]
+name = "python3-dll-a"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d381ef313ae70b4da5f95f8a4de773c6aa5cd28f73adec4b4a31df70b66780d8"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
