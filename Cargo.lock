@@ -992,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "psqlpy"
-version = "0.11.6"
+version = "0.11.7"
 dependencies = [
  "byteorder",
  "bytes",
