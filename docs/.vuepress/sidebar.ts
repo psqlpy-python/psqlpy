@@ -77,6 +77,7 @@ export default sidebar({
       children: [
         "taskiq",
         "opentelemetry",
+        "sqlalchemy",
       ],
     },
     {
