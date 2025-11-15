@@ -187,10 +187,10 @@ fn postgres_bytes_to_py(
         .into_py_any(py)?),
         // // ---------- String Types ----------
         // // Convert TEXT and VARCHAR type into String, then into str
-        Type::TEXT | Type::VARCHAR | Type::XML => Ok(composite_field_postgres_to_py::<
-            Option<String>,
-        >(type_, buf, is_simple)?
-        .into_py_any(py)?),
+        Type::TEXT | Type::VARCHAR | Type::XML | Type::NAME => Ok(
+            composite_field_postgres_to_py::<Option<String>>(type_, buf, is_simple)?
+                .into_py_any(py)?,
+        ),
         // ---------- Boolean Types ----------
         // Convert BOOL type into bool
         Type::BOOL => Ok(
