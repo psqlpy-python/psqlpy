@@ -2,9 +2,10 @@ import typing
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from ipaddress import IPv4Address, IPv6Address
+from typing import TypeAlias
 from uuid import UUID
 
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self
 
 class SmallInt:
     """Represent SmallInt in PostgreSQL and `i16` in Rust."""
