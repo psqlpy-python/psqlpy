@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::{net::IpAddr, str::FromStr};
 
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use pg_interval::Interval;
@@ -126,9 +126,12 @@ construct_extra_type_converter!(extra_types::CustomType, PythonDTO::PyCustomType
 
 impl ToPythonDTO for PythonDecimal {
     fn to_python_dto(python_param: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
-        Ok(PythonDTO::PyDecimal(Decimal::from_str_exact(
-            python_param.str()?.extract::<&str>()?,
-        )?))
+        let string = python_param.str()?;
+        let string_extract = string.extract::<&str>()?;
+        if let Ok(possible_r_decimal) = Decimal::from_str_exact(string_extract) {
+            return Ok(PythonDTO::PyDecimal(possible_r_decimal));
+        }
+        Ok(PythonDTO::PyDecimal(Decimal::from_str(string_extract)?))
     }
 }
 
