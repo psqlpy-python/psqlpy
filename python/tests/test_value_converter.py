@@ -147,6 +147,9 @@ async def test_as_class(
         ("MONEY", Money(99999999999999999), 99999999999999999),
         ("MONEY", 99999999999999999, 99999999999999999),
         ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
+        ("NUMERIC(5, 2)", Decimal(120.123), Decimal("120.12")),
+        ("NUMERIC(5, 2)", Decimal(120), Decimal("120")),
+        ("NUMERIC(5, 3)", Decimal(12.123), Decimal("12.123")),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
         ("FLOAT4", 32.12329864501953, 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
@@ -832,8 +835,34 @@ async def test_empty_array(
         ),
         (
             "NUMERIC(5, 2) ARRAY",
+            NumericArray([Decimal(121.123), Decimal(188.99)]),
+            [
+                Decimal(121.12).quantize(Decimal("100.00")),
+                Decimal(188.99).quantize(Decimal("100.00")),
+            ],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            NumericArray([Decimal(121), Decimal(188)]),
+            [Decimal(121), Decimal(188)],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
             NumericArray([[Decimal("121.23")], [Decimal("188.99")]]),
             [[Decimal("121.23")], [Decimal("188.99")]],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            NumericArray([[Decimal(121.123)], [Decimal(188.99)]]),
+            [
+                [Decimal(121.12).quantize(Decimal("100.00"))],
+                [Decimal(188.99).quantize(Decimal("100.00"))],
+            ],
+        ),
+        (
+            "NUMERIC(5, 2) ARRAY",
+            NumericArray([[Decimal(121)], [Decimal(188)]]),
+            [[Decimal(121)], [Decimal(188)]],
         ),
         ("FLOAT4 ARRAY", [], []),
         (
