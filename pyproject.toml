@@ -13,6 +13,7 @@ keywords = [
     "postgresql-driver",
     "python-driver",
 ]
+readme = { file = "README.md", content-type = "text/markdown" }
 classifiers = [
     "Typing :: Typed",
     "Topic :: Database",
