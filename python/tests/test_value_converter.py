@@ -1,10 +1,10 @@
 import datetime
-import sys
 import uuid
+import zoneinfo
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address
-from typing import Any, Dict, List, Tuple, Union
+from typing import Annotated, Any
 
 import pytest
 from psqlpy import ConnectionPool
@@ -54,7 +54,6 @@ from psqlpy.extra_types import (
     VarCharArray,
 )
 from pydantic import BaseModel
-from typing_extensions import Annotated
 
 from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
@@ -82,19 +81,17 @@ now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
     142574,
     tzinfo=datetime.timezone.utc,
 )
-if sys.version_info >= (3, 9):
-    import zoneinfo
 
-    now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
-        2024,
-        4,
-        13,
-        17,
-        3,
-        46,
-        142574,
-        tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
-    )
+now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+    2024,
+    4,
+    13,
+    17,
+    3,
+    46,
+    142574,
+    tzinfo=zoneinfo.ZoneInfo(key="Asia/Jakarta"),
+)
 
 
 async def test_as_class(
@@ -147,9 +144,9 @@ async def test_as_class(
         ("MONEY", Money(99999999999999999), 99999999999999999),
         ("MONEY", 99999999999999999, 99999999999999999),
         ("NUMERIC(5, 2)", Decimal("120.12"), Decimal("120.12")),
-        ("NUMERIC(5, 2)", Decimal(120.123), Decimal("120.12")),
-        ("NUMERIC(5, 2)", Decimal(120), Decimal("120")),
-        ("NUMERIC(5, 3)", Decimal(12.123), Decimal("12.123")),
+        ("NUMERIC(5, 2)", Decimal("120.123"), Decimal("120.12")),
+        ("NUMERIC(5, 2)", Decimal(120), Decimal(120)),
+        ("NUMERIC(5, 3)", Decimal("12.123"), Decimal("12.123")),
         ("FLOAT4", Float32(32.12329864501953), 32.12329864501953),
         ("FLOAT4", 32.12329864501953, 32.12329864501953),
         ("FLOAT8", Float64(32.12329864501953), 32.12329864501953),
@@ -523,37 +520,37 @@ async def test_deserialization_composite_into_python(
         timestampz_: datetime.datetime
         uuid_: uuid.UUID
         inet_: IPv4Address
-        jsonb_: Dict[str, List[Union[str, int, List[str]]]]
-        json_: Dict[str, List[Union[str, int, List[str]]]]
-        point_: Tuple[float, float]
-        box_: Tuple[Tuple[float, float], Tuple[float, float]]
-        path_: List[Tuple[float, float]]
-        line_: Annotated[List[float], 3]
-        lseg_: Annotated[List[Tuple[float, float]], 2]
-        circle_: Tuple[Tuple[float, float], float]
+        jsonb_: dict[str, list[str | int | list[str]]]
+        json_: dict[str, list[str | int | list[str]]]
+        point_: tuple[float, float]
+        box_: tuple[tuple[float, float], tuple[float, float]]
+        path_: list[tuple[float, float]]
+        line_: Annotated[list[float], 3]
+        lseg_: Annotated[list[tuple[float, float]], 2]
+        circle_: tuple[tuple[float, float], float]
 
-        varchar_arr: List[str]
-        varchar_arr_mdim: List[List[str]]
-        text_arr: List[str]
-        bool_arr: List[bool]
-        int2_arr: List[int]
-        int4_arr: List[int]
-        int8_arr: List[int]
-        float8_arr: List[float]
-        date_arr: List[datetime.date]
-        time_arr: List[datetime.time]
-        timestamp_arr: List[datetime.datetime]
-        timestampz_arr: List[datetime.datetime]
-        uuid_arr: List[uuid.UUID]
-        inet_arr: List[IPv4Address]
-        jsonb_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
-        json_arr: List[Dict[str, List[Union[str, int, List[str]]]]]
-        point_arr: List[Tuple[float, float]]
-        box_arr: List[Tuple[Tuple[float, float], Tuple[float, float]]]
-        path_arr: List[List[Tuple[float, float]]]
-        line_arr: List[Annotated[List[float], 3]]
-        lseg_arr: List[Annotated[List[Tuple[float, float]], 2]]
-        circle_arr: List[Tuple[Tuple[float, float], float]]
+        varchar_arr: list[str]
+        varchar_arr_mdim: list[list[str]]
+        text_arr: list[str]
+        bool_arr: list[bool]
+        int2_arr: list[int]
+        int4_arr: list[int]
+        int8_arr: list[int]
+        float8_arr: list[float]
+        date_arr: list[datetime.date]
+        time_arr: list[datetime.time]
+        timestamp_arr: list[datetime.datetime]
+        timestampz_arr: list[datetime.datetime]
+        uuid_arr: list[uuid.UUID]
+        inet_arr: list[IPv4Address]
+        jsonb_arr: list[dict[str, list[str | int | list[str]]]]
+        json_arr: list[dict[str, list[str | int | list[str]]]]
+        point_arr: list[tuple[float, float]]
+        box_arr: list[tuple[tuple[float, float], tuple[float, float]]]
+        path_arr: list[list[tuple[float, float]]]
+        line_arr: list[Annotated[list[float], 3]]
+        lseg_arr: list[Annotated[list[tuple[float, float]], 2]]
+        circle_arr: list[tuple[tuple[float, float], float]]
 
         test_inner_value: ValidateModelForInnerValueType
         test_enum_type: TestEnum
@@ -698,7 +695,7 @@ async def test_row_factory_query_result(
             f"SELECT * FROM {table_name}",
         )
 
-        def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        def row_factory(db_result: dict[str, Any]) -> list[str]:
             return list(db_result.keys())
 
         as_row_factory = select_result.row_factory(
@@ -718,7 +715,7 @@ async def test_row_factory_single_query_result(
             f"SELECT * FROM {table_name} LIMIT 1",
         )
 
-        def row_factory(db_result: Dict[str, Any]) -> List[str]:
+        def row_factory(db_result: dict[str, Any]) -> list[str]:
             return list(db_result.keys())
 
         as_row_factory = select_result.row_factory(
@@ -835,10 +832,10 @@ async def test_empty_array(
         ),
         (
             "NUMERIC(5, 2) ARRAY",
-            NumericArray([Decimal(121.123), Decimal(188.99)]),
+            NumericArray([Decimal("121.123"), Decimal("188.99")]),
             [
-                Decimal(121.12).quantize(Decimal("100.00")),
-                Decimal(188.99).quantize(Decimal("100.00")),
+                Decimal("121.12").quantize(Decimal("100.00")),
+                Decimal("188.99").quantize(Decimal("100.00")),
             ],
         ),
         (
@@ -853,10 +850,10 @@ async def test_empty_array(
         ),
         (
             "NUMERIC(5, 2) ARRAY",
-            NumericArray([[Decimal(121.123)], [Decimal(188.99)]]),
+            NumericArray([[Decimal("121.123")], [Decimal("188.99")]]),
             [
-                [Decimal(121.12).quantize(Decimal("100.00"))],
-                [Decimal(188.99).quantize(Decimal("100.00"))],
+                [Decimal("121.12").quantize(Decimal("100.00"))],
+                [Decimal("188.99").quantize(Decimal("100.00"))],
             ],
         ),
         (

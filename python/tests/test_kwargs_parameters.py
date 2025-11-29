@@ -77,6 +77,6 @@ async def test_failed_no_parameter(
     async with psql_pool.acquire() as conn:
         with pytest.raises(expected_exception=PyToRustValueMappingError):
             await conn.execute(
-                querystring=(f"SELECT * FROM {table_name} " "WHERE name = $(name)p"),  # noqa: ISC001
+                querystring=(f"SELECT * FROM {table_name} WHERE name = $(name)p"),
                 parameters={"mistake": "wow"},
             )

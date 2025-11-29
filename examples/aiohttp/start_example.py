@@ -18,12 +18,12 @@ async def start_db_pool(app: web.Application) -> None:
 
 async def stop_db_pool(app: web.Application) -> None:
     """Close database connection pool."""
-    db_pool = cast(PSQLPool, app.db_pool)
+    db_pool = cast("PSQLPool", app.db_pool)
     await db_pool.close()
 
 
 async def pg_pool_example(request: web.Request) -> Any:
-    db_pool = cast(PSQLPool, request.app["db_pool"])
+    db_pool = cast("PSQLPool", request.app["db_pool"])
     connection = await db_pool.connection()
     await asyncio.sleep(10)
     query_result = await connection.execute(

@@ -1,6 +1,6 @@
 import os
 import random
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from urllib import parse
 
 import pytest

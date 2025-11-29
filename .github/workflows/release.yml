@@ -25,7 +25,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 3.14 pypy3.9 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
           sccache: 'true'
           manylinux: auto
           before-script-linux: |
@@ -71,7 +71,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 3.14
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -112,7 +112,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 3.14 pypy3.9 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -168,7 +168,7 @@ jobs:
         uses: messense/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13 3.14 pypy3.9 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
           manylinux: musllinux_1_2
       - name: Upload wheels
         uses: actions/upload-artifact@v4

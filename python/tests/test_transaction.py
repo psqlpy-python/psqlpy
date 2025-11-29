@@ -37,11 +37,14 @@ async def test_transaction_init_parameters(
     deferrable: bool | None,
     read_variant: ReadVariant | None,
 ) -> None:
-    async with psql_pool.acquire() as connection, connection.transaction(
-        isolation_level=isolation_level,
-        deferrable=deferrable,
-        read_variant=read_variant,
-    ) as transaction:
+    async with (
+        psql_pool.acquire() as connection,
+        connection.transaction(
+            isolation_level=isolation_level,
+            deferrable=deferrable,
+            read_variant=read_variant,
+        ) as transaction,
+    ):
         await transaction.execute("SELECT 1")
         try:
             await transaction.execute(

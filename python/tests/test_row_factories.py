@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Type
+from typing import Any
 
 import pytest
 from psqlpy import ConnectionPool
@@ -53,9 +54,9 @@ async def test_custom_row_factory(
         name: str
 
     def to_class(
-        class_: Type[ValidationTestModel],
-    ) -> Callable[[Dict[str, Any]], ValidationTestModel]:
-        def to_class_inner(row: Dict[str, Any]) -> ValidationTestModel:
+        class_: type[ValidationTestModel],
+    ) -> Callable[[dict[str, Any]], ValidationTestModel]:
+        def to_class_inner(row: dict[str, Any]) -> ValidationTestModel:
             return class_(**row)
 
         return to_class_inner

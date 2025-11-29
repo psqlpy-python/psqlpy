@@ -1,11 +1,12 @@
 import types
 import typing
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from enum import Enum
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Awaitable, Callable, Mapping, Sequence, TypeVar
+from typing import Any, TypeAlias, TypeVar
 
-from typing_extensions import Buffer, Self, TypeAlias
+from typing_extensions import Buffer, Self
 
 _CustomClass = TypeVar(
     "_CustomClass",
@@ -22,7 +23,7 @@ class QueryResult:
     @typing.overload
     def result(
         self: Self,
-        as_tuple: typing.Literal[None] = None,
+        as_tuple: None = None,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> list[dict[str, Any]]: ...
     @typing.overload
@@ -112,7 +113,7 @@ class SingleQueryResult:
     @typing.overload
     def result(
         self: Self,
-        as_tuple: typing.Literal[None] = None,
+        as_tuple: None = None,
         custom_decoders: dict[str, Callable[[bytes], Any]] | None = None,
     ) -> dict[str, Any]: ...
     @typing.overload
