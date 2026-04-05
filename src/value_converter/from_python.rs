@@ -620,7 +620,7 @@ fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> PSQLPyResult<V
             let parameter_bind = one_parameter.bind(gil);
 
             if !parameter_bind.is_instance_of::<PyFloat>()
-                & !parameter_bind.is_instance_of::<PyInt>()
+                && !parameter_bind.is_instance_of::<PyInt>()
             {
                 return Err(RustPSQLDriverError::PyToRustValueConversionError(
                     "Incorrect types of coordinate values. It must be int or float".into(),
@@ -717,7 +717,7 @@ pub fn build_geo_coords(
     let number_of_coords = result_vec.len();
     let allowed_length = allowed_length_option.unwrap_or_default();
 
-    if (allowed_length != 0) & (number_of_coords != allowed_length) {
+    if (allowed_length != 0) && (number_of_coords != allowed_length) {
         return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
             "Invalid number of coordinates for this geo type, allowed {allowed_length}, got: {number_of_coords}"
         )));
@@ -748,7 +748,7 @@ pub fn build_flat_geo_coords(
         let parameters = py_sequence_to_rust(bind_py_parameters)?;
         let parameters_length = parameters.len();
 
-        if (allowed_length != 0) & (parameters.len() != allowed_length) {
+        if (allowed_length != 0) && (parameters.len() != allowed_length) {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
                 "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
             )));
@@ -757,7 +757,7 @@ pub fn build_flat_geo_coords(
         let result_vec = convert_py_to_rust_coord_values(parameters)?;
 
         let number_of_coords = result_vec.len();
-        if (allowed_length != 0) & (number_of_coords != allowed_length) {
+        if (allowed_length != 0) && (number_of_coords != allowed_length) {
             return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
                 "Invalid number of values for this geo type, allowed {allowed_length}, got: {parameters_length}"
             )));
