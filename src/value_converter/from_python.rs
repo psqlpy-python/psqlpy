@@ -22,6 +22,7 @@ use crate::{
 
 use super::{
     additional_types::NonePyType,
+    models::serde_value::build_serde_value,
     traits::{ToPythonDTO, ToPythonDTOArray},
 };
 
@@ -214,6 +215,23 @@ pub fn from_python_typed(
     }
 
     if parameter.is_instance_of::<PyList>() | parameter.is_instance_of::<PyTuple>() {
+        match *type_ {
+            Type::JSONB => {
+                if parameter.is_instance_of::<extra_types::JSONB>() {
+                    return <extra_types::JSONB as ToPythonDTO>::to_python_dto(parameter);
+                }
+                let v = build_serde_value(parameter)?;
+                return Ok(PythonDTO::PyJsonb(v));
+            }
+            Type::JSON => {
+                if parameter.is_instance_of::<extra_types::JSON>() {
+                    return <extra_types::JSON as ToPythonDTO>::to_python_dto(parameter);
+                }
+                let v = build_serde_value(parameter)?;
+                return Ok(PythonDTO::PyJson(v));
+            }
+            _ => {}
+        }
         return <extra_types::PythonArray as ToPythonDTOArray>::to_python_dto(
             parameter,
             type_.clone(),

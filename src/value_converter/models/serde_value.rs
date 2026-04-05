@@ -1,9 +1,9 @@
 use postgres_array::{Array, Dimension};
 use postgres_types::FromSql;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use pyo3::{
-    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods},
+    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyTuple, PyTupleMethods},
     Bound, FromPyObject, IntoPyObject, PyAny, PyResult, Python,
 };
 use tokio_postgres::types::Type;
@@ -57,26 +57,38 @@ impl<'a> FromSql<'a> for InternalSerdeValue {
     }
 }
 
-fn serde_value_from_list(_gil: Python<'_>, bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
-    let py_list = bind_value.downcast::<PyList>().map_err(|e| {
-        RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "Parameter must be a list, but it's not: {e}"
-        ))
-    })?;
+fn serde_value_for_json_child(item: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
+    if item.is_instance_of::<PyList>()
+        || item.is_instance_of::<PyTuple>()
+        || item.is_instance_of::<PyDict>()
+    {
+        build_serde_value(item)
+    } else {
+        Ok(from_python_untyped(item)?.to_serde_value()?)
+    }
+}
 
-    let mut result_vec: Vec<Value> = Vec::with_capacity(py_list.len());
+fn serde_value_from_sequence(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
+    let mut result_vec: Vec<Value> = Vec::new();
 
-    for item in py_list.iter() {
-        if item.is_instance_of::<PyList>() {
-            let serde_value = build_serde_value(&item)?;
-            result_vec.push(serde_value);
-        } else {
-            let python_dto = from_python_untyped(&item)?;
-            result_vec.push(python_dto.to_serde_value()?);
+    if let Ok(py_list) = bind_value.downcast::<PyList>() {
+        result_vec.reserve(py_list.len());
+        for item in py_list.iter() {
+            result_vec.push(serde_value_for_json_child(&item)?);
         }
+    } else if let Ok(py_tuple) = bind_value.downcast::<PyTuple>() {
+        result_vec.reserve(py_tuple.len());
+        for index in 0..py_tuple.len() {
+            let item = py_tuple.get_item(index)?;
+            result_vec.push(serde_value_for_json_child(&item)?);
+        }
+    } else {
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(
+            "PyJSON array must be list or tuple.".to_string(),
+        ));
     }
 
-    Ok(json!(result_vec))
+    Ok(Value::Array(result_vec))
 }
 
 fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
@@ -96,8 +108,7 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
             ))
         })?;
 
-        let value_dto = from_python_untyped(&value)?;
-        serde_map.insert(key_str, value_dto.to_serde_value()?);
+        serde_map.insert(key_str, serde_value_for_json_child(&value)?);
     }
 
     Ok(Value::Object(serde_map))
@@ -110,16 +121,15 @@ fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 #[allow(clippy::needless_pass_by_value)]
 #[allow(clippy::needless_return)]
 pub fn build_serde_value(value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
-    Python::with_gil(|gil| {
-        if value.is_instance_of::<PyList>() {
-            return serde_value_from_list(gil, value);
-        } else if value.is_instance_of::<PyDict>() {
-            return serde_value_from_dict(value);
-        }
+    if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+        serde_value_from_sequence(value)
+    } else if value.is_instance_of::<PyDict>() {
+        serde_value_from_dict(value)
+    } else {
         Err(RustPSQLDriverError::PyToRustValueConversionError(
-            "PyJSON must be dict or list value.".to_string(),
+            "PyJSON must be dict, list, or tuple value.".to_string(),
         ))
-    })
+    }
 }
 
 /// Convert Array of `PythonDTO`s to serde `Value`.
