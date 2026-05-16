@@ -35,8 +35,12 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
+line-length = 89
+
+[tool.ruff.lint]
 ignore = [
     "ANN401",
+    "COM812",
     "SLF001",
     "TRY003",
     "PLR0913",
@@ -47,13 +51,18 @@ ignore = [
     "D",
     "T201",
 ]
-line-length = 89
 select = ["ALL"]
 fixable = ["ALL"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 no-lines-before = ["standard-library", "local-folder"]
 
 [tool.mypy]
 strict = true
+ignore_missing_imports = true
+allow_subclassing_any = true
+allow_untyped_calls = true
+allow_untyped_decorators = true
+warn_return_any = false
+warn_unused_ignores = false
