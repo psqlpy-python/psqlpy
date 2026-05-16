@@ -426,3 +426,8 @@ async def main() -> None:
         dict_result: List[Dict[Any, Any]] = fetched_result.result()
         ... # do something with the result.
 ```
+
+### COPY FROM STDIN
+
+`Transaction` supports bulk-loading via `binary_copy_to_table` and `copy_records_to_table`.
+See the [COPY FROM STDIN](./copy.md) page for full documentation and examples.

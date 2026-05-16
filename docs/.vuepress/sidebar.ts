@@ -22,6 +22,7 @@ export default sidebar({
         "connection_pool_builder",
         "connection",
         "transaction",
+        "copy",
         "cursor",
         "prepared_statement",
         "listener",

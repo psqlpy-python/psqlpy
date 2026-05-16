@@ -245,6 +245,11 @@ async def main() -> None:
     )
 ```
 
+### COPY FROM STDIN
+
+`Connection` supports bulk-loading via `binary_copy_to_table` and `copy_records_to_table`.
+See the [COPY FROM STDIN](./copy.md) page for full documentation and examples.
+
 ### Close
 Returns connection to the pool.
 It's crucial to commit all transactions and close all cursor which are made from the connection.
