@@ -6,14 +6,14 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class User(Base):
+class User(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String, unique=True, nullable=False)
 
 
-class SomeBigTable(Base):
+class SomeBigTable(Base):  # type: ignore[misc, valid-type]
     __tablename__ = "big_table"
     big_table_id = Column(Integer, primary_key=True, autoincrement=True)
     string_field = Column(String, unique=False, nullable=False)

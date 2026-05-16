@@ -25,12 +25,12 @@ async def fill_users() -> None:
         )
 
 
-def generate_random_array() -> list[str]:
-    return [random.randint(50, 500) for _ in range(random.randint(50, 500))]
+def generate_random_array() -> list[int]:
+    return [random.randint(50, 500) for _ in range(random.randint(50, 500))]  # noqa: S311
 
 
 def generate_random_dict() -> dict[str, str]:
-    return {str(uuid.uuid4()): str(uuid.uuid4()) for _ in range(random.randint(50, 500))}
+    return {str(uuid.uuid4()): str(uuid.uuid4()) for _ in range(random.randint(50, 500))}  # noqa: S311
 
 
 async def fill_big_table() -> None:
@@ -39,10 +39,12 @@ async def fill_big_table() -> None:
     connection = await pool.connection()
     for _ in range(big_table_amount):
         await connection.execute(
-            "INSERT INTO big_table (string_field, integer_field, json_field, array_field) VALUES($1, $2, $3, $4)",
+            "INSERT INTO big_table"
+            " (string_field, integer_field, json_field, array_field)"
+            " VALUES($1, $2, $3, $4)",
             parameters=[
                 str(uuid.uuid4()),
-                random.randint(1, 99999999),
+                random.randint(1, 99999999),  # noqa: S311
                 generate_random_dict(),
                 generate_random_array(),
             ],

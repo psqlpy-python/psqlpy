@@ -1,3 +1,4 @@
+# ruff: noqa: INP001
 """big af table
 
 Revision ID: d162c084f522
@@ -7,7 +8,6 @@ Create Date: 2024-06-25 16:29:17.081234
 """
 
 from collections.abc import Sequence
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
@@ -16,9 +16,9 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "d162c084f522"
-down_revision: Union[str, None] = "06d989926550"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "06d989926550"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

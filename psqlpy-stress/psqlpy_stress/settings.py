@@ -4,9 +4,9 @@ from pydantic_settings import BaseSettings
 
 
 class DriversEnum(enum.StrEnum):
-    PSQLPY: str = "psqlpy"
-    ASYNCPG: str = "asyncpg"
-    PSYCOPG: str = "psycopg"
+    PSQLPY = "psqlpy"
+    ASYNCPG = "asyncpg"
+    PSYCOPG = "psycopg"
 
 
 class Settings(BaseSettings):

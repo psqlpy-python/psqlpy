@@ -56,7 +56,7 @@ def postgres_password() -> str:
 
 @pytest.fixture
 def postgres_port() -> int:
-    return int(os.environ.get("POSTGRES_PORT", 5432))
+    return int(os.environ.get("POSTGRES_PORT", "5432"))
 
 
 @pytest.fixture

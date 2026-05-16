@@ -1,4 +1,16 @@
 # noqa: INP001
+"""Alembic migration environment.
+
+To enable autogenerate support, point ``target_metadata`` at your models::
+
+    from myapp import mymodel
+    target_metadata = mymodel.Base.metadata
+
+Additional values from alembic.ini can be read via ``config.get_main_option``::
+
+    my_important_option = config.get_main_option("my_important_option")
+"""
+
 from logging.config import fileConfig
 
 from alembic import context
@@ -17,19 +29,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
 database_url = settings.database_url
 config.set_main_option("sqlalchemy.url", database_url)
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def run_migrations_offline() -> None:
