@@ -625,6 +625,86 @@ async def test_enum_type(psql_pool: ConnectionPool) -> None:
     assert qs_result.result()[0]["test_mood2"] == TestStrEnum.OK
 
 
+async def test_char_internal_type_pg_type_reproduction(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Regression for issue #165.
+
+    The original repro queried system catalog columns of the internal
+    ``"char"`` type (OID 18). Prior to the fix this raised
+    ``RustToPyValueMappingError`` even when ``custom_decoders`` was supplied,
+    because the type had no native decoder.
+    """
+    pg_type_limit = 5
+    async with psql_pool.acquire() as conn:
+        result = await conn.execute(
+            f"SELECT typname, typtype FROM pg_type LIMIT {pg_type_limit}",
+        )
+        rows = result.result()
+        assert len(rows) == pg_type_limit
+        for row in rows:
+            assert isinstance(row["typname"], str)
+            assert isinstance(row["typtype"], str)
+            assert len(row["typtype"]) == 1
+
+
+async def test_char_internal_type_byte_spectrum(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Round-trip representative ASCII bytes through a ``"char"`` column.
+
+    The internal ``"char"`` type holds a single byte. SQL ``chr(N)`` rejects
+    NUL (0x00) with "null character not permitted", and ``chr(N)`` for N >= 128
+    produces multi-byte UTF-8 whose cast to ``"char"`` keeps only the first byte
+    (e.g. chr(128)::"char" stores 0xC2, not 0x80). So this integration test
+    covers the reachable ASCII slice. The full 0..=255 byte mapping is verified
+    by the Rust unit test in models/internal_char.rs.
+    """
+    bytes_under_test = [0x20, 0x41, 0x61, 0x7E]
+
+    async with psql_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS for_char_test")
+        await conn.execute(
+            'CREATE TABLE for_char_test (id INT, c "char")',
+        )
+        for i, b in enumerate(bytes_under_test):
+            await conn.execute(
+                'INSERT INTO for_char_test (id, c) VALUES ($1, chr($2)::"char")',
+                [i, b],
+            )
+        await conn.execute(
+            "INSERT INTO for_char_test (id, c) VALUES ($1, NULL)",
+            [len(bytes_under_test)],
+        )
+
+        result = await conn.execute(
+            "SELECT id, c FROM for_char_test ORDER BY id",
+        )
+        rows = result.result()
+
+    decoded = {row["id"]: row["c"] for row in rows}
+    for i, b in enumerate(bytes_under_test):
+        value = decoded[i]
+        assert isinstance(value, str)
+        assert len(value) == 1
+        assert (
+            ord(value) == b
+        ), f"byte 0x{b:02x} round-tripped to ord(value)=0x{ord(value):02x}"
+    assert decoded[len(bytes_under_test)] is None
+
+
+async def test_char_internal_type_array(
+    psql_pool: ConnectionPool,
+) -> None:
+    """Decode an array of ``"char"`` (OID 1002) into a list of one-character strs."""
+    async with psql_pool.acquire() as conn:
+        result = await conn.execute(
+            "SELECT ARRAY['a'::\"char\", 'b'::\"char\", 'c'::\"char\"] AS chars",
+        )
+        rows = result.result()
+        assert rows[0]["chars"] == ["a", "b", "c"]
+
+
 async def test_custom_type_as_parameter(
     psql_pool: ConnectionPool,
 ) -> None:

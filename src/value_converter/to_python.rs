@@ -21,8 +21,8 @@ use crate::{
             RustRect,
         },
         models::{
-            decimal::InnerDecimal, interval::InnerInterval, serde_value::InternalSerdeValue,
-            uuid::InternalUuid,
+            decimal::InnerDecimal, internal_char::InternalChar, interval::InnerInterval,
+            serde_value::InternalSerdeValue, uuid::InternalUuid,
         },
     },
 };
@@ -191,6 +191,13 @@ fn postgres_bytes_to_py(
             composite_field_postgres_to_py::<Option<String>>(type_, buf, is_simple)?
                 .into_py_any(py)?,
         ),
+        // Convert internal "char" (OID 18, single byte) into a one-character str.
+        Type::CHAR => {
+            match composite_field_postgres_to_py::<Option<InternalChar>>(type_, buf, is_simple)? {
+                Some(ic) => Ok(ic.into_pyobject(py)?.unbind().into_any()),
+                None => Ok(py.None()),
+            }
+        }
         // ---------- Boolean Types ----------
         // Convert BOOL type into bool
         Type::BOOL => Ok(
@@ -365,6 +372,12 @@ fn postgres_bytes_to_py(
         Type::TEXT_ARRAY | Type::VARCHAR_ARRAY | Type::XML_ARRAY => Ok(postgres_array_to_py(
             py,
             composite_field_postgres_to_py::<Option<Array<String>>>(type_, buf, is_simple)?,
+        )
+        .into_py_any(py)?),
+        // Convert ARRAY of internal "char" into list[str] (each element is one byte).
+        Type::CHAR_ARRAY => Ok(postgres_array_to_py(
+            py,
+            composite_field_postgres_to_py::<Option<Array<InternalChar>>>(type_, buf, is_simple)?,
         )
         .into_py_any(py)?),
         // ---------- Array Integer Types ----------
