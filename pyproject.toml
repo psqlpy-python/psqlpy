@@ -39,6 +39,18 @@ maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]
 description = "Async PostgreSQL driver for Python written in Rust"
 dynamic = ["version"]
 
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"}
+]
+lint = [
+  "ruff"
+]
+test = [
+  "pytest"
+]
+
 [tool.maturin]
 python-source = "python"
 module-name = "psqlpy._internal"
@@ -89,7 +101,7 @@ ignore = [
     "S311",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "python/psqlpy/*" = ["PYI021"]
 "python/tests/*" = [
     "S101", # Use of assert detected
@@ -104,7 +116,7 @@ ignore = [
 "./psqlpy-stress/psqlpy_stress/migrations/env.py" = ["INP001"]
 "examples/*" = ["INP001"]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "pep257"
 ignore-decorators = ["typing.overload"]
 

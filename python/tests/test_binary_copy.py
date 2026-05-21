@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS cars (
     )
 
     arrow_table = parquet.read_table(
-        f"{os.path.dirname(os.path.abspath(__file__))}/test_data/MTcars.parquet",  # noqa: PTH120, PTH100
+        f"{os.path.dirname(os.path.abspath(__file__))}/test_data/MTcars.parquet",  # noqa: PTH120, PTH100, ASYNC240
     )
     encoder = ArrowToPostgresBinaryEncoder(arrow_table.schema)
     buf = BytesIO()
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS cars (
     )
 
     arrow_table = parquet.read_table(
-        f"{os.path.dirname(os.path.abspath(__file__))}/test_data/MTcars.parquet",  # noqa: PTH120, PTH100
+        f"{os.path.dirname(os.path.abspath(__file__))}/test_data/MTcars.parquet",  # noqa: PTH120, PTH100, ASYNC240
     )
     encoder = ArrowToPostgresBinaryEncoder(arrow_table.schema)
     buf = BytesIO()

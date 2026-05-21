@@ -1,8 +1,9 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+orphan: true
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.4.0
+    rev: v6.0.0
     hooks:
       - id: check-ast
       - id: trailing-whitespace
@@ -10,20 +11,24 @@ repos:
       - id: end-of-file-fixer
 
   - repo: https://github.com/asottile/add-trailing-comma
-    rev: v2.1.0
+    rev: v4.0.0
     hooks:
       - id: add-trailing-comma
 
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.1.0
     hooks:
-      - id: ruff
-        name: Check with ruff
-        entry: poetry run ruff check --force-exclude
-        language: system
-        types: [python]
-
       - id: mypy
-        name: Validate types with MyPy
-        entry: poetry run mypy
-        language: system
-        types: [python]
+        name: python mypy
+        always_run: true
+        pass_filenames: false
+        args: ["psqlpy_stress"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format

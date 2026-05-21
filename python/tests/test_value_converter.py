@@ -302,34 +302,6 @@ async def test_deserialization_simple_into_python(
     await connection.execute(f"DROP TABLE IF EXISTS {table_name}")
 
 
-async def test_aboba(
-    psql_pool: ConnectionPool,
-    postgres_type: str = "INT2",
-    py_value: Any = 2,
-    expected_deserialized: Any = 2,
-) -> None:
-    """Test how types can cast from Python and to Python."""
-    connection = await psql_pool.connection()
-    await connection.execute("DROP TABLE IF EXISTS for_test")
-    create_table_query = f"""
-    CREATE TABLE for_test (test_field {postgres_type})
-    """
-    insert_data_query = """
-    INSERT INTO for_test VALUES ($1)
-    """
-    await connection.execute(querystring=create_table_query)
-    await connection.execute(
-        querystring=insert_data_query,
-        parameters=[py_value],
-    )
-
-    raw_result = await connection.execute(
-        querystring="SELECT test_field FROM for_test",
-    )
-
-    assert raw_result.result()[0]["test_field"] == expected_deserialized
-
-
 async def test_deserialization_composite_into_python(
     psql_pool: ConnectionPool,
 ) -> None:

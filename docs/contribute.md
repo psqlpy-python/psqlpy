@@ -22,7 +22,7 @@ One of the best ways is follow [maturin offical documentation](https://www.matur
 ```bash
 > python3 -m venv .venv
 > source .venv/bin/activate
-> pip install -U pip maturin pre-commit pytest pytest-anyio pydantic pgpq
+> pip install -U pip maturin prek pytest pytest-anyio pydantic pgpq
 ```
 
 Then you need to build `PSQLPy` project.
@@ -33,12 +33,12 @@ maturin develop
 After this step project is built and installed in your python environment you created in previous step.
 
 ## Linting and type checking
-We have pre-commit configured with all our settings. We highly recommend you to install it as a git hook using pre-commit install command.
+We have prek configured with all our settings. We highly recommend you to install it as a git hook using prek install command.
 
 But even without installation, you can run all lints manually:
 
 ```bash
-pre-commit run -a
+prek run -a
 ```
 
 ## Testing

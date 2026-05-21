@@ -2,12 +2,12 @@ from piccolo.columns import JSONB, Array, Integer, Serial, Varchar
 from piccolo.table import Table
 
 
-class User(Table, tablename="users"):
+class User(Table, tablename="users"):  # type: ignore[call-arg]
     user_id = Serial(primary_key=True)
     username = Varchar(null=False)
 
 
-class SomeBigTable(Table, tablename="big_table"):
+class SomeBigTable(Table, tablename="big_table"):  # type: ignore[call-arg]
     big_table_id = Integer(primary_key=True)
     string_field = Varchar(null=False)
     integer_field = Integer(null=False)
