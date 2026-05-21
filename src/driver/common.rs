@@ -10,14 +10,15 @@ use super::{
 use pyo3::{pymethods, Py, PyAny};
 
 use crate::{
-    connection::traits::CloseTransaction,
+    connection::traits::{CloseTransaction, Connection as _},
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    value_converter::{dto::enums::PythonDTO, from_python::from_python_typed},
 };
 
 use bytes::BytesMut;
 use futures_util::pin_mut;
-use pyo3::{buffer::PyBuffer, Python};
-use tokio_postgres::binary_copy::BinaryCopyInWriter;
+use pyo3::{buffer::PyBuffer, types::PyAnyMethods, Python};
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, types::ToSql};
 
 use crate::format_helpers::quote_ident;
 
@@ -320,3 +321,138 @@ macro_rules! impl_binary_copy_method {
 
 impl_binary_copy_method!(Connection);
 impl_binary_copy_method!(Transaction);
+
+macro_rules! impl_copy_records_method {
+    ($name:ident) => {
+        #[pymethods]
+        impl $name {
+            /// Copy a list of records into a table using the COPY FROM STDIN
+            /// binary protocol.
+            ///
+            /// Column types are introspected from the target table, so callers
+            /// pass Python values directly (the same conversions used by
+            /// `execute`). Mirrors `asyncpg.Connection.copy_records_to_table`.
+            ///
+            /// # Errors
+            /// May return error if there is some problem with DB communication,
+            /// the table cannot be introspected, or a value cannot be converted.
+            #[pyo3(signature = (table_name, records, columns=None, schema_name=None))]
+            pub async fn copy_records_to_table(
+                self_: pyo3::Py<Self>,
+                table_name: String,
+                records: Py<PyAny>,
+                columns: Option<Vec<String>>,
+                schema_name: Option<String>,
+            ) -> PSQLPyResult<u64> {
+                let (db_client, raw_records) = Python::with_gil(
+                    |gil| -> PSQLPyResult<(Option<_>, Vec<Vec<pyo3::Py<PyAny>>>)> {
+                        let db_client = self_.borrow(gil).conn.clone();
+
+                        let Some(db_client) = db_client else {
+                            return Ok((None, Vec::new()));
+                        };
+
+                        let bound = records.bind(gil);
+                        let mut rows: Vec<Vec<pyo3::Py<PyAny>>> = Vec::new();
+                        for item in bound.try_iter()? {
+                            let row = item?;
+                            let mut row_vec: Vec<pyo3::Py<PyAny>> = Vec::new();
+                            for cell in row.try_iter()? {
+                                row_vec.push(cell?.unbind());
+                            }
+                            rows.push(row_vec);
+                        }
+
+                        Ok((Some(db_client), rows))
+                    },
+                )?;
+
+                let Some(db_client) = db_client else {
+                    return Ok(0);
+                };
+
+                let full_table_name = match schema_name {
+                    Some(ref schema) => {
+                        format!("{}.{}", quote_ident(schema), quote_ident(&table_name))
+                    }
+                    None => quote_ident(&table_name),
+                };
+
+                let columns_sql = match columns {
+                    Some(ref cols) if !cols.is_empty() => Some(
+                        cols.iter()
+                            .map(|c| quote_ident(c))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                    _ => None,
+                };
+
+                let introspect_qs = match &columns_sql {
+                    Some(cols) => format!("SELECT {} FROM {} WHERE false", cols, full_table_name),
+                    None => format!("SELECT * FROM {} WHERE false", full_table_name),
+                };
+
+                let read_conn_g = db_client.read().await;
+
+                let stmt = read_conn_g.prepare(&introspect_qs, false).await?;
+                let column_types: Vec<tokio_postgres::types::Type> =
+                    stmt.columns().iter().map(|c| c.type_().clone()).collect();
+
+                if column_types.is_empty() {
+                    return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                        "Cannot introspect column types from target table".into(),
+                    ));
+                }
+
+                let typed_rows: Vec<Vec<PythonDTO>> =
+                    Python::with_gil(|gil| -> PSQLPyResult<Vec<Vec<PythonDTO>>> {
+                        let mut typed: Vec<Vec<PythonDTO>> = Vec::with_capacity(raw_records.len());
+                        for (row_idx, row) in raw_records.iter().enumerate() {
+                            if row.len() != column_types.len() {
+                                return Err(RustPSQLDriverError::PyToRustValueConversionError(
+                                    format!(
+                                        "Record at index {} has {} fields, expected {}",
+                                        row_idx,
+                                        row.len(),
+                                        column_types.len()
+                                    ),
+                                ));
+                            }
+                            let mut row_dto: Vec<PythonDTO> = Vec::with_capacity(row.len());
+                            for (cell, ty) in row.iter().zip(column_types.iter()) {
+                                row_dto.push(from_python_typed(cell.bind(gil), ty)?);
+                            }
+                            typed.push(row_dto);
+                        }
+                        Ok(typed)
+                    })?;
+
+                let copy_qs = match &columns_sql {
+                    Some(cols) => format!(
+                        "COPY {}({}) FROM STDIN (FORMAT binary)",
+                        full_table_name, cols
+                    ),
+                    None => format!("COPY {} FROM STDIN (FORMAT binary)", full_table_name),
+                };
+
+                let sink = read_conn_g.copy_in(&copy_qs).await?;
+                let writer = BinaryCopyInWriter::new(sink, &column_types);
+                pin_mut!(writer);
+
+                for row in &typed_rows {
+                    let row_refs: Vec<&(dyn ToSql + Sync)> =
+                        row.iter().map(|v| v as &(dyn ToSql + Sync)).collect();
+                    writer.as_mut().write(&row_refs).await?;
+                }
+
+                let rows_created = writer.as_mut().finish().await?;
+
+                Ok(rows_created)
+            }
+        }
+    };
+}
+
+impl_copy_records_method!(Connection);
+impl_copy_records_method!(Transaction);

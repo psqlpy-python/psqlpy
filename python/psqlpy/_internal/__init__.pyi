@@ -820,6 +820,32 @@ class Transaction:
         number of inserted rows;
         """
 
+    async def copy_records_to_table(
+        self: Self,
+        table_name: str,
+        records: typing.Iterable[Sequence[Any]],
+        columns: Sequence[str] | None = None,
+        schema_name: str | None = None,
+    ) -> int:
+        """Copy records into a table using the binary COPY FROM STDIN protocol.
+
+        Column types are introspected from the target table, so each record
+        may contain raw Python values (the same conversions used by
+        `execute`). Mirrors `asyncpg.Connection.copy_records_to_table`.
+
+        ### Parameters:
+        - `table_name`: name of the table.
+        - `records`: iterable of records (each a sequence of column values
+            matching the order of `columns`, or of the table's columns when
+            `columns` is `None`).
+        - `columns`: sequence of column names to load into. When `None`,
+            all columns of the table are used in their declared order.
+        - `schema_name`: optional schema for `table_name`.
+
+        ### Returns:
+        number of inserted rows;
+        """
+
 async def connect(
     dsn: str | None = None,
     username: str | None = None,
@@ -1141,6 +1167,32 @@ class Connection:
         - `table_name`: name of the table.
         - `columns`: sequence of str columns.
         - `schema_name`: name of the schema.
+
+        ### Returns:
+        number of inserted rows;
+        """
+
+    async def copy_records_to_table(
+        self: Self,
+        table_name: str,
+        records: typing.Iterable[Sequence[Any]],
+        columns: Sequence[str] | None = None,
+        schema_name: str | None = None,
+    ) -> int:
+        """Copy records into a table using the binary COPY FROM STDIN protocol.
+
+        Column types are introspected from the target table, so each record
+        may contain raw Python values (the same conversions used by
+        `execute`). Mirrors `asyncpg.Connection.copy_records_to_table`.
+
+        ### Parameters:
+        - `table_name`: name of the table.
+        - `records`: iterable of records (each a sequence of column values
+            matching the order of `columns`, or of the table's columns when
+            `columns` is `None`).
+        - `columns`: sequence of column names to load into. When `None`,
+            all columns of the table are used in their declared order.
+        - `schema_name`: optional schema for `table_name`.
 
         ### Returns:
         number of inserted rows;
