@@ -60,4 +60,26 @@ impl PsqlpyStatement {
     pub fn columns(&self) -> &Vec<Column> {
         self.prepared_parameters.columns()
     }
+
+    #[must_use]
+    pub fn param_types(&self) -> &[postgres_types::Type] {
+        self.prepared_parameters.types()
+    }
+
+    /// Return parameter placeholder names extracted from the query string.
+    ///
+    /// Returns `None` when the query uses positional `$1` syntax, and
+    /// `Some(&[String])` for kwargs-style `%(name)s` queries.
+    #[must_use]
+    pub fn param_names(&self) -> Option<&[String]> {
+        self.query
+            .converted_qs
+            .as_ref()
+            .map(|c| c.params_names().as_slice())
+    }
+
+    #[must_use]
+    pub fn into_prepared_parameters(self) -> PreparedParameters {
+        self.prepared_parameters
+    }
 }

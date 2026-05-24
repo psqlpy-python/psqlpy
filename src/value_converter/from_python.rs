@@ -7,12 +7,56 @@ use postgres_types::Type;
 use std::net::IpAddr;
 
 use pyo3::{
+    sync::GILOnceCell,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyFloat, PyInt, PyList,
-        PySequence, PySet, PyString, PyTime, PyTuple, PyTypeMethods,
+        PySequence, PySet, PyString, PyTime, PyTuple, PyType,
     },
     Bound, Py, PyAny, Python,
 };
+
+/// Cached `uuid.UUID` type object for O(1) pointer-equality type dispatch.
+static UUID_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+/// Cached `decimal.Decimal` type object for O(1) pointer-equality type dispatch.
+static DECIMAL_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+
+fn uuid_type(py: Python<'_>) -> PSQLPyResult<Bound<'_, PyType>> {
+    UUID_TYPE
+        .get_or_try_init(py, || {
+            pyo3::types::PyModule::import(py, "uuid")
+                .and_then(|m| m.getattr("UUID"))
+                .and_then(|t| {
+                    t.downcast::<PyType>()
+                        .map(|t| t.clone().unbind())
+                        .map_err(Into::into)
+                })
+                .map_err(|e| {
+                    RustPSQLDriverError::PyToRustValueConversionError(format!(
+                        "failed to import uuid.UUID: {e}"
+                    ))
+                })
+        })
+        .map(|t| t.bind(py).to_owned())
+}
+
+fn decimal_type(py: Python<'_>) -> PSQLPyResult<Bound<'_, PyType>> {
+    DECIMAL_TYPE
+        .get_or_try_init(py, || {
+            pyo3::types::PyModule::import(py, "decimal")
+                .and_then(|m| m.getattr("Decimal"))
+                .and_then(|t| {
+                    t.downcast::<PyType>()
+                        .map(|t| t.clone().unbind())
+                        .map_err(Into::into)
+                })
+                .map_err(|e| {
+                    RustPSQLDriverError::PyToRustValueConversionError(format!(
+                        "failed to import decimal.Decimal: {e}"
+                    ))
+                })
+        })
+        .map(|t| t.bind(py).to_owned())
+}
 
 use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
@@ -154,14 +198,14 @@ pub fn from_python_untyped(parameter: &pyo3::Bound<'_, PyAny>) -> PSQLPyResult<P
         return <extra_types::Circle as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    if parameter.get_type().name()? == "UUID" {
-        return <extra_types::PythonUUID as ToPythonDTO>::to_python_dto(parameter);
-    }
-
-    if parameter.get_type().name()? == "decimal.Decimal"
-        || parameter.get_type().name()? == "Decimal"
     {
-        return <extra_types::PythonDecimal as ToPythonDTO>::to_python_dto(parameter);
+        let py = parameter.py();
+        if parameter.is_exact_instance(uuid_type(py)?.as_any()) {
+            return <extra_types::PythonUUID as ToPythonDTO>::to_python_dto(parameter);
+        }
+        if parameter.is_exact_instance(decimal_type(py)?.as_any()) {
+            return <extra_types::PythonDecimal as ToPythonDTO>::to_python_dto(parameter);
+        }
     }
 
     if let Ok(converted_array) = from_python_array_typed(parameter) {
@@ -204,13 +248,12 @@ pub fn from_python_typed(
         return <NonePyType as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    if parameter.get_type().name()? == "UUID" {
+    let py = parameter.py();
+    if parameter.is_exact_instance(uuid_type(py)?.as_any()) {
         return <extra_types::PythonUUID as ToPythonDTO>::to_python_dto(parameter);
     }
 
-    if parameter.get_type().name()? == "decimal.Decimal"
-        || parameter.get_type().name()? == "Decimal"
-    {
+    if parameter.is_exact_instance(decimal_type(py)?.as_any()) {
         return <extra_types::PythonDecimal as ToPythonDTO>::to_python_dto(parameter);
     }
 
