@@ -1,5 +1,5 @@
 use deadpool::managed::{self, Metrics, RecycleResult};
-use deadpool_postgres::{ClientWrapper, Manager, ManagerConfig, PoolError, StatementCaches};
+use deadpool_postgres::{ClientWrapper, Manager, ManagerConfig, StatementCaches};
 use postgres_openssl::MakeTlsConnector;
 use tokio_postgres::{error::SqlState, Config as PgConfig, NoTls};
 
@@ -135,17 +135,6 @@ impl managed::Manager for PsqlpyManager {
     fn detach(&self, client: &mut Self::Type) {
         self.primary.detach(client);
     }
-}
-
-/// `PoolError`-aware variant of [`is_ssl_required_rejection`].
-///
-/// Pool-level callers see `PoolError::Backend(deadpool_postgres::Error)`
-/// rather than the raw tokio-postgres error, so they need to walk one extra
-/// layer. Kept distinct to avoid the cost of constructing a trait object at
-/// every call site.
-#[must_use]
-pub fn pool_error_is_ssl_required(err: &PoolError) -> bool {
-    is_ssl_required_rejection(err)
 }
 
 /// Build the two-manager pair an [`SslMode::Allow`] connection requires.

@@ -18,38 +18,13 @@ from psqlpy import ConnectionPool
 
 pytestmark = pytest.mark.anyio
 
-
-async def _backend_pid(conn: object) -> int:
-    """Return the postgres backend PID for the given psqlpy Connection."""
-    result = await conn.execute("SELECT pg_backend_pid()", prepared=False)  # type: ignore[attr-defined]
-    return int(result.result()[0]["pg_backend_pid"])
-
-
-async def _prepared_count_for_pid(
-    pool: ConnectionPool,
-    pid: int,
-) -> int:
-    """Count entries in `pg_prepared_statements` for the given backend PID.
-
-    Uses a separate connection to avoid the question being asked through the
-    same prepared-statement cache it's measuring. `pg_prepared_statements` is
-    a per-session view, so we look at the target session from the outside via
-    `dblink`-free SQL: a regular query that filters on the saved PID by
-    asking postgres to introspect its own state for that PID.
-    """
-    other = await pool.connection()
-    # `pg_prepared_statements` is per-session; from another session we have to
-    # walk via the postgres stat views. There is no cross-session way to
-    # enumerate another session's prepared statements with plain SQL — but we
-    # can run the count in-band on the original connection by passing it a
-    # query that doesn't itself enter the prepared-statement cache. We do
-    # that in the caller; this helper is unused for the cross-session
-    # variant, kept here for documentation only.
-    _ = pid
-    _ = other
-    raise NotImplementedError(
-        "pg_prepared_statements is per-session; query it on the same conn.",
-    )
+# The in-band approach `pg_prepared_statements` is per-session, so both
+# tests issue the introspection query on the same `connection` object they
+# populated — opening a second pool connection would land on a different
+# backend with an empty per-session view. The introspection query itself
+# runs with `prepared=False` so it doesn't perturb the cache it's
+# measuring (no-parameter `prepared=False` uses tokio-postgres' unnamed
+# prepared statement which is dropped immediately).
 
 
 async def test_non_cached_prepare_does_not_leak_server_side(
