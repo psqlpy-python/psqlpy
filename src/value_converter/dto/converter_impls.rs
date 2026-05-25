@@ -93,6 +93,9 @@ impl ToPythonDTO for PyDict {
     }
 }
 
+// TODO(python-3.10-drop): On pyo3 0.28+, `.extract::<#[pyclass]Type>()`
+// returns `Result<_, PyClassGuardError<'_, '_>>` instead of `PyErr`; add
+// `.map_err(pyo3::PyErr::from)` before `?` to convert the new error type.
 macro_rules! construct_extra_type_converter {
     ($match_type:ty, $kind:path) => {
         impl ToPythonDTO for $match_type {
@@ -182,6 +185,9 @@ impl ToPythonDTO for extra_types::PythonEnum {
     }
 }
 
+// TODO(python-3.10-drop): On pyo3 0.28+, add `.map_err(pyo3::PyErr::from)`
+// between `.extract::<$match_type>()` and `?` to convert the new
+// `PyClassGuardError<'_, '_>` returned by `.extract` on pyclass types.
 macro_rules! construct_array_type_converter {
     ($match_type:ty) => {
         impl ToPythonDTO for $match_type {

@@ -86,15 +86,26 @@ pub enum SslMode {
 }
 
 impl SslMode {
+    /// Map psqlpy's `SslMode` to one of the three variants upstream
+    /// tokio-postgres actually exposes (`Disable` / `Prefer` / `Require`).
+    ///
+    /// - `Allow` is libpq-faithful and lives above this layer: see
+    ///   `PsqlpyManager` which builds two inner pools (`Disable`+`NoTls` and
+    ///   `Require`+TLS) and falls back on the SSL-required rejection. The
+    ///   tokio-postgres `SslMode` returned here is therefore the plaintext
+    ///   side of that pair, never `Allow` (which the fork carried but
+    ///   upstream omits).
+    /// - `VerifyCa` / `VerifyFull` use upstream `Require` for the wire-level
+    ///   handshake; certificate/hostname verification is enforced inside the
+    ///   `postgres-openssl` `SslConnector` configuration in `build_tls`.
     #[must_use]
     pub fn to_internal(&self) -> tokio_postgres::config::SslMode {
         match self {
-            SslMode::Disable => tokio_postgres::config::SslMode::Disable,
-            SslMode::Allow => tokio_postgres::config::SslMode::Allow,
+            SslMode::Disable | SslMode::Allow => tokio_postgres::config::SslMode::Disable,
             SslMode::Prefer => tokio_postgres::config::SslMode::Prefer,
-            SslMode::Require => tokio_postgres::config::SslMode::Require,
-            SslMode::VerifyCa => tokio_postgres::config::SslMode::VerifyCa,
-            SslMode::VerifyFull => tokio_postgres::config::SslMode::VerifyFull,
+            SslMode::Require | SslMode::VerifyCa | SslMode::VerifyFull => {
+                tokio_postgres::config::SslMode::Require
+            }
         }
     }
 }

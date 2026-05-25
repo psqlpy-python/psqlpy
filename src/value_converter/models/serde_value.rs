@@ -23,6 +23,12 @@ use crate::{
 #[derive(Clone)]
 pub struct InternalSerdeValue(Value);
 
+// TODO(python-3.10-drop): On pyo3 0.28+, this impl becomes
+//   impl<'a, 'py> FromPyObject<'a, 'py> for InternalSerdeValue {
+//       type Error = PyErr;
+//       fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> { ... }
+//   }
+// `extract_bound` was renamed to `extract` and gained a second lifetime in 0.27+.
 impl<'a> FromPyObject<'a> for InternalSerdeValue {
     fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
         let serde_value = build_serde_value(ob)?;

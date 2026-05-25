@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
-use deadpool_postgres::Object;
 use tokio_postgres::{Client, Config};
+
+use crate::driver::psqlpy_manager::PsqlpyClient;
 
 #[derive(Debug)]
 pub struct PoolConnection {
-    pub connection: Object,
+    pub connection: PsqlpyClient,
     pub in_transaction: bool,
     pub in_cursor: bool,
     pub pg_config: Arc<Config>,
@@ -13,7 +14,7 @@ pub struct PoolConnection {
 
 impl PoolConnection {
     #[must_use]
-    pub fn new(connection: Object, pg_config: Arc<Config>) -> Self {
+    pub fn new(connection: PsqlpyClient, pg_config: Arc<Config>) -> Self {
         Self {
             connection,
             in_transaction: false,

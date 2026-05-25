@@ -1,13 +1,13 @@
 use pyo3::{
-    sync::GILOnceCell,
+    sync::PyOnceLock,
     types::{PyAnyMethods, PyType},
     Bound, Py, PyResult, Python,
 };
 
 pub static KWARGS_PARAMS_REGEXP: &str = r"\$\(([^)]+)\)p";
 
-pub static DECIMAL_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
-pub static TIMEDELTA_CLS: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+pub static DECIMAL_CLS: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+pub static TIMEDELTA_CLS: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 
 #[allow(clippy::missing_errors_doc)]
 pub fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {

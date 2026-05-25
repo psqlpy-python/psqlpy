@@ -659,9 +659,9 @@ async def test_char_internal_type_byte_spectrum(
         value = decoded[i]
         assert isinstance(value, str)
         assert len(value) == 1
-        assert (
-            ord(value) == b
-        ), f"byte 0x{b:02x} round-tripped to ord(value)=0x{ord(value):02x}"
+        assert ord(value) == b, (
+            f"byte 0x{b:02x} round-tripped to ord(value)=0x{ord(value):02x}"
+        )
     assert decoded[len(bytes_under_test)] is None
 
 

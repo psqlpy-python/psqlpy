@@ -1,12 +1,17 @@
 use std::iter::zip;
 
 use postgres_types::{ToSql, Type};
+// TODO(python-3.10-drop): On pyo3 0.28+, replace `conversion::FromPyObjectBound`
+// with the dual-lifetime `FromPyObject<'a, 'py>` trait, which subsumes the
+// `FromPyObjectBound` bound used by `as_type` below.
 use pyo3::{
     conversion::FromPyObjectBound,
     pyclass, pymethods,
     types::{PyAnyMethods, PyMapping},
-    Py, PyObject, PyTypeCheck, Python,
+    Py, PyAny, PyTypeCheck, Python,
 };
+
+type PyObject = Py<PyAny>;
 
 use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
@@ -69,7 +74,7 @@ impl ParametersBuilder {
         parameters_names: Option<Vec<String>>,
     ) -> PSQLPyResult<PreparedParameters> {
         let prepared_parameters =
-            Python::with_gil(|gil| self.prepare_parameters(gil, parameters_names))?;
+            Python::attach(|gil| self.prepare_parameters(gil, parameters_names))?;
 
         Ok(prepared_parameters)
     }

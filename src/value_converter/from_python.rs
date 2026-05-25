@@ -558,12 +558,17 @@ pub fn py_sequence_into_postgres_array(
     }
 
     let array_data = py_sequence_into_flat_vec(parameter, type_)?;
-    match postgres_array::Array::from_parts_no_panic(array_data, dimensions) {
-        Ok(result_array) => Ok(result_array),
-        Err(err) => Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
-            "Cannot convert python sequence to PostgreSQL ARRAY, error - {err}"
-        ))),
+    let dims_product: i32 = dimensions.iter().map(|d| d.len).product();
+    let size_ok =
+        (array_data.is_empty() && dimensions.is_empty()) || array_data.len() as i32 == dims_product;
+    if !size_ok {
+        return Err(RustPSQLDriverError::PyToRustValueConversionError(format!(
+            "Cannot convert python sequence to PostgreSQL ARRAY, error - size mismatch (data len {}, dimensions product {})",
+            array_data.len(),
+            dims_product,
+        )));
     }
+    Ok(postgres_array::Array::from_parts(array_data, dimensions))
 }
 
 /// Convert Sequence from Python (except String) into flat vec.
@@ -613,7 +618,7 @@ pub fn py_sequence_into_flat_vec(
 /// May return error if cannot convert Python type into Rust one.
 /// May return error if parameters type isn't correct.
 fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> PSQLPyResult<Vec<f64>> {
-    Python::with_gil(|gil| {
+    Python::attach(|gil| {
         let mut coord_values_vec: Vec<f64> = vec![];
 
         for one_parameter in parameters {
@@ -669,7 +674,7 @@ pub fn build_geo_coords(
 ) -> PSQLPyResult<Vec<Coord>> {
     let mut result_vec: Vec<Coord> = vec![];
 
-    result_vec = Python::with_gil(|gil| {
+    result_vec = Python::attach(|gil| {
         let bind_py_parameters = py_parameters.bind(gil);
         let parameters = py_sequence_to_rust(bind_py_parameters)?;
 
@@ -741,7 +746,7 @@ pub fn build_flat_geo_coords(
     py_parameters: Py<PyAny>,
     allowed_length_option: Option<usize>,
 ) -> PSQLPyResult<Vec<f64>> {
-    Python::with_gil(|gil| {
+    Python::attach(|gil| {
         let allowed_length = allowed_length_option.unwrap_or_default();
 
         let bind_py_parameters = py_parameters.bind(gil);
