@@ -198,13 +198,34 @@ pub fn build_tls(
     let mode = ssl_mode.unwrap_or(SslMode::Prefer);
 
     match mode {
-        SslMode::Disable | SslMode::Allow => Ok(ConfiguredTLS::NoTls),
+        SslMode::Disable => Ok(ConfiguredTLS::NoTls),
+        SslMode::Allow => {
+            // `Allow` needs a TLS connector even though the primary attempt
+            // is plaintext — `PsqlpyManager`'s fallback inner manager wraps
+            // this connector and is the side that picks up when the server
+            // rejects the plaintext attempt with `"no encryption"`. Without
+            // a connector here we degrade to plaintext-only and lose the
+            // libpq-faithful retry. Matches `Require` behaviour at this
+            // layer (accept any cert; verification, if wanted, comes from
+            // `VerifyCa` / `VerifyFull`).
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::NONE);
+            if let Some(ca_file) = ca_file {
+                builder.set_ca_file(ca_file)?;
+            }
+            Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
+                builder.build(),
+            )))
+        }
         SslMode::Prefer | SslMode::Require => {
             let mut builder = SslConnector::builder(SslMethod::tls())?;
             // Behaviour-preserving for both Prefer and Require: accept any
             // certificate the server presents. Verification only kicks in for
             // VerifyCa / VerifyFull (libpq-faithful).
             builder.set_verify(SslVerifyMode::NONE);
+            if let Some(ca_file) = ca_file {
+                builder.set_ca_file(ca_file)?;
+            }
             Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
                 builder.build(),
             )))
