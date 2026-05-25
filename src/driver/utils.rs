@@ -1,12 +1,13 @@
 use std::{str::FromStr, time::Duration};
 
-use deadpool_postgres::{Manager, ManagerConfig};
+use deadpool_postgres::ManagerConfig;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
-use tokio_postgres::{Config, NoTls};
+use tokio_postgres::Config;
 
 use crate::{
+    driver::psqlpy_manager::{build_psqlpy_manager, PsqlpyManager},
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     options::{LoadBalanceHosts, SslMode, TargetSessionAttrs},
 };
@@ -176,47 +177,75 @@ pub enum ConfiguredTLS {
     TlsConnector(MakeTlsConnector),
 }
 
-/// Create TLS.
+/// Build a TLS configuration that matches `ssl_mode`'s libpq-style semantics.
+///
+/// The five upstream-supported modes split into three wire-level shapes:
+/// - `Disable` / `Allow` → no TLS at this layer (Allow's plaintext-first
+///   fallback is the manager layer's responsibility, see TODO below).
+/// - `Prefer` / `Require` → TLS connector that accepts any certificate.
+///   tokio-postgres uses the connector but does not enforce verification.
+/// - `VerifyCa` / `VerifyFull` → TLS connector with `SslVerifyMode::PEER`.
+///   The two diverge only on per-connection hostname checking, applied via
+///   `MakeTlsConnector::set_callback` so the same builder serves both.
 ///
 /// # Errors
-/// May return Err Result if cannot create builder.
+/// May return Err Result if cannot create the SSL builder, load the CA file,
+/// or initialize the system default verify paths.
 pub fn build_tls(
     ca_file: &Option<String>,
     ssl_mode: &Option<SslMode>,
 ) -> PSQLPyResult<ConfiguredTLS> {
-    if let Some(ca_file) = ca_file {
-        let mut builder = SslConnector::builder(SslMethod::tls())?;
-        builder.set_ca_file(ca_file)?;
-        return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
-            builder.build(),
-        )));
-    } else if let Some(ssl_mode) = ssl_mode {
-        if *ssl_mode == SslMode::Require {
+    let mode = ssl_mode.unwrap_or(SslMode::Prefer);
+
+    match mode {
+        SslMode::Disable | SslMode::Allow => Ok(ConfiguredTLS::NoTls),
+        SslMode::Prefer | SslMode::Require => {
             let mut builder = SslConnector::builder(SslMethod::tls())?;
+            // Behaviour-preserving for both Prefer and Require: accept any
+            // certificate the server presents. Verification only kicks in for
+            // VerifyCa / VerifyFull (libpq-faithful).
             builder.set_verify(SslVerifyMode::NONE);
-            return Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
+            Ok(ConfiguredTLS::TlsConnector(MakeTlsConnector::new(
                 builder.build(),
-            )));
+            )))
+        }
+        SslMode::VerifyCa | SslMode::VerifyFull => {
+            let mut builder = SslConnector::builder(SslMethod::tls())?;
+            builder.set_verify(SslVerifyMode::PEER);
+            if let Some(ca_file) = ca_file {
+                builder.set_ca_file(ca_file)?;
+            } else {
+                builder.set_default_verify_paths()?;
+            }
+            let mut connector = MakeTlsConnector::new(builder.build());
+            // `verify-ca` validates the chain but skips the hostname check;
+            // `verify-full` keeps the hostname check. openssl's default for
+            // `ConnectConfiguration` is hostname-on, so only `VerifyCa` needs
+            // an override.
+            if mode == SslMode::VerifyCa {
+                connector.set_callback(|config, _domain| {
+                    config.set_verify_hostname(false);
+                    Ok(())
+                });
+            }
+            Ok(ConfiguredTLS::TlsConnector(connector))
         }
     }
-
-    Ok(ConfiguredTLS::NoTls)
 }
 
+/// Build the [`PsqlpyManager`] for a connection pool.
+///
+/// Always returns a `PsqlpyManager`; for non-`Allow` `ssl_mode`s it wraps a
+/// single inner `deadpool_postgres::Manager`, and for `SslMode::Allow` it
+/// produces the libpq-faithful plaintext-first / TLS-fallback pair.
 #[must_use]
 pub fn build_manager(
     mgr_config: ManagerConfig,
     pg_config: Config,
     configured_tls: ConfiguredTLS,
-) -> Manager {
-    let mgr: Manager = match configured_tls {
-        ConfiguredTLS::NoTls => Manager::from_config(pg_config, NoTls, mgr_config),
-        ConfiguredTLS::TlsConnector(connector) => {
-            Manager::from_config(pg_config, connector, mgr_config)
-        }
-    };
-
-    mgr
+    ssl_mode: Option<SslMode>,
+) -> PsqlpyManager {
+    build_psqlpy_manager(mgr_config, pg_config, configured_tls, ssl_mode)
 }
 
 /// Check is python object async or not.
@@ -226,7 +255,7 @@ pub fn build_manager(
 /// 1) import inspect
 /// 2) extract boolean
 pub fn is_coroutine_function(function: Py<PyAny>) -> PSQLPyResult<bool> {
-    let is_coroutine_function: bool = Python::with_gil(|py| {
+    let is_coroutine_function: bool = Python::attach(|py| {
         let inspect = py.import("inspect")?;
 
         let is_cor = inspect

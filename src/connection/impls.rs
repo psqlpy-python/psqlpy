@@ -61,19 +61,12 @@ where
 }
 
 impl Connection for SingleConnection {
-    async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
-        let prepared_stmt = self.connection.prepare(query).await?;
-
-        if !prepared {
-            self.drop_prepared(&prepared_stmt).await?;
-        }
-        Ok(prepared_stmt)
-    }
-
-    async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
-        let deallocate_query = format!("DEALLOCATE PREPARE {}", stmt.name());
-
-        Ok(self.connection.batch_execute(&deallocate_query).await?)
+    async fn prepare(&self, query: &str, _prepared: bool) -> PSQLPyResult<Statement> {
+        // When `prepared` is false, the returned Statement is short-lived;
+        // dropping it triggers tokio-postgres `Drop for StatementInner`,
+        // which sends Close('S', name) + Sync on the wire. No explicit
+        // DEALLOCATE is required.
+        Ok(self.connection.prepare(query).await?)
     }
 
     async fn query<T>(
@@ -151,15 +144,8 @@ impl Connection for PoolConnection {
             return Ok(self.connection.prepare_cached(query).await?);
         }
 
-        let prepared = self.connection.prepare(query).await?;
-        self.drop_prepared(&prepared).await?;
-        Ok(prepared)
-    }
-
-    async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
-        let deallocate_query = format!("DEALLOCATE PREPARE {}", stmt.name());
-
-        Ok(self.connection.batch_execute(&deallocate_query).await?)
+        // Non-cached: rely on tokio-postgres Statement Drop autoclose.
+        Ok(self.connection.prepare(query).await?)
     }
 
     async fn query<T>(
@@ -234,13 +220,6 @@ impl Connection for PSQLPyConnection {
         match self {
             PSQLPyConnection::PoolConn(p_conn) => p_conn.prepare(query, prepared).await,
             PSQLPyConnection::SingleConnection(s_conn) => s_conn.prepare(query, prepared).await,
-        }
-    }
-
-    async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
-        match self {
-            PSQLPyConnection::PoolConn(p_conn) => p_conn.drop_prepared(stmt).await,
-            PSQLPyConnection::SingleConnection(s_conn) => s_conn.drop_prepared(stmt).await,
         }
     }
 
@@ -700,7 +679,7 @@ impl PSQLPyConnection {
             .fetch_row_raw(querystring, parameters, prepared)
             .await?;
 
-        Python::with_gil(|gil| match result.columns().first() {
+        Python::attach(|gil| match result.columns().first() {
             Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
             None => Ok(gil.None()),
         })

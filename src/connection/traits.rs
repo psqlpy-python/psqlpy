@@ -12,11 +12,6 @@ pub trait Connection {
         prepared: bool,
     ) -> impl std::future::Future<Output = PSQLPyResult<Statement>> + Send;
 
-    fn drop_prepared(
-        &self,
-        stmt: &Statement,
-    ) -> impl std::future::Future<Output = PSQLPyResult<()>> + Send;
-
     fn query<T>(
         &self,
         statement: &T,

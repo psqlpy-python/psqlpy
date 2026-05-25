@@ -61,7 +61,7 @@ impl Transaction {
     }
 
     async fn __aenter__(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (isolation_level, read_variant, deferrable, conn) = pyo3::Python::with_gil(|gil| {
+        let (isolation_level, read_variant, deferrable, conn) = pyo3::Python::attach(|gil| {
             let self_ = self_.borrow(gil);
             (
                 self_.isolation_level,
@@ -89,7 +89,7 @@ impl Transaction {
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> PSQLPyResult<()> {
-        let (conn, is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
+        let (conn, is_exception_none, py_err) = pyo3::Python::attach(|gil| {
             let self_ = self_.borrow(gil);
             (
                 self_.conn.clone(),
@@ -104,14 +104,14 @@ impl Transaction {
         let mut write_conn_g = conn.write().await;
         if is_exception_none {
             write_conn_g.commit().await?;
-            pyo3::Python::with_gil(|gil| {
+            pyo3::Python::attach(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
                 self_.conn = None;
             });
             Ok(())
         } else {
             write_conn_g.rollback().await?;
-            pyo3::Python::with_gil(|gil| {
+            pyo3::Python::attach(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
                 self_.conn = None;
             });
@@ -320,7 +320,7 @@ impl Transaction {
         queries: Option<Py<PyList>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<Vec<PSQLDriverPyQueryResult>> {
-        let db_client = pyo3::Python::with_gil(|gil| {
+        let db_client = pyo3::Python::attach(|gil| {
             let self_ = self_.borrow(gil);
 
             self_.conn.clone()
@@ -330,7 +330,7 @@ impl Transaction {
             let conn_read_g = db_client.read().await;
             let mut futures = vec![];
             if let Some(queries) = queries {
-                let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
+                let gil_result = pyo3::Python::attach(|gil| -> PyResult<()> {
                     for single_query in queries.into_bound(gil).iter() {
                         let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
                             RustPSQLDriverError::PyToRustValueConversionError(format!(

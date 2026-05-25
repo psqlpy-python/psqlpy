@@ -128,11 +128,11 @@ impl ListenerCallback {
         connection: Connection,
     ) -> PSQLPyResult<()> {
         let (callback, task_locals) =
-            Python::with_gil(|py| (self.callback.clone(), self.task_locals.clone_ref(py)));
+            Python::attach(|py| (self.callback.clone(), self.task_locals.clone_ref(py)));
 
         tokio_runtime()
             .spawn(pyo3_async_runtimes::tokio::scope(task_locals, async move {
-                let future = Python::with_gil(|py| {
+                let future = Python::attach(|py| {
                     let awaitable = callback
                         .call1(
                             py,

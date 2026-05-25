@@ -15,10 +15,10 @@ use crate::{
     value_converter::{dto::enums::PythonDTO, from_python::from_python_typed},
 };
 
-use bytes::BytesMut;
-use futures_util::pin_mut;
+use bytes::{Bytes, BytesMut};
+use futures_util::{pin_mut, SinkExt};
 use pyo3::{buffer::PyBuffer, types::PyAnyMethods, Python};
-use tokio_postgres::{binary_copy::BinaryCopyInWriter, types::ToSql};
+use tokio_postgres::{binary_copy::BinaryCopyInWriter, types::ToSql, CopyInSink};
 
 use crate::format_helpers::quote_ident;
 
@@ -250,8 +250,8 @@ macro_rules! impl_binary_copy_method {
                 columns: Option<Vec<String>>,
                 schema_name: Option<String>,
             ) -> PSQLPyResult<u64> {
-                let (db_client, mut bytes_mut) =
-                    Python::with_gil(|gil| -> PSQLPyResult<(Option<_>, BytesMut)> {
+                let (db_client, bytes_mut) =
+                    Python::attach(|gil| -> PSQLPyResult<(Option<_>, BytesMut)> {
                         let db_client = self_.borrow(gil).conn.clone();
 
                         let Some(db_client) = db_client else {
@@ -306,12 +306,15 @@ macro_rules! impl_binary_copy_method {
                 };
 
                 let read_conn_g = db_client.read().await;
-                let sink = read_conn_g.copy_in(&copy_qs).await?;
-                let writer = BinaryCopyInWriter::new_empty_buffer(sink, &[]);
-                pin_mut!(writer);
+                let sink: CopyInSink<Bytes> = read_conn_g.copy_in(&copy_qs).await?;
+                pin_mut!(sink);
 
-                writer.as_mut().write_raw_bytes(&mut bytes_mut).await?;
-                let rows_created = writer.as_mut().finish_empty().await?;
+                // `bytes_mut` already carries the full binary-format COPY payload
+                // (header + tuples + trailer) produced by the Python side, so
+                // BinaryCopyInWriter's framing layer is bypassed entirely — we
+                // push the bytes straight at the sink and close it.
+                sink.as_mut().send(bytes_mut.freeze()).await?;
+                let rows_created = sink.finish().await?;
 
                 Ok(rows_created)
             }
@@ -344,7 +347,7 @@ macro_rules! impl_copy_records_method {
                 columns: Option<Vec<String>>,
                 schema_name: Option<String>,
             ) -> PSQLPyResult<u64> {
-                let (db_client, raw_records) = Python::with_gil(
+                let (db_client, raw_records) = Python::attach(
                     |gil| -> PSQLPyResult<(Option<_>, Vec<Vec<pyo3::Py<PyAny>>>)> {
                         let db_client = self_.borrow(gil).conn.clone();
 
@@ -406,7 +409,7 @@ macro_rules! impl_copy_records_method {
                 }
 
                 let typed_rows: Vec<Vec<PythonDTO>> =
-                    Python::with_gil(|gil| -> PSQLPyResult<Vec<Vec<PythonDTO>>> {
+                    Python::attach(|gil| -> PSQLPyResult<Vec<Vec<PythonDTO>>> {
                         let mut typed: Vec<Vec<PythonDTO>> = Vec::with_capacity(raw_records.len());
                         for (row_idx, row) in raw_records.iter().enumerate() {
                             if row.len() != column_types.len() {

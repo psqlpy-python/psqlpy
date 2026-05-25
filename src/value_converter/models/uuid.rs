@@ -16,6 +16,8 @@ use crate::exceptions::rust_errors::RustPSQLDriverError;
 #[derive(Clone, Copy)]
 pub struct InternalUuid(Uuid);
 
+// TODO(python-3.10-drop): On pyo3 0.28+, use `FromPyObject<'a, 'py>::extract`
+// with a `Borrowed<'a, 'py, PyAny>` argument and a `type Error = PyErr;` line.
 impl<'a> FromPyObject<'a> for InternalUuid {
     fn extract_bound(obj: &Bound<'a, PyAny>) -> PyResult<Self> {
         let uuid_value = Uuid::parse_str(obj.str()?.extract::<&str>()?).map_err(|_| {

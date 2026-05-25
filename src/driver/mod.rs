@@ -5,5 +5,6 @@ pub mod connection_pool_builder;
 pub mod cursor;
 pub mod listener;
 pub mod prepared_statement;
+pub mod psqlpy_manager;
 pub mod transaction;
 pub mod utils;

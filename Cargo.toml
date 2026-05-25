@@ -9,8 +9,14 @@ name = "psqlpy"
 crate-type = ["cdylib"]
 
 [dependencies]
-deadpool-postgres = { git = "https://github.com/psqlpy-python/deadpool.git", branch = "psqlpy" }
-pyo3 = { version = "0.25.1", features = [
+deadpool = { version = "0.12", features = ["managed"] }
+deadpool-postgres = "0.14"
+# TODO(python-3.10-drop): Bump pyo3/pyo3-async-runtimes to 0.28+. pyo3 0.27
+# dropped Python 3.10 support, which psqlpy still ships; once 3.10 EOL is
+# observed in this repo, also flip the source-side TODOs marked with the same
+# tag back to their 0.28 form (Python::attach, FromPyObject<'a, 'py>::extract,
+# OnceLockExt, pyclass(from_py_object), etc.).
+pyo3 = { version = "0.26", features = [
     "chrono",
     "experimental-async",
     "rust_decimal",
@@ -19,9 +25,7 @@ pyo3 = { version = "0.25.1", features = [
     "multiple-pymethods",
     "generate-import-lib",
 ] }
-pyo3-async-runtimes = { git = "https://github.com/psqlpy-python/pyo3-async-runtimes.git", branch = "psqlpy", features = [
-    "tokio-runtime",
-] }
+pyo3-async-runtimes = { version = "0.26", features = ["tokio-runtime"] }
 
 tokio = { version = "1.35.1", features = ["full"] }
 thiserror = "1.0.56"
@@ -35,31 +39,27 @@ serde_json = "1.0.113"
 futures-util = "0.3.30"
 macaddr = "1.0.1"
 geo-types = "0.7.13"
-postgres-types = { git = "https://github.com/psqlpy-python/rust-postgres.git", branch = "psqlpy", features = [
-    "derive",
-] }
-tokio-postgres = { git = "https://github.com/psqlpy-python/rust-postgres.git", branch = "psqlpy", features = [
+postgres-types = { version = "0.2", features = ["derive"] }
+tokio-postgres = { version = "0.7", features = [
     "with-serde_json-1",
     "array-impls",
     "with-chrono-0_4",
     "with-uuid-1",
     "with-geo-types-0_7",
 ] }
-postgres-protocol = { git = "https://github.com/psqlpy-python/rust-postgres.git", branch = "psqlpy" }
-postgres-openssl = { git = "https://github.com/psqlpy-python/rust-postgres.git", branch = "psqlpy" }
-rust_decimal = { git = "https://github.com/psqlpy-python/rust-decimal.git", branch = "psqlpy", features = [
+postgres-protocol = "0.6"
+postgres-openssl = "0.5"
+rust_decimal = { version = "1.42", features = [
     "db-postgres",
     "db-tokio-postgres",
 ] }
-postgres_array = { git = "https://github.com/psqlpy-python/rust-postgres-array.git", branch = "psqlpy" }
+postgres_array = "0.11"
 openssl = { version = "= 0.10.64", features = ["vendored"] }
 itertools = "0.12.1"
 openssl-src = "= 300.2.2"
 openssl-sys = "= 0.9.102"
-pg_interval = { git = "https://github.com/psqlpy-python/rust-postgres-interval.git", branch = "psqlpy" }
-pgvector = { git = "https://github.com/psqlpy-python/pgvector-rust.git", branch = "psqlpy", features = [
-    "postgres",
-] }
+pg_interval = "0.4"
+pgvector = { version = "0.4", features = ["postgres"] }
 futures-channel = "0.3.31"
 futures = "0.3.31"
 regex = "1.11.1"

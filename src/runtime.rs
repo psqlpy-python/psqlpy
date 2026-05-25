@@ -18,6 +18,8 @@ pub fn tokio_runtime() -> &'static tokio::runtime::Runtime {
 /// # Errors
 ///
 /// May return Err Result if future acts incorrect.
+// TODO(python-3.10-drop): On pyo3-async-runtimes 0.28+, add `+ Send + 'static`
+// to the `T` bound — `future_into_py` tightened its signature.
 pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> PSQLPyResult<Py<PyAny>>
 where
     F: Future<Output = PSQLPyResult<T>> + Send + 'static,

@@ -8,6 +8,8 @@ use crate::exceptions::rust_errors::RustPSQLDriverError;
 /// This function will return `Err` in the following cases:
 /// - The Python object does not have the specified attribute
 /// - The attribute exists but cannot be extracted into the specified Rust type
+// TODO(python-3.10-drop): On pyo3 0.28+, bound becomes
+// `T: for<'a> FromPyObject<'a, 'py>` (two-lifetime trait).
 pub fn extract_value_from_python_object_or_raise<'py, T>(
     parameter: &'py pyo3::Bound<'_, PyAny>,
     attr_name: &str,

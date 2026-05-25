@@ -1,4 +1,6 @@
-use pyo3::PyObject;
+use pyo3::{Py, PyAny};
+
+type PyObject = Py<PyAny>;
 use tokio::sync::RwLockWriteGuard;
 use tokio_postgres::Statement;
 

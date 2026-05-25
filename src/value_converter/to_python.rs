@@ -24,6 +24,7 @@ use crate::{
             decimal::InnerDecimal, internal_char::InternalChar, interval::InnerInterval,
             serde_value::InternalSerdeValue, uuid::InternalUuid,
         },
+        raw_buf::RawBuf,
     },
 };
 use pgvector::Vector as PgVector;
@@ -648,7 +649,7 @@ pub fn postgres_to_py(
     column_i: usize,
     custom_decoders: &Option<Py<PyDict>>,
 ) -> PSQLPyResult<Py<PyAny>> {
-    let raw_bytes_data = row.col_buffer(column_i);
+    let RawBuf(raw_bytes_data) = row.try_get::<usize, RawBuf>(column_i)?;
     if let Some(mut raw_bytes_data) = raw_bytes_data {
         return raw_bytes_data_process(
             py,
