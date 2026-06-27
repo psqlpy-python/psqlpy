@@ -92,21 +92,17 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
-    env:
-      OPENSSL_DIR: /opt/homebrew/Cellar/openssl@3/3.3.1
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Brew update
-        run: brew update
-      - name: brew upgrade
-        run: brew upgrade
-      - name: brew ssl
-        run: brew info openssl
-      - name: Install openssl deps
-        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install openssl
+      # The macOS runner images no longer ship a Rust toolchain on PATH,
+      # so install it explicitly (including the cross-compilation target).
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}-apple-darwin
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
