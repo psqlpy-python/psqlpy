@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
-use futures::{stream, FutureExt, StreamExt, TryStreamExt};
+use futures::{pin_mut, stream, StreamExt};
 use futures_channel::mpsc::UnboundedReceiver;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
@@ -38,7 +38,9 @@ pub struct Listener {
     listen_abort_handler: Option<AbortHandle>,
     connection: Connection,
     receiver: Option<Arc<RwLock<UnboundedReceiver<AsyncMessage>>>>,
-    listen_query: Arc<RwLock<String>>,
+    /// Channels currently subscribed on the backend session. Diffed against the
+    /// desired set (`channel_callbacks`) to reconcile LISTEN/UNLISTEN.
+    applied_channels: Arc<RwLock<HashSet<String>>>,
     is_listened: Arc<RwLock<bool>>,
     is_started: bool,
 }
@@ -58,29 +60,20 @@ impl Listener {
             listen_abort_handler: Option::default(),
             connection: Connection::new(None, None, pg_config.clone()),
             receiver: Option::default(),
-            listen_query: Arc::default(),
+            applied_channels: Arc::default(),
             is_listened: Arc::new(RwLock::new(false)),
             is_started: false,
         }
     }
 
-    async fn update_listen_query(&self) {
-        let read_channel_callbacks = self.channel_callbacks.read().await;
-
-        let channels = read_channel_callbacks.retrieve_all_channels();
-
-        let mut final_query: String = String::default();
-
-        for channel_name in channels {
-            final_query.push_str(format!("LISTEN {channel_name};").as_str());
-        }
-
-        let mut write_listen_query = self.listen_query.write().await;
-        let mut write_is_listened = self.is_listened.write().await;
-
-        write_listen_query.clear();
-        write_listen_query.push_str(&final_query);
-        *write_is_listened = false;
+    /// Flag that the backend subscriptions no longer match the desired channel
+    /// set, so the next `execute_listen` reconciles them (LISTEN/UNLISTEN).
+    ///
+    /// Only `is_listened` is taken here, never while holding `channel_callbacks`,
+    /// so there is no lock-order cycle with `execute_listen` (which takes
+    /// `is_listened` first, then reads `channel_callbacks`).
+    async fn mark_subscriptions_dirty(&self) {
+        *self.is_listened.write().await = false;
     }
 }
 
@@ -146,13 +139,20 @@ impl Listener {
         };
 
         let is_listened_clone = self.is_listened.clone();
-        let listen_query_clone = self.listen_query.clone();
+        let channel_callbacks_clone = self.channel_callbacks.clone();
+        let applied_channels_clone = self.applied_channels.clone();
         let connection = self.connection.clone();
 
         let py_future = Python::with_gil(move |gil| {
             rustdriver_future(gil, async move {
                 {
-                    execute_listen(&is_listened_clone, &listen_query_clone, &client).await?;
+                    execute_listen(
+                        &is_listened_clone,
+                        &channel_callbacks_clone,
+                        &applied_channels_clone,
+                        &client,
+                    )
+                    .await?;
                 };
                 let next_element = {
                     let mut write_receiver = receiver.write().await;
@@ -214,15 +214,25 @@ impl Listener {
 
         let (transmitter, receiver) = futures_channel::mpsc::unbounded::<AsyncMessage>();
 
-        let stream =
-            stream::poll_fn(move |cx| connection.poll_message(cx)).map_err(|e| panic!("{}", e));
+        let forward_messages = async move {
+            let stream = stream::poll_fn(move |cx| connection.poll_message(cx));
+            pin_mut!(stream);
 
-        let connection = stream.forward(transmitter).map(|r| {
-            r.map_err(|_| {
-                RustPSQLDriverError::ListenerStartError("Cannot startup the listener".into())
-            })
-        });
-        tokio_runtime().spawn(connection);
+            while let Some(message) = stream.next().await {
+                match message {
+                    // Receiver gone (listener shut down) -> stop forwarding.
+                    Ok(async_message) => {
+                        if transmitter.unbounded_send(async_message).is_err() {
+                            break;
+                        }
+                    }
+                    // Connection closed or errored -> end the task cleanly
+                    // instead of panicking the worker thread.
+                    Err(_) => break,
+                }
+            }
+        };
+        tokio_runtime().spawn(forward_messages);
 
         self.receiver = Some(Arc::new(RwLock::new(receiver)));
         self.connection = Connection::new(
@@ -263,7 +273,7 @@ impl Listener {
             write_channel_callbacks.add_callback(channel, listener_callback);
         }
 
-        self.update_listen_query().await;
+        self.mark_subscriptions_dirty().await;
 
         Ok(())
     }
@@ -274,7 +284,7 @@ impl Listener {
             write_channel_callbacks.clear_channel_callbacks(&channel);
         }
 
-        self.update_listen_query().await;
+        self.mark_subscriptions_dirty().await;
     }
 
     async fn clear_all_channels(&mut self) {
@@ -283,7 +293,7 @@ impl Listener {
             write_channel_callbacks.clear_all();
         }
 
-        self.update_listen_query().await;
+        self.mark_subscriptions_dirty().await;
     }
 
     fn listen(&mut self) -> PSQLPyResult<()> {
@@ -299,15 +309,21 @@ impl Listener {
         };
 
         let connection = self.connection.clone();
-        let listen_query_clone = self.listen_query.clone();
         let is_listened_clone = self.is_listened.clone();
+        let applied_channels = self.applied_channels.clone();
 
         let channel_callbacks = self.channel_callbacks.clone();
 
         let jh: JoinHandle<Result<(), RustPSQLDriverError>> = tokio_runtime().spawn(async move {
             loop {
                 {
-                    execute_listen(&is_listened_clone, &listen_query_clone, &client).await?;
+                    execute_listen(
+                        &is_listened_clone,
+                        &channel_callbacks,
+                        &applied_channels,
+                        &client,
+                    )
+                    .await?;
                 };
 
                 let next_element = {
@@ -358,21 +374,51 @@ async fn dispatch_callback(
     Ok(())
 }
 
+/// Reconcile the backend subscriptions with the desired channel set.
+///
+/// When `is_listened` is dirty (`false`) the difference between the desired
+/// channels (`channel_callbacks`) and the channels already applied on the
+/// backend (`applied_channels`) is turned into `UNLISTEN`/`LISTEN` statements
+/// and executed. Re-subscribing is idempotent, so a redundant `LISTEN` is
+/// harmless; the `UNLISTEN` half is what stops a cleared channel from delivering.
+///
+/// Lock order is `client` -> `is_listened` -> `channel_callbacks` ->
+/// `applied_channels`. `mark_subscriptions_dirty` only ever takes `is_listened`
+/// (never while holding `channel_callbacks`), so the two cannot deadlock.
 async fn execute_listen(
     is_listened: &Arc<RwLock<bool>>,
-    listen_query: &Arc<RwLock<String>>,
+    channel_callbacks: &Arc<RwLock<ChannelCallbacks>>,
+    applied_channels: &Arc<RwLock<HashSet<String>>>,
     client: &Arc<RwLock<PSQLPyConnection>>,
 ) -> PSQLPyResult<()> {
     let read_conn_g = client.read().await;
     let mut write_is_listened = is_listened.write().await;
 
-    if !write_is_listened.eq(&true) {
-        let listen_q = {
-            let read_listen_query = listen_query.read().await;
-            String::from(read_listen_query.as_str())
+    if !*write_is_listened {
+        let desired: HashSet<String> = {
+            let read_channel_callbacks = channel_callbacks.read().await;
+            read_channel_callbacks
+                .retrieve_all_channels()
+                .into_iter()
+                .cloned()
+                .collect()
         };
 
-        read_conn_g.batch_execute(listen_q.as_str()).await?;
+        let mut applied = applied_channels.write().await;
+
+        let mut reconcile_query = String::new();
+        for channel in applied.difference(&desired) {
+            reconcile_query.push_str(format!("UNLISTEN {channel};").as_str());
+        }
+        for channel in desired.difference(&applied) {
+            reconcile_query.push_str(format!("LISTEN {channel};").as_str());
+        }
+
+        if !reconcile_query.is_empty() {
+            read_conn_g.batch_execute(reconcile_query.as_str()).await?;
+        }
+
+        *applied = desired;
     }
 
     *write_is_listened = true;
