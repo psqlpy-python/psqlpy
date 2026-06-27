@@ -4,8 +4,6 @@ use regex::Regex;
 
 use crate::value_converter::consts::KWARGS_PARAMS_REGEXP;
 
-use super::utils::hash_str;
-
 #[derive(Clone, Debug)]
 pub struct QueryString {
     pub(crate) initial_qs: String,
@@ -35,10 +33,6 @@ impl QueryString {
         }
 
         &self.initial_qs
-    }
-
-    pub(crate) fn hash(&self) -> u64 {
-        hash_str(&self.initial_qs)
     }
 
     pub(crate) fn process_qs(&mut self) {

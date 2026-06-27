@@ -17,6 +17,33 @@ _RowFactoryRV = TypeVar(
 
 ParamsT: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
 
+class Record:
+    """An asyncpg-compatible row type with eagerly decoded column values.
+
+    Supports positional indexing (`row[0]`), by-name indexing (`row["col"]`),
+    slicing, iteration, and dict-like access methods.
+    """
+
+    def __len__(self) -> int: ...
+    @typing.overload
+    def __getitem__(self, key: int) -> Any: ...
+    @typing.overload
+    def __getitem__(self, key: str) -> Any: ...
+    @typing.overload
+    def __getitem__(self, key: slice) -> list[Any]: ...
+    def __iter__(self) -> typing.Iterator[Any]: ...
+    def get(self, key: str, default: Any = None) -> Any:
+        """Return column value by name, or `default` if the column does not exist."""
+
+    def keys(self) -> list[str]:
+        """Return ordered list of column names."""
+
+    def values(self) -> list[Any]:
+        """Return ordered list of column values."""
+
+    def items(self) -> list[tuple[str, Any]]:
+        """Return ordered list of (column_name, value) pairs."""
+
 class QueryResult:
     """Result."""
 
@@ -105,6 +132,15 @@ class QueryResult:
 
         ### Returns:
         List of type that return passed `row_factory`.
+        """
+
+    def records(self: Self) -> list[Record]:
+        """Return result as a list of Record instances.
+
+        Each Record shares column metadata with others from the same result set.
+        Supports positional/by-name indexing and dict-like access.
+        Unlike `result()`, the column-name lookup table is shared, not
+        re-created per row.
         """
 
 class SingleQueryResult:

@@ -104,10 +104,12 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "python/psqlpy/*" = ["PYI021"]
 "python/tests/*" = [
-    "S101", # Use of assert detected
-    "S608", # Possible SQL injection vector through string-based query construction
-    "D103", # Missing docstring in public function
-    "S311", # Standard pseudo-random generators are not suitable for security/cryptographic purposes
+    "S101",    # Use of assert detected
+    "S608",    # Possible SQL injection via string-based query construction
+    "D103",    # Missing docstring in public function
+    "S311",    # Standard pseudo-random generators not suitable for security
+    "PLR2004", # Magic value in comparison (common in test assertions)
+    "D205",    # 1 blank line required between summary and description
 ]
 "python/psqlpy/_internal/exceptions.pyi" = [
     "D205",

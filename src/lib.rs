@@ -50,6 +50,7 @@ fn psqlpy(py: Python<'_>, pymod: &Bound<'_, PyModule>) -> PyResult<()> {
     pymod.add_class::<options::KeepaliveConfig>()?;
     pymod.add_class::<query_result::PSQLDriverPyQueryResult>()?;
     pymod.add_class::<query_result::PSQLDriverSinglePyQueryResult>()?;
+    pymod.add_class::<query_result::Record>()?;
     add_module(py, pymod, "extra_types", extra_types_module)?;
     add_module(py, pymod, "exceptions", python_exceptions_module)?;
     add_module(py, pymod, "row_factories", row_factories_module)?;

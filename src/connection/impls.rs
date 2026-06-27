@@ -1,6 +1,6 @@
 use bytes::Buf;
-use futures::stream::{FuturesOrdered, StreamExt};
-use postgres_types::ToSql;
+use futures::stream::{FuturesOrdered, Stream, StreamExt};
+use postgres_types::{ToSql, Type};
 use pyo3::{PyAny, Python};
 use tokio_postgres::{CopyInSink, Portal as tp_Portal, Row, Statement, ToStatement};
 
@@ -8,7 +8,10 @@ use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
     options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
-    statement::{statement::PsqlpyStatement, statement_builder::StatementBuilder},
+    statement::{
+        parameters::ParametersBuilder, statement::PsqlpyStatement,
+        statement_builder::StatementBuilder,
+    },
     transaction::structs::PSQLPyTransaction,
     value_converter::to_python::postgres_to_py,
 };
@@ -17,9 +20,33 @@ use deadpool_postgres::Transaction as dp_Transaction;
 use tokio_postgres::Transaction as tp_Transaction;
 
 use super::{
-    structs::{PSQLPyConnection, PoolConnection, SingleConnection},
+    structs::{CopyTypeCache, PSQLPyConnection, PoolConnection, SingleConnection},
     traits::{CloseTransaction, Connection, StartTransaction, Transaction},
 };
+
+/// Drain a `FuturesOrdered` stream to completion, returning the first error seen.
+///
+/// All futures are polled to completion regardless of errors — this keeps
+/// the underlying connection in a quiescent state before the caller issues
+/// the next statement (e.g., ROLLBACK TO SAVEPOINT after a failed batch).
+async fn drain_ordered<T>(
+    mut stream: impl Stream<Item = PSQLPyResult<T>> + Unpin,
+) -> PSQLPyResult<()> {
+    let mut first_err: Option<RustPSQLDriverError> = None;
+    while let Some(res) = stream.next().await {
+        if let Err(err) = res {
+            if first_err.is_none() {
+                first_err = Some(RustPSQLDriverError::ConnectionExecuteError(format!(
+                    "Error occurred in `execute_many` statement: {err}"
+                )));
+            }
+        }
+    }
+    match first_err {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
 
 impl<T> Transaction for T
 where
@@ -62,12 +89,18 @@ where
 
 impl Connection for SingleConnection {
     async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
-        let prepared_stmt = self.connection.prepare(query).await?;
-
-        if !prepared {
-            self.drop_prepared(&prepared_stmt).await?;
+        if prepared {
+            if let Some(cached) = self.stmt_cache.get(query) {
+                return Ok(cached.clone());
+            }
+            let stmt = self.connection.prepare(query).await?;
+            self.stmt_cache.insert(query.to_string(), stmt.clone());
+            return Ok(stmt);
         }
-        Ok(prepared_stmt)
+
+        let stmt = self.connection.prepare(query).await?;
+        self.drop_prepared(&stmt).await?;
+        Ok(stmt)
     }
 
     async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
@@ -340,6 +373,14 @@ impl PSQLPyConnection {
         }
     }
 
+    #[must_use]
+    pub fn copy_type_cache(&self) -> &CopyTypeCache {
+        match self {
+            PSQLPyConnection::PoolConn(conn) => &conn.copy_type_cache,
+            PSQLPyConnection::SingleConnection(conn) => &conn.copy_type_cache,
+        }
+    }
+
     /// Prepare internal `PSQLPy` statement
     ///
     /// # Errors
@@ -476,14 +517,19 @@ impl PSQLPyConnection {
     /// asymmetry between the two call sites already exists — savepoints
     /// just bring `Transaction::execute_many` into line.
     ///
-    /// ## Behavioural change vs prior implementation
+    /// ## Breaking change vs prior implementation (0.12.0)
     ///
-    /// Previously this method ran each row as an independent auto-commit,
-    /// so a mid-batch failure left earlier rows committed. The new wrap
-    /// makes the whole batch atomic. This matches asyncpg / psycopg
-    /// `executemany` expectations and the issue's framing of `execute_many`
-    /// as a bulk operation, but it is a semantic change worth flagging in
-    /// release notes.
+    /// **`Connection::execute_many`**: previously each row was an independent
+    /// auto-commit, so a mid-batch failure left earlier rows committed. The
+    /// new `BEGIN`/`COMMIT` wrap makes the whole batch atomic.
+    ///
+    /// **`Transaction::execute_many`**: previously a batch failure left the
+    /// outer transaction in an aborted state, requiring the caller to issue
+    /// `ROLLBACK`. Now the batch is wrapped in `SAVEPOINT psqlpy_execute_many`;
+    /// on failure the savepoint is rolled back and the outer transaction
+    /// remains live. **Callers that catch the error and explicitly call
+    /// `transaction.rollback()` should be updated to omit that call** —
+    /// the outer transaction is still usable after a batch failure.
     ///
     /// # Errors
     /// May return error if there is some problem with DB communication.
@@ -502,23 +548,51 @@ impl PSQLPyConnection {
 
         let prepared = prepared.unwrap_or(true);
 
-        let mut statements: Vec<PsqlpyStatement> = Vec::with_capacity(parameters.len());
-        for param_set in parameters {
-            let statement =
-                StatementBuilder::new(&querystring, &Some(param_set), self, Some(prepared))
-                    .build()
-                    .await
-                    .map_err(|err| {
-                        RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Cannot build statement in execute_many: {err}"
-                        ))
-                    })?;
-            statements.push(statement);
-        }
+        // Build statement once using the first param set to resolve types and
+        // (for the prepared path) obtain the server-side Statement handle.
+        let template = StatementBuilder::new(
+            &querystring,
+            &Some(parameters[0].clone()),
+            self,
+            Some(prepared),
+        )
+        .build()
+        .await
+        .map_err(|err| {
+            RustPSQLDriverError::ConnectionExecuteError(format!(
+                "Cannot build statement in execute_many: {err}"
+            ))
+        })?;
 
-        if statements.is_empty() {
-            return Ok(());
-        }
+        let prepared_stmt: Option<Statement> = if prepared {
+            Some(template.statement_query()?.clone())
+        } else {
+            None
+        };
+        let param_types: Vec<Type> = template.param_types().to_vec();
+        let raw_query = template.raw_query().to_string();
+        // Named-parameter names are already computed inside StatementBuilder::build().
+        let param_names: Option<Vec<String>> = template.param_names().map(<[_]>::to_vec);
+
+        // Two GIL passes total: one inside StatementBuilder::build() for row 0,
+        // one here for all remaining rows — independent of batch size, not per-row.
+        let first_pp = template.into_prepared_parameters();
+        let remaining_pp: PSQLPyResult<Vec<_>> = if parameters.len() > 1 {
+            Python::with_gil(|gil| {
+                parameters[1..]
+                    .iter()
+                    .map(|param_set| {
+                        ParametersBuilder::new(Some(param_set), Some(param_types.clone()), vec![])
+                            .prepare_with_gil(gil, param_names.clone())
+                    })
+                    .collect()
+            })
+        } else {
+            Ok(vec![])
+        };
+
+        let mut all_pp = vec![first_pp];
+        all_pp.extend(remaining_pp?);
 
         let wrap = if self.in_transaction() {
             ExecuteManyWrap::Savepoint
@@ -532,7 +606,9 @@ impl PSQLPyConnection {
             ))
         })?;
 
-        let batch_result = self.run_pipelined_batch(&statements, prepared).await;
+        let batch_result = self
+            .run_pipelined_batch(prepared_stmt.as_ref(), &raw_query, &all_pp, prepared)
+            .await;
 
         let close_sql = wrap.close_sql(batch_result.is_ok());
         let close_result = self.batch_execute(close_sql).await;
@@ -558,72 +634,53 @@ impl PSQLPyConnection {
     /// short-circuiting with `?`) so already-sent messages can be acknowledged
     /// and the connection returns to a quiescent state before the caller
     /// issues the close-wrap statement. The first error is what we propagate.
+    ///
+    /// The `prepared_stmt` is already resolved by `execute_many` — no second
+    /// prepare call is issued here.
+    ///
+    /// # TODO(bind-execute-many)
+    ///
+    /// The per-row `FuturesOrdered<Client::query>` loop below is the layered
+    /// fallback for batched execution. It should be replaced by a future
+    /// `tokio_postgres::Client::bind_execute_many(&Statement, impl Iterator<Item = Params>)`
+    /// primitive once it lands upstream in sfackler/rust-postgres.
+    ///
+    /// Target behaviour: pack Bind+Execute frames for all rows into a shared
+    /// `BytesMut` (constants: `_EXECUTE_MANY_BUF_NUM=4`, `_EXECUTE_MANY_BUF_SIZE=32768`),
+    /// issue a single trailing Sync, and writev ~128 KiB per round-trip.
+    /// Reference algorithm: asyncpg `coreproto.pyx:1022-1092`.
+    ///
+    /// Tracking: no upstream issue open yet in sfackler/rust-postgres —
+    /// file one at <https://github.com/sfackler/rust-postgres/issues> if the
+    /// primitive is not yet tracked.
+    #[allow(clippy::type_complexity)]
     async fn run_pipelined_batch(
         &self,
-        statements: &[PsqlpyStatement],
+        prepared_stmt: Option<&Statement>,
+        raw_query: &str,
+        all_params: &[crate::statement::parameters::PreparedParameters],
         prepared: bool,
     ) -> PSQLPyResult<()> {
-        // Materialize parameter slices into owned boxes so the borrows feeding
-        // each future live for the whole pipeline (the slices reference data
-        // owned by each `PsqlpyStatement`, which already outlives this fn).
         if prepared {
-            let prepared_stmt = self
-                .prepare(statements[0].raw_query(), true)
-                .await
-                .map_err(|err| {
-                    RustPSQLDriverError::ConnectionExecuteError(format!(
-                        "Cannot prepare statement in execute_many: {err}"
-                    ))
-                })?;
+            let stmt = prepared_stmt.expect("prepared_stmt required when prepared=true");
 
             let param_boxes: Vec<Box<[&(dyn ToSql + Sync)]>> =
-                statements.iter().map(PsqlpyStatement::params).collect();
+                all_params.iter().map(|p| p.params()).collect();
 
-            let mut ordered: FuturesOrdered<_> = param_boxes
-                .iter()
-                .map(|p| self.query(&prepared_stmt, p))
-                .collect();
+            let ordered: FuturesOrdered<_> =
+                param_boxes.iter().map(|p| self.query(stmt, p)).collect();
 
-            let mut first_err: Option<RustPSQLDriverError> = None;
-            while let Some(res) = ordered.next().await {
-                if let Err(err) = res {
-                    if first_err.is_none() {
-                        first_err = Some(RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Error occurred in `execute_many` statement: {err}"
-                        )));
-                    }
-                }
-            }
-            match first_err {
-                Some(e) => Err(e),
-                None => Ok(()),
-            }
+            drain_ordered(ordered).await
         } else {
-            let param_boxes: Vec<_> = statements
+            let param_boxes: Vec<Box<[(&(dyn ToSql + Sync), Type)]>> =
+                all_params.iter().map(|p| p.params_typed()).collect();
+
+            let ordered: FuturesOrdered<_> = param_boxes
                 .iter()
-                .map(PsqlpyStatement::params_typed)
+                .map(|p| self.query_typed(raw_query, p))
                 .collect();
 
-            let mut ordered: FuturesOrdered<_> = statements
-                .iter()
-                .zip(param_boxes.iter())
-                .map(|(s, p)| self.query_typed(s.raw_query(), p))
-                .collect();
-
-            let mut first_err: Option<RustPSQLDriverError> = None;
-            while let Some(res) = ordered.next().await {
-                if let Err(err) = res {
-                    if first_err.is_none() {
-                        first_err = Some(RustPSQLDriverError::ConnectionExecuteError(format!(
-                            "Error occurred in `execute_many` statement: {err}"
-                        )));
-                    }
-                }
-            }
-            match first_err {
-                Some(e) => Err(e),
-                None => Ok(()),
-            }
+            drain_ordered(ordered).await
         }
     }
 

@@ -1,5 +1,4 @@
 use pyo3::PyObject;
-use tokio::sync::RwLockWriteGuard;
 use tokio_postgres::Statement;
 
 use crate::{
@@ -8,7 +7,6 @@ use crate::{
 };
 
 use super::{
-    cache::{StatementCacheInfo, StatementsCache, STMTS_CACHE},
     parameters::{Column, ParametersBuilder},
     query::QueryString,
     statement::PsqlpyStatement,
@@ -42,86 +40,39 @@ impl<'a> StatementBuilder<'a> {
     /// # Errors
     /// May return error if cannot prepare statement.
     pub async fn build(self) -> PSQLPyResult<PsqlpyStatement> {
-        if !self.prepared {
-            {
-                let stmt_cache_guard = STMTS_CACHE.read().await;
-                if let Some(cached) = stmt_cache_guard.get_cache(self.querystring) {
-                    return self.build_with_cached(cached);
-                }
-            }
-        }
-
-        let stmt_cache_guard = STMTS_CACHE.write().await;
-        self.build_no_cached(stmt_cache_guard).await
-    }
-
-    fn build_with_cached(self, cached: StatementCacheInfo) -> PSQLPyResult<PsqlpyStatement> {
-        let raw_parameters = ParametersBuilder::new(
-            self.parameters.as_ref(),
-            Some(cached.types()),
-            cached.columns(),
-        );
-
-        let parameters_names = cached
-            .query
-            .converted_qs
-            .as_ref()
-            .map(|converted_qs| converted_qs.params_names().clone());
-
-        let prepared_parameters = raw_parameters.prepare(parameters_names)?;
-
-        Ok(PsqlpyStatement::new(
-            cached.query,
-            prepared_parameters,
-            None,
-        ))
-    }
-
-    async fn build_no_cached(
-        self,
-        cache_guard: RwLockWriteGuard<'_, StatementsCache>,
-    ) -> PSQLPyResult<PsqlpyStatement> {
         let mut querystring = QueryString::new(self.querystring);
         querystring.process_qs();
 
-        let prepared_stmt = self.prepare_query(&querystring, self.prepared).await?;
+        let stmt = self.prepare_query(&querystring, self.prepared).await?;
 
-        let columns = prepared_stmt
+        let columns = stmt
             .columns()
             .iter()
-            .map(|column| Column::new(column.name().to_string(), column.table_oid()))
+            .map(|c| Column::new(c.name().to_string(), c.table_oid()))
             .collect::<Vec<Column>>();
-        let parameters_builder = ParametersBuilder::new(
+
+        let params_builder = ParametersBuilder::new(
             self.parameters.as_ref(),
-            Some(prepared_stmt.params().to_vec()),
+            Some(stmt.params().to_vec()),
             columns,
         );
 
-        let parameters_names = querystring
+        let param_names = querystring
             .converted_qs
             .as_ref()
-            .map(|converted_qs| converted_qs.params_names().clone());
+            .map(|c| c.params_names().clone());
 
-        let prepared_parameters = parameters_builder.prepare(parameters_names)?;
+        let prepared_parameters = params_builder.prepare(param_names)?;
 
         if self.prepared {
             Ok(PsqlpyStatement::new(
                 querystring,
                 prepared_parameters,
-                Some(prepared_stmt),
+                Some(stmt),
             ))
         } else {
-            Self::write_to_cache(cache_guard, &querystring, &prepared_stmt);
             Ok(PsqlpyStatement::new(querystring, prepared_parameters, None))
         }
-    }
-
-    fn write_to_cache(
-        mut cache_guard: RwLockWriteGuard<'_, StatementsCache>,
-        query: &QueryString,
-        inner_stmt: &Statement,
-    ) {
-        cache_guard.add_cache(query, inner_stmt);
     }
 
     async fn prepare_query(&self, query: &QueryString, prepared: bool) -> PSQLPyResult<Statement> {

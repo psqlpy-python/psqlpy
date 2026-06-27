@@ -68,10 +68,26 @@ impl ParametersBuilder {
         self,
         parameters_names: Option<Vec<String>>,
     ) -> PSQLPyResult<PreparedParameters> {
+        if self.parameters.is_none() {
+            return Ok(PreparedParameters::default());
+        }
+
         let prepared_parameters =
             Python::with_gil(|gil| self.prepare_parameters(gil, parameters_names))?;
 
         Ok(prepared_parameters)
+    }
+
+    /// Like `prepare` but reuses an already-held GIL token, avoiding a second acquisition.
+    ///
+    /// If `self.parameters` is `None`, returns `PreparedParameters::default()` without
+    /// any conversion work. If parameters is an empty sequence, also returns early.
+    pub(crate) fn prepare_with_gil(
+        self,
+        gil: Python<'_>,
+        parameters_names: Option<Vec<String>>,
+    ) -> PSQLPyResult<PreparedParameters> {
+        self.prepare_parameters(gil, parameters_names)
     }
 
     fn prepare_parameters(
@@ -84,6 +100,12 @@ impl ParametersBuilder {
         }
 
         let sequence_typed = self.as_type::<Vec<PyObject>>(gil);
+
+        // Empty sequence: no conversion work to do.
+        if sequence_typed.as_ref().is_some_and(Vec::is_empty) {
+            return Ok(PreparedParameters::default());
+        }
+
         let mapping_typed = self.downcast_as::<PyMapping>(gil);
         let mut prepared_parameters: Option<PreparedParameters> = None;
 
@@ -314,6 +336,11 @@ impl PreparedParameters {
             .map(|(param, type_)| (param as &QueryParameter, type_))
             .collect::<Vec<(&QueryParameter, Type)>>()
             .into_boxed_slice()
+    }
+
+    #[must_use]
+    pub fn types(&self) -> &[Type] {
+        &self.types
     }
 
     #[must_use]
