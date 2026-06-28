@@ -48,7 +48,9 @@ lint = [
   "ruff"
 ]
 test = [
-  "pytest"
+  "pytest",
+  "pytest-timeout",
+  "anyio",
 ]
 
 [tool.maturin]
@@ -60,6 +62,13 @@ features = ["pyo3/extension-module"]
 homepage = "https://github.com/psqlpy-python/psqlpy"
 repository = "https://github.com/psqlpy-python/psqlpy"
 documentation = "https://psqlpy-python.github.io/"
+
+[tool.pytest.ini_options]
+# Safety net so a wedged test (e.g. a listener waiting on a notification that
+# never arrives) fails fast instead of hanging the whole CI job. The listener
+# tests bound their own waits well below this; this is the backstop for anything
+# unforeseen.
+timeout = 120
 
 [tool.mypy]
 strict = true

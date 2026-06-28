@@ -371,7 +371,7 @@ macro_rules! impl_copy_records_method {
             /// pass Python values directly (the same conversions used by
             /// `execute`). Mirrors `asyncpg.Connection.copy_records_to_table`.
             ///
-            /// The encoder follows asyncpg's algorithm: a single BytesMut
+            /// The encoder follows asyncpg's algorithm: a single `BytesMut`
             /// accumulator flushed into 512 KiB (`_COPY_BUFFER_SIZE`) chunks.
             /// All rows are encoded during the GIL pass; chunks are sent to the
             /// server in a second pass after the GIL is released.
