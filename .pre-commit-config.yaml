@@ -15,7 +15,7 @@ repos:
         pass_filenames: false
         args: ["python"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.13
+    rev: v0.15.20
     hooks:
       # Run the linter.
       - id: ruff-check
