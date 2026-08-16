@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
         components: rustfmt
         override: true
     - name: Check code format
@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
         components: clippy
         override: true
     - uses: actions-rs/clippy-check@v1
@@ -54,7 +54,7 @@ jobs:
         postgres-version: ${{ matrix.postgres_version }}
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.97.1
         components: clippy
         override: true
     - name: Setup OpenSSL

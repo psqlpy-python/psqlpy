@@ -100,7 +100,7 @@ jobs:
       # The macOS runner images no longer ship a Rust toolchain on PATH,
       # so install it explicitly (including the cross-compilation target).
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}-apple-darwin
 

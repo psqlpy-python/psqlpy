@@ -1,0 +1,10 @@
+# Pinned so a new Rust release cannot turn every pull request red on its own:
+# clippy gains and tightens lints between versions, and the CI jobs used to ask
+# for whatever `stable` happened to be that week.
+#
+# When bumping, bump `toolchain:` in .github/workflows/test.yaml to match -
+# the workflow sets a rustup directory override, which takes precedence over
+# this file.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
