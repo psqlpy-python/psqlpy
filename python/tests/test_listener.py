@@ -232,7 +232,7 @@ async def test_listener_mixed_case_channel(
 
     connection = await psql_pool.connection()
     try:
-        await connection.execute(f'NOTIFY "{channel}", \'{TEST_PAYLOAD}\'')
+        await connection.execute(f"NOTIFY \"{channel}\", '{TEST_PAYLOAD}'")
     finally:
         connection.close()
 
