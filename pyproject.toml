@@ -33,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 authors = [{ email = "askiselev00@gmail.com" }, { name = "Kiselev Aleksandr" }]
 maintainers = [{ name = "Kiselev Aleksandr", email = "askiselev00@gmail.com" }]

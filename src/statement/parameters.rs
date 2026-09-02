@@ -2,10 +2,9 @@ use std::iter::zip;
 
 use postgres_types::{ToSql, Type};
 use pyo3::{
-    conversion::FromPyObjectBound,
-    pyclass, pymethods,
+    pyclass, pymethods, FromPyObject,
     types::{PyAnyMethods, PyMapping},
-    Py, PyObject, PyTypeCheck, Python,
+    Py, PyAny, PyTypeCheck, Python,
 };
 
 use crate::{
@@ -46,14 +45,14 @@ impl Column {
 }
 
 pub(crate) struct ParametersBuilder {
-    parameters: Option<PyObject>,
+    parameters: Option<Py<PyAny>>,
     types: Option<Vec<Type>>,
     columns: Vec<Column>,
 }
 
 impl ParametersBuilder {
     pub fn new(
-        parameters: Option<&PyObject>,
+        parameters: Option<&Py<PyAny>>,
         types: Option<Vec<Type>>,
         columns: Vec<Column>,
     ) -> Self {
@@ -73,7 +72,7 @@ impl ParametersBuilder {
         }
 
         let prepared_parameters =
-            Python::with_gil(|gil| self.prepare_parameters(gil, parameters_names))?;
+            Python::attach(|gil| self.prepare_parameters(gil, parameters_names))?;
 
         Ok(prepared_parameters)
     }
@@ -99,7 +98,7 @@ impl ParametersBuilder {
             return Ok(PreparedParameters::default());
         }
 
-        let sequence_typed = self.as_type::<Vec<PyObject>>(gil);
+        let sequence_typed = self.as_type::<Vec<Py<PyAny>>>(gil);
 
         // Empty sequence: no conversion work to do.
         if sequence_typed.as_ref().is_some_and(Vec::is_empty) {
@@ -136,7 +135,7 @@ impl ParametersBuilder {
         ))
     }
 
-    fn as_type<T: for<'a, 'py> FromPyObjectBound<'a, 'py>>(&self, gil: Python<'_>) -> Option<T> {
+    fn as_type<T: for<'a, 'py> FromPyObject<'a, 'py>>(&self, gil: Python<'_>) -> Option<T> {
         if let Some(parameters) = &self.parameters {
             let extracted_param = parameters.extract::<T>(gil);
 
@@ -152,7 +151,7 @@ impl ParametersBuilder {
 
     fn downcast_as<T: PyTypeCheck>(&self, gil: Python<'_>) -> Option<Py<T>> {
         if let Some(parameters) = &self.parameters {
-            let extracted_param = parameters.downcast_bound::<T>(gil);
+            let extracted_param = parameters.cast_bound::<T>(gil);
 
             if let Ok(extracted_param) = extracted_param {
                 return Some(extracted_param.clone().unbind());
@@ -232,8 +231,8 @@ impl MappingParametersBuilder {
         &self,
         gil: Python<'_>,
         parameters_names: Vec<String>,
-    ) -> PSQLPyResult<Vec<PyObject>> {
-        let mut params_as_pyobject: Vec<PyObject> = vec![];
+    ) -> PSQLPyResult<Vec<Py<PyAny>>> {
+        let mut params_as_pyobject: Vec<Py<PyAny>> = vec![];
 
         for param_name in parameters_names {
             match self.map_parameters.bind(gil).get_item(&param_name) {
@@ -251,13 +250,13 @@ impl MappingParametersBuilder {
 }
 
 pub(crate) struct SequenceParametersBuilder {
-    seq_parameters: Vec<PyObject>,
+    seq_parameters: Vec<Py<PyAny>>,
     types: Option<Vec<Type>>,
     columns: Vec<Column>,
 }
 
 impl SequenceParametersBuilder {
-    fn new(seq_parameters: Vec<PyObject>, types: Option<Vec<Type>>, columns: Vec<Column>) -> Self {
+    fn new(seq_parameters: Vec<Py<PyAny>>, types: Option<Vec<Type>>, columns: Vec<Column>) -> Self {
         Self {
             seq_parameters,
             types,

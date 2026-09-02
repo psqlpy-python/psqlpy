@@ -226,7 +226,7 @@ pub fn build_manager(
 /// 1) import inspect
 /// 2) extract boolean
 pub fn is_coroutine_function(function: Py<PyAny>) -> PSQLPyResult<bool> {
-    let is_coroutine_function: bool = Python::with_gil(|py| {
+    let is_coroutine_function: bool = Python::attach(|py| {
         let inspect = py.import("inspect")?;
 
         let is_cor = inspect

@@ -78,7 +78,7 @@ impl ConnectionPoolBuilder {
 
     /// Set `ca_file` for `ssl_mode` in `PostgreSQL`.
     fn ca_file(self_: Py<Self>, ca_file: String) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.ca_file = Some(ca_file);
         });
@@ -96,7 +96,7 @@ impl ConnectionPoolBuilder {
             ));
         }
 
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.max_db_pool_size = Some(pool_size);
         });
@@ -108,7 +108,7 @@ impl ConnectionPoolBuilder {
         self_: Py<Self>,
         conn_recycling_method: ConnRecyclingMethod,
     ) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.conn_recycling_method = Some(conn_recycling_method.to_internal());
         });
@@ -120,7 +120,7 @@ impl ConnectionPoolBuilder {
     /// Defaults to the user executing this process.
     #[must_use]
     pub fn user(self_: Py<Self>, user: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.user(user);
         });
@@ -130,7 +130,7 @@ impl ConnectionPoolBuilder {
     /// Sets the password to authenticate with.
     #[must_use]
     pub fn password(self_: Py<Self>, password: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.password(password);
         });
@@ -142,7 +142,7 @@ impl ConnectionPoolBuilder {
     /// Defaults to the user.
     #[must_use]
     pub fn dbname(self_: Py<Self>, dbname: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.dbname(dbname);
         });
@@ -152,7 +152,7 @@ impl ConnectionPoolBuilder {
     /// Sets command line options used to configure the server.
     #[must_use]
     pub fn options(self_: Py<Self>, options: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.options(options);
         });
@@ -162,7 +162,7 @@ impl ConnectionPoolBuilder {
     /// Sets the value of the `application_name` runtime parameter.
     #[must_use]
     pub fn application_name(self_: Py<Self>, application_name: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.application_name(application_name);
         });
@@ -174,7 +174,7 @@ impl ConnectionPoolBuilder {
     /// Defaults to `prefer`.
     #[must_use]
     pub fn ssl_mode(self_: Py<Self>, ssl_mode: SslMode) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.ssl_mode = Some(ssl_mode);
             self_.config.ssl_mode(ssl_mode.to_internal());
@@ -189,7 +189,7 @@ impl ConnectionPoolBuilder {
     /// There must be either no hosts, or the same number of hosts as hostaddrs.
     #[must_use]
     pub fn host(self_: Py<Self>, host: &str) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.host(host);
         });
@@ -202,7 +202,7 @@ impl ConnectionPoolBuilder {
     /// There must be either no hostaddrs, or the same number of hostaddrs as hosts.
     #[must_use]
     pub fn hostaddr(self_: Py<Self>, hostaddr: IpAddr) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.hostaddr(hostaddr);
         });
@@ -216,7 +216,7 @@ impl ConnectionPoolBuilder {
     /// as hosts.
     #[must_use]
     pub fn port(self_: Py<Self>, port: u16) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.port(port);
         });
@@ -229,7 +229,7 @@ impl ConnectionPoolBuilder {
     /// host separately. Defaults to no limit.
     #[must_use]
     pub fn connect_timeout(self_: Py<Self>, connect_timeout: u64) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -245,7 +245,7 @@ impl ConnectionPoolBuilder {
     /// on other systems, it has no effect.
     #[must_use]
     pub fn tcp_user_timeout(self_: Py<Self>, tcp_user_timeout: u64) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -263,7 +263,7 @@ impl ConnectionPoolBuilder {
         self_: Py<Self>,
         target_session_attrs: TargetSessionAttrs,
     ) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -277,7 +277,7 @@ impl ConnectionPoolBuilder {
     /// Defaults to `disable`.
     #[must_use]
     pub fn load_balance_hosts(self_: Py<Self>, load_balance_hosts: LoadBalanceHosts) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -291,7 +291,7 @@ impl ConnectionPoolBuilder {
     /// This is ignored for Unix domain socket connections. Defaults to `true`.
     #[must_use]
     pub fn keepalives(self_: Py<Self>, keepalives: bool) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.keepalives(keepalives);
         });
@@ -304,7 +304,7 @@ impl ConnectionPoolBuilder {
     #[must_use]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn keepalives_idle(self_: Py<Self>, keepalives_idle: u64) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -320,7 +320,7 @@ impl ConnectionPoolBuilder {
     #[must_use]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn keepalives_interval(self_: Py<Self>, keepalives_interval: u64) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_
                 .config
@@ -335,7 +335,7 @@ impl ConnectionPoolBuilder {
     #[must_use]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn keepalives_retries(self_: Py<Self>, keepalives_retries: u32) -> Py<Self> {
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
             self_.config.keepalives_retries(keepalives_retries);
         });

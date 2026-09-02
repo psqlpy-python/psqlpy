@@ -357,7 +357,7 @@ macro_rules! build_array_type {
             /// # Errors
             /// May return Err Result if cannot convert sequence to array.
             pub fn _convert_to_python_dto(&self, elem_type: &Type) -> PSQLPyResult<PythonDTO> {
-                return Python::with_gil(|gil| {
+                return Python::attach(|gil| {
                     let binding = &self.inner;
                     let bound_inner = Ok::<&pyo3::Bound<'_, pyo3::PyAny>, RustPSQLDriverError>(
                         binding.bind(gil),

@@ -376,7 +376,7 @@ impl ConnectionPool {
         _exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) {
-        pyo3::Python::with_gil(|gil| {
+        pyo3::Python::attach(|gil| {
             self_.borrow(gil).close();
         });
     }
@@ -405,7 +405,7 @@ impl ConnectionPool {
     #[must_use]
     #[allow(clippy::needless_pass_by_value)]
     pub fn listener(self_: pyo3::Py<Self>) -> Listener {
-        let (pg_config, pool_conf) = pyo3::Python::with_gil(|gil| {
+        let (pg_config, pool_conf) = pyo3::Python::attach(|gil| {
             let b_gil = self_.borrow(gil);
             (b_gil.pg_config.clone(), b_gil.pool_conf.clone())
         });
@@ -418,7 +418,7 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> PSQLPyResult<Connection> {
-        let (db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
+        let (db_pool, pg_config) = pyo3::Python::attach(|gil| {
             let slf = self_.borrow(gil);
             (slf.pool.clone(), slf.pg_config.clone())
         });

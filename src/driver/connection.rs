@@ -159,7 +159,7 @@ impl Connection {
     }
 
     async fn __aenter__(self_: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (db_client, db_pool, pg_config) = pyo3::Python::with_gil(|gil| {
+        let (db_client, db_pool, pg_config) = pyo3::Python::attach(|gil| {
             let self_ = self_.borrow(gil);
             (
                 self_.conn.clone(),
@@ -178,7 +178,7 @@ impl Connection {
                     Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
                 })
                 .await??;
-            pyo3::Python::with_gil(|gil| {
+            pyo3::Python::attach(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
                 self_.conn = Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
                     PoolConnection::new(connection, pg_config),
@@ -197,14 +197,14 @@ impl Connection {
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> PSQLPyResult<()> {
-        let (is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
+        let (is_exception_none, py_err) = pyo3::Python::attach(|gil| {
             (
                 exception.is_none(gil),
                 PyErr::from_value(exception.into_bound(gil)),
             )
         });
 
-        pyo3::Python::with_gil(|gil| {
+        pyo3::Python::attach(|gil| {
             let mut self_ = self_.borrow_mut(gil);
 
             std::mem::take(&mut self_.conn);
@@ -233,7 +233,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+        let db_client = pyo3::Python::attach(|gil| self_.borrow(gil).conn.clone());
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -262,7 +262,7 @@ impl Connection {
     /// 1) Connection is closed.
     /// 2) Cannot execute querystring.
     pub async fn execute_batch(self_: pyo3::Py<Self>, querystring: String) -> PSQLPyResult<()> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+        let db_client = pyo3::Python::attach(|gil| self_.borrow(gil).conn.clone());
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -290,7 +290,7 @@ impl Connection {
         prepared: Option<bool>,
     ) -> PSQLPyResult<Py<PyAny>> {
         let (db_client, py_none) =
-            pyo3::Python::with_gil(|gil| (self_.borrow(gil).conn.clone(), gil.None().into_any()));
+            pyo3::Python::attach(|gil| (self_.borrow(gil).conn.clone(), gil.None().into_any()));
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -319,7 +319,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverPyQueryResult> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+        let db_client = pyo3::Python::attach(|gil| self_.borrow(gil).conn.clone());
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -356,7 +356,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<PSQLDriverSinglePyQueryResult> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+        let db_client = pyo3::Python::attach(|gil| self_.borrow(gil).conn.clone());
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -386,7 +386,7 @@ impl Connection {
         parameters: Option<pyo3::Py<PyAny>>,
         prepared: Option<bool>,
     ) -> PSQLPyResult<Py<PyAny>> {
-        let db_client = pyo3::Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+        let db_client = pyo3::Python::attach(|gil| self_.borrow(gil).conn.clone());
 
         if let Some(db_client) = db_client {
             let read_conn_g = db_client.read().await;
@@ -427,7 +427,7 @@ impl Connection {
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn close(self_: pyo3::Py<Self>) {
-        pyo3::Python::with_gil(|gil| {
+        pyo3::Python::attach(|gil| {
             let mut connection = self_.borrow_mut(gil);
             if connection.conn.is_some() {
                 std::mem::take(&mut connection.conn);
