@@ -1,4 +1,4 @@
-[![PyPI - Python Version](https://img.shields.io/badge/PYTHON-3.10_%7C_3.11_%7C_3.12_%7C_3.13_%7C_3.14-blue?style=for-the-badge
+[![PyPI - Python Version](https://img.shields.io/badge/PYTHON-3.10_%7C_3.11_%7C_3.12_%7C_3.13_%7C_3.14_%7C_3.15-blue?style=for-the-badge
 )](https://pypi.org/project/psqlpy/)
 [![PyPI - Python Version](https://img.shields.io/badge/Tested%20On%20PostgreSQL-14%20%7C%2015%20%7C%2016%20%7C17-2be28a?style=for-the-badge
 )](https://pypi.org/project/psqlpy/)

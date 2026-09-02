@@ -1,4 +1,4 @@
-use pyo3::PyObject;
+use pyo3::{Py, PyAny};
 use tokio_postgres::Statement;
 
 use crate::{
@@ -14,7 +14,7 @@ use super::{
 
 pub struct StatementBuilder<'a> {
     querystring: &'a String,
-    parameters: &'a Option<PyObject>,
+    parameters: &'a Option<Py<PyAny>>,
     inner_conn: &'a PSQLPyConnection,
     prepared: bool,
 }
@@ -23,7 +23,7 @@ impl<'a> StatementBuilder<'a> {
     #[must_use]
     pub fn new(
         querystring: &'a String,
-        parameters: &'a Option<PyObject>,
+        parameters: &'a Option<Py<PyAny>>,
         inner_conn: &'a PSQLPyConnection,
         prepared: Option<bool>,
     ) -> Self {
