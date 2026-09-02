@@ -111,7 +111,7 @@ pub async fn connect(
     Ok(db_connection)
 }
 
-#[pyclass(subclass)]
+#[pyclass(subclass, from_py_object)]
 #[derive(Clone, Debug)]
 pub struct Connection {
     pub conn: Option<Arc<RwLock<PSQLPyConnection>>>,

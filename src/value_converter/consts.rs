@@ -23,10 +23,7 @@ pub fn get_decimal_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
 pub fn get_timedelta_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
     TIMEDELTA_CLS
         .get_or_try_init(py, || {
-            let type_object = py
-                .import("datetime")?
-                .getattr("timedelta")?
-                .cast_into()?;
+            let type_object = py.import("datetime")?.getattr("timedelta")?.cast_into()?;
             Ok(type_object.unbind())
         })
         .map(|ty| ty.bind(py))

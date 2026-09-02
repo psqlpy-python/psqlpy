@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use pyo3::{
-    exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, Python,
-};
+use pyo3::{exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, Python};
 use tokio::sync::RwLock;
 use tokio_postgres::{Config, Portal as tp_Portal};
 

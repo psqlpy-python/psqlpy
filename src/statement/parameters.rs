@@ -2,9 +2,9 @@ use std::iter::zip;
 
 use postgres_types::{ToSql, Type};
 use pyo3::{
-    pyclass, pymethods, FromPyObject,
+    pyclass, pymethods,
     types::{PyAnyMethods, PyMapping},
-    Py, PyAny, PyTypeCheck, Python,
+    FromPyObject, Py, PyAny, PyTypeCheck, Python,
 };
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
 
 pub type QueryParameter = dyn ToSql + Sync;
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Default, Clone, Debug)]
 pub struct Column {
     name: String,

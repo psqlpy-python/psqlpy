@@ -25,7 +25,7 @@ pub struct PythonDecimal;
 pub struct PythonUUID;
 pub struct PythonEnum;
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct PgVector(Vec<f32>);
 
@@ -46,7 +46,7 @@ impl PgVector {
 
 macro_rules! build_python_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[pyclass]
+        #[pyclass(from_py_object)]
         #[derive(Clone)]
         pub struct $st_name {
             inner_value: $rust_type,
@@ -82,7 +82,7 @@ build_python_type!(Money, i64);
 build_python_type!(Float32, f32);
 build_python_type!(Float64, f64);
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct Text {
     inner: String,
@@ -106,7 +106,7 @@ impl Text {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct VarChar {
     inner: String,
@@ -132,7 +132,7 @@ impl VarChar {
 
 macro_rules! build_json_py_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[pyclass]
+        #[pyclass(from_py_object)]
         #[derive(Clone)]
         pub struct $st_name {
             inner: $rust_type,
@@ -173,7 +173,7 @@ build_json_py_type!(JSON, Value);
 
 macro_rules! build_macaddr_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[pyclass]
+        #[pyclass(from_py_object)]
         #[derive(Clone)]
         pub struct $st_name {
             inner: $rust_type,
@@ -202,7 +202,7 @@ macro_rules! build_macaddr_type {
 build_macaddr_type!(MacAddr6, RustMacAddr6);
 build_macaddr_type!(MacAddr8, RustMacAddr8);
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone, Debug)]
 pub struct CustomType {
     inner: Vec<u8>,
@@ -225,7 +225,7 @@ impl CustomType {
 
 macro_rules! build_geo_type {
     ($st_name:ident, $rust_type:ty) => {
-        #[pyclass]
+        #[pyclass(from_py_object)]
         #[derive(Clone)]
         pub struct $st_name {
             inner: $rust_type,
@@ -326,7 +326,7 @@ impl Circle {
 
 macro_rules! build_array_type {
     ($st_name:ident, $kind:path, $elem_kind:path) => {
-        #[pyclass]
+        #[pyclass(from_py_object)]
         #[derive(Clone)]
         pub struct $st_name {
             inner: Py<PyAny>,
