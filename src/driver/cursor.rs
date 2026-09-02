@@ -142,7 +142,11 @@ impl Cursor {
         Ok(slf)
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unused_async)]
+    #[allow(
+        clippy::needless_pass_by_value,
+        clippy::unused_async,
+        clippy::unused_async_trait_impl
+    )]
     async fn __aexit__(
         &mut self,
         _exception_type: Py<PyAny>,

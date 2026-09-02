@@ -190,7 +190,7 @@ impl Connection {
         Err(RustPSQLDriverError::ConnectionClosedError)
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn __aexit__(
         self_: Py<Self>,
         _exception_type: Py<PyAny>,

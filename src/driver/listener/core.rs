@@ -88,12 +88,12 @@ impl Listener {
         slf
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         Ok(slf)
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn __aexit__(
         slf: Py<Self>,
         _exception_type: Py<PyAny>,
@@ -249,7 +249,7 @@ impl Listener {
     }
 
     /// TODO: remove clippy ignore after removing async
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn shutdown(&mut self) {
         self.abort_listen();
         std::mem::take(&mut self.connection);
