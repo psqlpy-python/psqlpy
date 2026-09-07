@@ -54,6 +54,6 @@ async def main() -> None:
             querystring="SELECT * FROM users WHERE name = ANY($1)",
             parameters=[
                 TextArray(["Alex", "Dev", "Who"]),
-            ]
+            ],
         )
 ```

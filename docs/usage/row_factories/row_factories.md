@@ -18,6 +18,7 @@ class ValidationTestModel:
     id: int
     name: str
 
+
 def to_class(
     class_: Type[ValidationTestModel],
 ) -> Callable[[Dict[str, Any]], ValidationTestModel]:
@@ -25,6 +26,7 @@ def to_class(
         return class_(**row)
 
     return to_class_inner
+
 
 async def main() -> None:
     conn_result = await psql_pool.execute(
