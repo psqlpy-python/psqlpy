@@ -61,5 +61,4 @@ if __name__ == "__main__":
     uvicorn.run(
         "start_example:app",
     )
-
 ```

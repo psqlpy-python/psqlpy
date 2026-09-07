@@ -16,6 +16,7 @@ db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
 
+
 async def main() -> None:
     connection = await db_pool.connection()
     prepared_stmt = await connection.prepare(
@@ -33,6 +34,7 @@ from psqlpy import ConnectionPool, Cursor, PreparedStatement
 db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
+
 
 async def main() -> None:
     connection = await db_pool.connection()
