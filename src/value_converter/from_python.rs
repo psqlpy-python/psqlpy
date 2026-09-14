@@ -7,7 +7,7 @@ use postgres_types::Type;
 use std::net::IpAddr;
 
 use pyo3::{
-    sync::GILOnceCell,
+    sync::PyOnceLock,
     types::{
         PyAnyMethods, PyBool, PyBytes, PyDate, PyDateTime, PyDelta, PyDict, PyFloat, PyInt, PyList,
         PySequence, PySet, PyString, PyTime, PyTuple, PyType,
@@ -16,9 +16,9 @@ use pyo3::{
 };
 
 /// Cached `uuid.UUID` type object for O(1) pointer-equality type dispatch.
-static UUID_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static UUID_TYPE: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 /// Cached `decimal.Decimal` type object for O(1) pointer-equality type dispatch.
-static DECIMAL_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static DECIMAL_TYPE: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 
 fn uuid_type(py: Python<'_>) -> PSQLPyResult<Bound<'_, PyType>> {
     UUID_TYPE
@@ -26,7 +26,7 @@ fn uuid_type(py: Python<'_>) -> PSQLPyResult<Bound<'_, PyType>> {
             pyo3::types::PyModule::import(py, "uuid")
                 .and_then(|m| m.getattr("UUID"))
                 .and_then(|t| {
-                    t.downcast::<PyType>()
+                    t.cast::<PyType>()
                         .map(|t| t.clone().unbind())
                         .map_err(Into::into)
                 })
@@ -45,7 +45,7 @@ fn decimal_type(py: Python<'_>) -> PSQLPyResult<Bound<'_, PyType>> {
             pyo3::types::PyModule::import(py, "decimal")
                 .and_then(|m| m.getattr("Decimal"))
                 .and_then(|t| {
-                    t.downcast::<PyType>()
+                    t.cast::<PyType>()
                         .map(|t| t.clone().unbind())
                         .map_err(Into::into)
                 })
@@ -557,7 +557,7 @@ pub fn py_sequence_into_postgres_array(
     type_: &Type,
 ) -> PSQLPyResult<Array<PythonDTO>> {
     let mut py_seq = parameter
-        .downcast::<PySequence>()
+        .cast::<PySequence>()
         .map_err(|_| {
             RustPSQLDriverError::PyToRustValueConversionError(
                 "PostgreSQL ARRAY type can be made only from python Sequence".into(),
@@ -584,7 +584,7 @@ pub fn py_sequence_into_postgres_array(
                         continue_iteration = false;
                         continue;
                     }
-                    let possible_inner_seq = first_seq_elem.downcast::<PySequence>();
+                    let possible_inner_seq = first_seq_elem.cast::<PySequence>();
 
                     match possible_inner_seq {
                         Ok(possible_inner_seq) => {
@@ -617,7 +617,7 @@ pub fn py_sequence_into_flat_vec(
     parameter: &Bound<PyAny>,
     type_: &Type,
 ) -> PSQLPyResult<Vec<PythonDTO>> {
-    let py_seq = parameter.downcast::<PySequence>().map_err(|_| {
+    let py_seq = parameter.cast::<PySequence>().map_err(|_| {
         RustPSQLDriverError::PyToRustValueConversionError(
             "PostgreSQL ARRAY type can be made only from python Sequence".into(),
         )
@@ -635,7 +635,7 @@ pub fn py_sequence_into_flat_vec(
             continue;
         }
 
-        let possible_next_seq = ok_seq_elem.downcast::<PySequence>();
+        let possible_next_seq = ok_seq_elem.cast::<PySequence>();
 
         if let Ok(next_seq) = possible_next_seq {
             let mut next_vec = py_sequence_into_flat_vec(next_seq, type_)?;
@@ -656,7 +656,7 @@ pub fn py_sequence_into_flat_vec(
 /// May return error if cannot convert Python type into Rust one.
 /// May return error if parameters type isn't correct.
 fn convert_py_to_rust_coord_values(parameters: Vec<Py<PyAny>>) -> PSQLPyResult<Vec<f64>> {
-    Python::with_gil(|gil| {
+    Python::attach(|gil| {
         let mut coord_values_vec: Vec<f64> = vec![];
 
         for one_parameter in parameters {
@@ -712,7 +712,7 @@ pub fn build_geo_coords(
 ) -> PSQLPyResult<Vec<Coord>> {
     let mut result_vec: Vec<Coord> = vec![];
 
-    result_vec = Python::with_gil(|gil| {
+    result_vec = Python::attach(|gil| {
         let bind_py_parameters = py_parameters.bind(gil);
         let parameters = py_sequence_to_rust(bind_py_parameters)?;
 
@@ -784,7 +784,7 @@ pub fn build_flat_geo_coords(
     py_parameters: Py<PyAny>,
     allowed_length_option: Option<usize>,
 ) -> PSQLPyResult<Vec<f64>> {
-    Python::with_gil(|gil| {
+    Python::attach(|gil| {
         let allowed_length = allowed_length_option.unwrap_or_default();
 
         let bind_py_parameters = py_parameters.bind(gil);
@@ -821,7 +821,7 @@ fn py_sequence_to_rust(bind_parameters: &Bound<PyAny>) -> PSQLPyResult<Vec<Py<Py
     let mut coord_values_sequence_vec: Vec<Py<PyAny>> = vec![];
 
     if bind_parameters.is_instance_of::<PySet>() {
-        let bind_pyset_parameters = bind_parameters.downcast::<PySet>().unwrap();
+        let bind_pyset_parameters = bind_parameters.cast::<PySet>().unwrap();
 
         for one_parameter in bind_pyset_parameters {
             let extracted_parameter = one_parameter.extract::<Py<PyAny>>().map_err(|_| {

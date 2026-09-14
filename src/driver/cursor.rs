@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use pyo3::{
-    exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, PyObject, Python,
-};
+use pyo3::{exceptions::PyStopAsyncIteration, pyclass, pymethods, Py, PyAny, PyErr, Python};
 use tokio::sync::RwLock;
 use tokio_postgres::{Config, Portal as tp_Portal};
 
@@ -103,7 +101,7 @@ impl Cursor {
 
     #[allow(clippy::single_match_else)]
     async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
-        let (conn, querystring, parameters, statement) = Python::with_gil(|gil| {
+        let (conn, querystring, parameters, statement) = Python::attach(|gil| {
             let self_ = slf.borrow(gil);
             (
                 self_.conn.clone(),
@@ -134,7 +132,7 @@ impl Cursor {
             }
         };
 
-        Python::with_gil(|gil| {
+        Python::attach(|gil| {
             let mut self_ = slf.borrow_mut(gil);
 
             self_.transaction = Some(Arc::new(txid));
@@ -144,7 +142,11 @@ impl Cursor {
         Ok(slf)
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unused_async)]
+    #[allow(
+        clippy::needless_pass_by_value,
+        clippy::unused_async,
+        clippy::unused_async_trait_impl
+    )]
     async fn __aexit__(
         &mut self,
         _exception_type: Py<PyAny>,
@@ -153,7 +155,7 @@ impl Cursor {
     ) -> PSQLPyResult<()> {
         self.close();
 
-        let (is_exc_none, py_err) = pyo3::Python::with_gil(|gil| {
+        let (is_exc_none, py_err) = pyo3::Python::attach(|gil| {
             (
                 exception.is_none(gil),
                 PyErr::from_value(exception.into_bound(gil)),
@@ -166,12 +168,12 @@ impl Cursor {
         Ok(())
     }
 
-    fn __anext__(&self) -> PSQLPyResult<Option<PyObject>> {
+    fn __anext__(&self) -> PSQLPyResult<Option<Py<PyAny>>> {
         let txid = self.transaction.clone();
         let portal = self.inner.clone();
         let size = self.array_size;
 
-        let py_future = Python::with_gil(move |gil| {
+        let py_future = Python::attach(move |gil| {
             rustdriver_future(gil, async move {
                 let Some(txid) = &txid else {
                     return Err(RustPSQLDriverError::TransactionClosedError);

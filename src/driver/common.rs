@@ -255,7 +255,7 @@ macro_rules! impl_binary_copy_method {
                 schema_name: Option<String>,
             ) -> PSQLPyResult<u64> {
                 let (db_client, mut bytes_mut) =
-                    Python::with_gil(|gil| -> PSQLPyResult<(Option<_>, BytesMut)> {
+                    Python::attach(|gil| -> PSQLPyResult<(Option<_>, BytesMut)> {
                         let db_client = self_.borrow(gil).conn.clone();
 
                         let Some(db_client) = db_client else {
@@ -388,7 +388,7 @@ macro_rules! impl_copy_records_method {
                 columns: Option<Vec<String>>,
                 schema_name: Option<String>,
             ) -> PSQLPyResult<u64> {
-                let db_client = Python::with_gil(|gil| self_.borrow(gil).conn.clone());
+                let db_client = Python::attach(|gil| self_.borrow(gil).conn.clone());
 
                 let Some(db_client) = db_client else {
                     return Ok(0);
@@ -461,7 +461,7 @@ macro_rules! impl_copy_records_method {
                 // Vec<Vec<Py<PyAny>>> then re-visit for DTO conversion).
                 let mut chunks: Vec<bytes::Bytes> = Vec::new();
 
-                let gil_result: PSQLPyResult<()> = Python::with_gil(|gil| {
+                let gil_result: PSQLPyResult<()> = Python::attach(|gil| {
                     let n_cols = column_types.len();
                     let mut buf = BytesMut::with_capacity(COPY_BUFFER_SIZE);
                     // Scratch vec allocated once and cleared between rows (T3#10).

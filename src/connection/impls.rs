@@ -578,7 +578,7 @@ impl PSQLPyConnection {
         // one here for all remaining rows — independent of batch size, not per-row.
         let first_pp = template.into_prepared_parameters();
         let remaining_pp: PSQLPyResult<Vec<_>> = if parameters.len() > 1 {
-            Python::with_gil(|gil| {
+            Python::attach(|gil| {
                 parameters[1..]
                     .iter()
                     .map(|param_set| {
@@ -757,7 +757,7 @@ impl PSQLPyConnection {
             .fetch_row_raw(querystring, parameters, prepared)
             .await?;
 
-        Python::with_gil(|gil| match result.columns().first() {
+        Python::attach(|gil| match result.columns().first() {
             Some(first_column) => postgres_to_py(gil, &result, first_column, 0, &None),
             None => Ok(gil.None()),
         })

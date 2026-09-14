@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use pyo3::{
     types::{PyAnyMethods, PyString},
-    Bound, FromPyObject, IntoPyObject, PyAny, PyResult, Python,
+    Borrowed, Bound, FromPyObject, IntoPyObject, PyAny, PyErr, Python,
 };
 use tokio_postgres::types::Type;
 
@@ -16,8 +16,10 @@ use crate::exceptions::rust_errors::RustPSQLDriverError;
 #[derive(Clone, Copy)]
 pub struct InternalUuid(Uuid);
 
-impl<'a> FromPyObject<'a> for InternalUuid {
-    fn extract_bound(obj: &Bound<'a, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for InternalUuid {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
         let uuid_value = Uuid::parse_str(obj.str()?.extract::<&str>()?).map_err(|_| {
             RustPSQLDriverError::PyToRustValueConversionError(
                 "Cannot convert UUID Array to inner rust type, check you parameters.".into(),

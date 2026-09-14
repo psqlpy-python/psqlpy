@@ -21,7 +21,7 @@ pub fn tokio_runtime() -> &'static tokio::runtime::Runtime {
 pub fn rustdriver_future<F, T>(py: Python<'_>, future: F) -> PSQLPyResult<Py<PyAny>>
 where
     F: Future<Output = PSQLPyResult<T>> + Send + 'static,
-    T: for<'py> IntoPyObject<'py>,
+    T: for<'py> IntoPyObject<'py> + Send + 'static,
 {
     let res =
         pyo3_async_runtimes::tokio::future_into_py(py, async { future.await.map_err(Into::into) })

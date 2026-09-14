@@ -88,19 +88,19 @@ impl Listener {
         slf
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn __aenter__(slf: Py<Self>) -> PSQLPyResult<Py<Self>> {
         Ok(slf)
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn __aexit__(
         slf: Py<Self>,
         _exception_type: Py<PyAny>,
         exception: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> PSQLPyResult<()> {
-        let (client, is_exception_none, py_err) = pyo3::Python::with_gil(|gil| {
+        let (client, is_exception_none, py_err) = pyo3::Python::attach(|gil| {
             let self_ = slf.borrow(gil);
             (
                 self_.connection.db_client(),
@@ -110,7 +110,7 @@ impl Listener {
         });
 
         if client.is_some() {
-            pyo3::Python::with_gil(|gil| {
+            pyo3::Python::attach(|gil| {
                 let mut self_ = slf.borrow_mut(gil);
                 std::mem::take(&mut self_.connection);
                 std::mem::take(&mut self_.receiver);
@@ -143,7 +143,7 @@ impl Listener {
         let applied_channels_clone = self.applied_channels.clone();
         let connection = self.connection.clone();
 
-        let py_future = Python::with_gil(move |gil| {
+        let py_future = Python::attach(move |gil| {
             rustdriver_future(gil, async move {
                 {
                     execute_listen(
@@ -249,7 +249,7 @@ impl Listener {
     }
 
     /// TODO: remove clippy ignore after removing async
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn shutdown(&mut self) {
         self.abort_listen();
         std::mem::take(&mut self.connection);
@@ -264,7 +264,7 @@ impl Listener {
             return Err(RustPSQLDriverError::ListenerCallbackError);
         }
 
-        let task_locals = Python::with_gil(pyo3_async_runtimes::tokio::get_current_locals)?;
+        let task_locals = Python::attach(pyo3_async_runtimes::tokio::get_current_locals)?;
 
         let listener_callback = ListenerCallback::new(task_locals, callback);
 
