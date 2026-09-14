@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.15'
+          allow-prereleases: true
       - name: Setup SSL libs
         run: sudo apt-get update -y && sudo apt-get install -y libipc-run-perl && sudo apt-get install pkg-config libssl-dev
       - name: Build wheels
@@ -66,6 +67,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.15'
+          allow-prereleases: true
           architecture: ${{ matrix.target }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -97,6 +99,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.15'
+          allow-prereleases: true
       # The macOS runner images no longer ship a Rust toolchain on PATH,
       # so install it explicitly (including the cross-compilation target).
       - name: Setup Rust
@@ -159,6 +162,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.15'
+          allow-prereleases: true
           architecture: x64
       - name: Build wheels
         uses: messense/maturin-action@v1
