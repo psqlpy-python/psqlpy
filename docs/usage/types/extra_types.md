@@ -65,7 +65,13 @@ async def main() -> None:
     async with db_pool.acquire() as connection:
         await connection.execute(
             "INSERT INTO numbers (index, elf_life, elon_musk_money) VALUES ($1, $2, $3, $4, $5)",
-            [SmallInt(101), Integer(10500), BigInt(300000000000), Float32(123.11), Float64(222.12)],
+            [
+                SmallInt(101),
+                Integer(10500),
+                BigInt(300000000000),
+                Float32(123.11),
+                Float64(222.12),
+            ],
         )
 ```
 
@@ -119,7 +125,7 @@ my_dict = {
     ],
     "with": {
         "nested": "values",
-    }
+    },
 }
 ```
 On the other side, if you want to set list of values to JSON/JSONB field, you must wrap it in `PyJSON`/`PyJSONB` type, otherwise `PSQLPy` will assume that you passed an array (PostgreSQL `ARRAY`).
@@ -150,8 +156,11 @@ async def main() -> None:
     dict_for_jsonb_field = {
         "regular": "dict",
         "with": [
-            "list", "of", "values", 100,
-        ]
+            "list",
+            "of",
+            "values",
+            100,
+        ],
     }
 
     async with db_pool.acquire() as connection:
@@ -161,7 +170,9 @@ async def main() -> None:
         )
         await connection.execute(
             "INSERT INTO users (additional_user_info) VALUES ($1)",
-            [dict_for_jsonb_field,],
+            [
+                dict_for_jsonb_field,
+            ],
         )
 ```
 

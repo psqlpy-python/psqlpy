@@ -334,7 +334,6 @@ async def main() -> None:
             ),
         ]
     )
-
 ```
 
 ### Create Savepoint
@@ -424,7 +423,7 @@ async def main() -> None:
 
     async for fetched_result in cursor:
         dict_result: List[Dict[Any, Any]] = fetched_result.result()
-        ... # do something with the result.
+        ...  # do something with the result.
 ```
 
 ### COPY FROM STDIN

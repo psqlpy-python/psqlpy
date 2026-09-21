@@ -75,12 +75,13 @@ This is the ergonomic alternative to `binary_copy_to_table` when you have Python
 ```python
 from datetime import datetime, timezone
 
+
 async def main() -> None:
     ...
     connection = await db_pool.connection()
     records = [
-        (1, "alpha", 1.5,  datetime(2026, 1, 1, tzinfo=timezone.utc)),
-        (2, "beta",  2.25, datetime(2026, 1, 2, tzinfo=timezone.utc)),
+        (1, "alpha", 1.5, datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        (2, "beta", 2.25, datetime(2026, 1, 2, tzinfo=timezone.utc)),
         (3, "gamma", None, datetime(2026, 1, 3, tzinfo=timezone.utc)),
     ]
     inserted = await connection.copy_records_to_table(
@@ -94,12 +95,13 @@ async def main() -> None:
 ```python
 from datetime import datetime, timezone
 
+
 async def main() -> None:
     ...
     connection = await db_pool.connection()
     records = [
-        (1, "alpha", 1.5,  datetime(2026, 1, 1, tzinfo=timezone.utc)),
-        (2, "beta",  2.25, datetime(2026, 1, 2, tzinfo=timezone.utc)),
+        (1, "alpha", 1.5, datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        (2, "beta", 2.25, datetime(2026, 1, 2, tzinfo=timezone.utc)),
         (3, "gamma", None, datetime(2026, 1, 3, tzinfo=timezone.utc)),
     ]
     async with connection.transaction() as transaction:
