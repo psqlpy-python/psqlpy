@@ -21,6 +21,7 @@ db_pool = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
 
+
 async def test_channel_callback(
     connection: Connection,
     payload: str,
@@ -29,6 +30,7 @@ async def test_channel_callback(
 ) -> None:
     # do some important staff
     ...
+
 
 async def main() -> None:
     # Create listener object
@@ -65,6 +67,7 @@ from psqlpy import (
 db_pool = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
+
 
 async def main() -> None:
     # Create listener object
@@ -127,13 +130,13 @@ Callback signature is like this:
 ```python
 from psqlpy import Connection
 
+
 async def callback(
     connection: Connection,
     payload: str,
     channel: str,
     process_id: int,
-) -> None:
-    ...
+) -> None: ...
 ```
 
 Parameters for callback are based like `args`, so this signature is correct to:
@@ -141,8 +144,7 @@ Parameters for callback are based like `args`, so this signature is correct to:
 async def callback(
     connection: Connection,
     *args,
-) -> None:
-    ...
+) -> None: ...
 ```
 
 **Example:**
@@ -152,8 +154,8 @@ async def test_channel_callback(
     payload: str,
     channel: str,
     process_id: int,
-) -> None:
-    ...
+) -> None: ...
+
 
 async def main() -> None:
     listener = db_pool.listener()
