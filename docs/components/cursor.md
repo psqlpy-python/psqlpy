@@ -22,6 +22,7 @@ Cursor can be used in different ways.
 ```python
 from psqlpy import ConnectionPool, QueryResult
 
+
 async def main() -> None:
     db_pool = ConnectionPool()
     connection = await db_pool.connection()
@@ -37,6 +38,7 @@ async def main() -> None:
 @tab Post-Initialization
 ```python
 from psqlpy import ConnectionPool, QueryResult
+
 
 async def main() -> None:
     db_pool = ConnectionPool()
@@ -54,6 +56,7 @@ async def main() -> None:
 ```python
 from psqlpy import ConnectionPool, QueryResult
 
+
 async def main() -> None:
     db_pool = ConnectionPool()
     connection = await db_pool.connection()
@@ -69,6 +72,7 @@ async def main() -> None:
 @tab Async Iterator
 ```python
 from psqlpy import ConnectionPool, QueryResult
+
 
 async def main() -> None:
     db_pool = ConnectionPool()
