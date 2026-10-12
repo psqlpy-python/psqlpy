@@ -68,7 +68,6 @@ async def main() -> None:
 
     print(res.result())
     db_pool.close()
-
 ```
 
 ## Benchmarks
