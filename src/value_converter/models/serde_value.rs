@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 
 use pyo3::{
     types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyTuple, PyTupleMethods},
-    Bound, FromPyObject, IntoPyObject, PyAny, PyResult, Python,
+    Borrowed, Bound, FromPyObject, IntoPyObject, PyAny, PyErr, Python,
 };
 use tokio_postgres::types::Type;
 
@@ -23,9 +23,11 @@ use crate::{
 #[derive(Clone)]
 pub struct InternalSerdeValue(Value);
 
-impl<'a> FromPyObject<'a> for InternalSerdeValue {
-    fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
-        let serde_value = build_serde_value(ob)?;
+impl<'py> FromPyObject<'_, 'py> for InternalSerdeValue {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let serde_value = build_serde_value(&ob)?;
 
         Ok(InternalSerdeValue(serde_value))
     }
@@ -71,12 +73,12 @@ fn serde_value_for_json_child(item: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
 fn serde_value_from_sequence(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
     let mut result_vec: Vec<Value> = Vec::new();
 
-    if let Ok(py_list) = bind_value.downcast::<PyList>() {
+    if let Ok(py_list) = bind_value.cast::<PyList>() {
         result_vec.reserve(py_list.len());
         for item in py_list.iter() {
             result_vec.push(serde_value_for_json_child(&item)?);
         }
-    } else if let Ok(py_tuple) = bind_value.downcast::<PyTuple>() {
+    } else if let Ok(py_tuple) = bind_value.cast::<PyTuple>() {
         result_vec.reserve(py_tuple.len());
         for index in 0..py_tuple.len() {
             let item = py_tuple.get_item(index)?;
@@ -92,7 +94,7 @@ fn serde_value_from_sequence(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Valu
 }
 
 fn serde_value_from_dict(bind_value: &Bound<'_, PyAny>) -> PSQLPyResult<Value> {
-    let dict = bind_value.downcast::<PyDict>().map_err(|error| {
+    let dict = bind_value.cast::<PyDict>().map_err(|error| {
         RustPSQLDriverError::PyToRustValueConversionError(format!(
             "Can't cast to inner dict: {error}"
         ))

@@ -3,7 +3,7 @@ use std::time::Duration;
 use deadpool_postgres::RecyclingMethod;
 use pyo3::{pyclass, pymethods};
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum ConnRecyclingMethod {
     Fast,
@@ -22,7 +22,7 @@ impl ConnRecyclingMethod {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum LoadBalanceHosts {
     /// Make connection attempts to hosts in the order provided.
@@ -41,7 +41,7 @@ impl LoadBalanceHosts {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum TargetSessionAttrs {
     /// No special properties are required.
@@ -63,7 +63,7 @@ impl TargetSessionAttrs {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SslMode {
     /// Do not use TLS.
@@ -99,7 +99,7 @@ impl SslMode {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone, Copy)]
 pub struct KeepaliveConfig {
     pub idle: Duration,
@@ -121,7 +121,7 @@ impl KeepaliveConfig {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum CopyCommandFormat {
     TEXT,
@@ -140,7 +140,7 @@ impl CopyCommandFormat {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum IsolationLevel {
     ReadUncommitted,
@@ -162,14 +162,14 @@ impl IsolationLevel {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ReadVariant {
     ReadOnly,
     ReadWrite,
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum SynchronousCommit {
     /// As the name indicates, the commit acknowledgment can come before

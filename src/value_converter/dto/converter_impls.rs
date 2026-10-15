@@ -33,7 +33,11 @@ macro_rules! construct_simple_type_converter {
     ($match_type:ty, $kind:path) => {
         impl ToPythonDTO for $match_type {
             fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
-                Ok($kind(python_param.extract::<$match_type>()?))
+                Ok($kind(
+                    python_param
+                        .extract::<$match_type>()
+                        .map_err(pyo3::PyErr::from)?,
+                ))
             }
         }
     };
@@ -97,7 +101,12 @@ macro_rules! construct_extra_type_converter {
     ($match_type:ty, $kind:path) => {
         impl ToPythonDTO for $match_type {
             fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
-                Ok($kind(python_param.extract::<$match_type>()?.inner()))
+                Ok($kind(
+                    python_param
+                        .extract::<$match_type>()
+                        .map_err(pyo3::PyErr::from)?
+                        .inner(),
+                ))
             }
         }
     };
@@ -187,7 +196,8 @@ macro_rules! construct_array_type_converter {
         impl ToPythonDTO for $match_type {
             fn to_python_dto(python_param: &Bound<'_, PyAny>) -> PSQLPyResult<PythonDTO> {
                 python_param
-                    .extract::<$match_type>()?
+                    .extract::<$match_type>()
+                    .map_err(pyo3::PyErr::from)?
                     ._convert_to_python_dto(&Self::element_type())
             }
         }

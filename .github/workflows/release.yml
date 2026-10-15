@@ -18,14 +18,14 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - name: Setup SSL libs
         run: sudo apt-get update -y && sudo apt-get install -y libipc-run-perl && sudo apt-get install pkg-config libssl-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.15 pypy3.10 pypy3.11
           sccache: 'true'
           manylinux: auto
           before-script-linux: |
@@ -65,13 +65,13 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           architecture: ${{ matrix.target }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.15
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       # The macOS runner images no longer ship a Rust toolchain on PATH,
       # so install it explicitly (including the cross-compilation target).
       - name: Setup Rust
@@ -108,7 +108,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.15 pypy3.10 pypy3.11
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -158,13 +158,13 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           architecture: x64
       - name: Build wheels
         uses: messense/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 pypy3.10 pypy3.11
+          args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.15 pypy3.10 pypy3.11
           manylinux: musllinux_1_2
       - name: Upload wheels
         uses: actions/upload-artifact@v4

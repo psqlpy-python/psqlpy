@@ -13,7 +13,7 @@ pub fn extract_value_from_python_object_or_raise<'py, T>(
     attr_name: &str,
 ) -> Result<T, RustPSQLDriverError>
 where
-    T: FromPyObject<'py>,
+    T: for<'a> FromPyObject<'a, 'py>,
 {
     parameter
         .getattr(attr_name)

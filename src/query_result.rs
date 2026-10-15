@@ -342,7 +342,7 @@ impl Record {
         }
 
         // Slice
-        if let Ok(slice) = key.downcast::<PySlice>() {
+        if let Ok(slice) = key.cast::<PySlice>() {
             // Safe: len() <= isize::MAX on any platform we target
             let indices = slice.indices(self.values.len() as isize)?;
             let mut result: Vec<Py<PyAny>> = Vec::new();

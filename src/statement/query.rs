@@ -50,7 +50,7 @@ impl QueryString {
             parameters_names.push(parameter_idx.clone());
             counter += 1;
 
-            format!("${}", &counter)
+            format!("${counter}")
         });
 
         self.converted_qs = Some(ConvertedQueryString::new(result.into(), parameters_names));
