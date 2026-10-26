@@ -41,7 +41,7 @@ async def pg_pool_example():
     return Response(data=query_result.result())
 
 
-app = Panther(__name__, configs=__name__, urls={'/': pg_pool_example})
+app = Panther(__name__, configs=__name__, urls={"/": pg_pool_example})
 
 if __name__ == "__main__":
     uvicorn.run(app)
