@@ -1,8 +1,8 @@
 import typing
 from io import BytesIO
 
-import pytest
 import pyarrow as pa
+import pytest
 from pgpq import ArrowToPostgresBinaryEncoder
 from psqlpy import ConnectionPool
 
