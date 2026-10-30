@@ -300,10 +300,14 @@ macro_rules! impl_binary_copy_method {
 
                 let copy_qs = match columns {
                     Some(ref cols) if !cols.is_empty() => {
+                        let cols_sql = cols
+                            .iter()
+                            .map(|c| quote_ident(c))
+                            .collect::<Vec<_>>()
+                            .join(", ");
                         format!(
                             "COPY {}({}) FROM STDIN (FORMAT binary)",
-                            full_table_name,
-                            cols.join(", ")
+                            full_table_name, cols_sql
                         )
                     }
                     _ => format!("COPY {} FROM STDIN (FORMAT binary)", full_table_name),
