@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import uuid
 import zoneinfo
 from decimal import Decimal
@@ -59,8 +59,8 @@ from tests.conftest import DefaultPydanticModel, DefaultPythonModelClass
 
 uuid_ = uuid.uuid4()
 pytestmark = pytest.mark.anyio
-now_datetime = datetime.datetime.now()  # noqa: DTZ005
-now_datetime_with_tz = datetime.datetime(
+now_datetime = dt.datetime.now()  # noqa: DTZ005
+now_datetime_with_tz = dt.datetime(
     2024,
     4,
     13,
@@ -68,10 +68,10 @@ now_datetime_with_tz = datetime.datetime(
     3,
     46,
     142574,
-    tzinfo=datetime.timezone.utc,
+    tzinfo=dt.timezone.utc,
 )
 
-now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+now_datetime_with_tz_in_asia_jakarta = dt.datetime(
     2024,
     4,
     13,
@@ -79,10 +79,10 @@ now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
     3,
     46,
     142574,
-    tzinfo=datetime.timezone.utc,
+    tzinfo=dt.timezone.utc,
 )
 
-now_datetime_with_tz_in_asia_jakarta = datetime.datetime(
+now_datetime_with_tz_in_asia_jakarta = dt.datetime(
     2024,
     4,
     13,
@@ -266,8 +266,8 @@ async def test_as_class(
         ),
         (
             "INTERVAL",
-            datetime.timedelta(days=100, microseconds=100),
-            datetime.timedelta(days=100, microseconds=100),
+            dt.timedelta(days=100, microseconds=100),
+            dt.timedelta(days=100, microseconds=100),
         ),
     ],
 )
@@ -506,10 +506,10 @@ async def test_deserialization_composite_into_python(
         float8_def_: float
         float4_: float
         float8_: float
-        date_: datetime.date
-        time_: datetime.time
-        timestamp_: datetime.datetime
-        timestampz_: datetime.datetime
+        date_: dt.date
+        time_: dt.time
+        timestamp_: dt.datetime
+        timestampz_: dt.datetime
         uuid_: uuid.UUID
         inet_: IPv4Address
         jsonb_: dict[str, list[str | int | list[str]]]
@@ -529,10 +529,10 @@ async def test_deserialization_composite_into_python(
         int4_arr: list[int]
         int8_arr: list[int]
         float8_arr: list[float]
-        date_arr: list[datetime.date]
-        time_arr: list[datetime.time]
-        timestamp_arr: list[datetime.datetime]
-        timestampz_arr: list[datetime.datetime]
+        date_arr: list[dt.date]
+        time_arr: list[dt.time]
+        timestamp_arr: list[dt.datetime]
+        timestampz_arr: list[dt.datetime]
         uuid_arr: list[uuid.UUID]
         inet_arr: list[IPv4Address]
         jsonb_arr: list[dict[str, list[str | int | list[str]]]]
@@ -1535,25 +1535,25 @@ async def test_empty_array(
         (
             "INTERVAL ARRAY",
             [
-                [datetime.timedelta(days=100, microseconds=100)],
-                [datetime.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
             ],
             [
-                [datetime.timedelta(days=100, microseconds=100)],
-                [datetime.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
             ],
         ),
         (
             "INTERVAL ARRAY",
             IntervalArray(
                 [
-                    [datetime.timedelta(days=100, microseconds=100)],
-                    [datetime.timedelta(days=100, microseconds=100)],
+                    [dt.timedelta(days=100, microseconds=100)],
+                    [dt.timedelta(days=100, microseconds=100)],
                 ],
             ),
             [
-                [datetime.timedelta(days=100, microseconds=100)],
-                [datetime.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
+                [dt.timedelta(days=100, microseconds=100)],
             ],
         ),
     ],
