@@ -47,10 +47,9 @@ async def pg_pool_example(request: web.Request):
 
 application = web.Application()
 application.on_startup.append(start_db_pool)
-application.add_routes([web.get('/', pg_pool_example)])
+application.add_routes([web.get("/", pg_pool_example)])
 
 
 if __name__ == "__main__":
     web.run_app(application)
-
 ```
