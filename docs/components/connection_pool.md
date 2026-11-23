@@ -153,6 +153,48 @@ async def main() -> None:
     # ConnectionPool is closed
 ```
 
+### Cancel a query with a timeout
+When the task awaiting a query is cancelled, for example by `asyncio.wait_for`,
+`PSQLPy` sends a cancel request to the server, over a new connection with
+the same TLS settings as the pool, and the server stops the query.
+The connection that ran it does not go back to the pool:
+when it is released, it is closed, and the pool opens a new one on the next request.
+
+Release the connection after a timeout instead of running more queries on it.
+A cancelled `execute_many` leaves its transaction open on that connection,
+and the cancel request can still reach the server after the next query has started.
+
+This applies to the queries of a `Connection`, a `Transaction` and a `PreparedStatement`
+taken from a `ConnectionPool`: `execute`, `execute_batch`, `execute_many`, `fetch`,
+`fetch_row`, `fetch_val`, `prepare`, `pipeline` and the transaction statements.
+Cursors and the COPY methods do not cancel their queries yet.
+
+```python
+import asyncio
+
+from psqlpy import ConnectionPool
+
+
+async def main() -> None:
+    db_pool = ConnectionPool(dsn="postgres://postgres:postgres@localhost:5432/postgres")
+    async with db_pool.acquire() as connection:
+        try:
+            await asyncio.wait_for(
+                connection.execute("SELECT pg_sleep(60)"),
+                timeout=1,
+            )
+        except asyncio.TimeoutError:
+            ...  # the query was cancelled on the server
+```
+
+::: warning
+Cancellation is a race. If the query finishes on the server before the cancel request
+arrives, its effects stay, even though your code saw a timeout,
+and the cancel request stops the next query on that connection if one is already running.
+If the cancel request cannot reach the server, the query may keep running there until it ends.
+In every case, the connection is closed when it is released.
+:::
+
 ## Connection pool methods
 
 ### Resize
