@@ -12,6 +12,7 @@ The main problem is PostgreSQL expects `LIMIT` and `OFFSET` to be BIGINT type bu
 from psqlpy import ConnectionPool
 from psqlpy.extra_types import BigInt
 
+
 # --- Incorrect ---
 async def main() -> None:
     pool = ConnectionPool()
@@ -36,6 +37,7 @@ Instead of using `WHERE <field> IN ()` clause you must use `WHERE <field> = ANY(
 #### Problem and Solution:
 ```python
 from psqlpy import ConnectionPool
+
 
 # --- Incorrect ---
 async def main() -> None:
@@ -72,6 +74,7 @@ For example, when we want to make `WHERE` clause with `ANY` and string values, w
 from psqlpy import ConnectionPool
 from psqlpy.extra_types import TextArray
 
+
 # --- Incorrect ---
 async def main() -> None:
     pool = ConnectionPool()
@@ -104,6 +107,7 @@ The main problem that we cannot determine the type of the empty sequence passed 
 ```python
 from psqlpy import ConnectionPool
 from psqlpy.extra_types import VarCharArray
+
 
 # --- Incorrect ---
 async def main() -> None:
