@@ -181,10 +181,16 @@ impl CloseTransaction for SingleConnection {
 impl Connection for PoolConnection {
     async fn prepare(&self, query: &str, prepared: bool) -> PSQLPyResult<Statement> {
         if prepared {
-            return Ok(self.connection.prepare_cached(query).await?);
+            return Ok(self
+                .connection
+                .cancel_on_drop(self.connection.prepare_cached(query))
+                .await?);
         }
 
-        let prepared = self.connection.prepare(query).await?;
+        let prepared = self
+            .connection
+            .cancel_on_drop(self.connection.prepare(query))
+            .await?;
         self.drop_prepared(&prepared).await?;
         Ok(prepared)
     }
@@ -192,7 +198,10 @@ impl Connection for PoolConnection {
     async fn drop_prepared(&self, stmt: &Statement) -> PSQLPyResult<()> {
         let deallocate_query = format!("DEALLOCATE PREPARE {}", stmt.name());
 
-        Ok(self.connection.batch_execute(&deallocate_query).await?)
+        Ok(self
+            .connection
+            .cancel_on_drop(self.connection.batch_execute(&deallocate_query))
+            .await?)
     }
 
     async fn query<T>(
@@ -203,7 +212,10 @@ impl Connection for PoolConnection {
     where
         T: ?Sized + ToStatement,
     {
-        Ok(self.connection.query(statement, params).await?)
+        Ok(self
+            .connection
+            .cancel_on_drop(self.connection.query(statement, params))
+            .await?)
     }
 
     async fn query_typed(
@@ -211,11 +223,17 @@ impl Connection for PoolConnection {
         statement: &str,
         params: &[(&(dyn postgres_types::ToSql + Sync), postgres_types::Type)],
     ) -> PSQLPyResult<Vec<Row>> {
-        Ok(self.connection.query_typed(statement, params).await?)
+        Ok(self
+            .connection
+            .cancel_on_drop(self.connection.query_typed(statement, params))
+            .await?)
     }
 
     async fn batch_execute(&self, query: &str) -> PSQLPyResult<()> {
-        Ok(self.connection.batch_execute(query).await?)
+        Ok(self
+            .connection
+            .cancel_on_drop(self.connection.batch_execute(query))
+            .await?)
     }
 
     async fn query_one<T>(
@@ -226,7 +244,10 @@ impl Connection for PoolConnection {
     where
         T: ?Sized + ToStatement,
     {
-        Ok(self.connection.query_one(statement, params).await?)
+        Ok(self
+            .connection
+            .cancel_on_drop(self.connection.query_one(statement, params))
+            .await?)
     }
 }
 

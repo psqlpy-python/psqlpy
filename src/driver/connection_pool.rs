@@ -17,7 +17,7 @@ use crate::{
 use super::{
     connection::Connection,
     listener::core::Listener,
-    utils::{build_connection_config, build_manager, build_tls},
+    utils::{build_connection_config, build_manager, build_tls, ConfiguredTLS},
 };
 
 #[derive(Debug, Clone)]
@@ -144,11 +144,8 @@ pub fn connect_pool(
         };
     }
 
-    let mgr: Manager = build_manager(
-        mgr_config,
-        pg_config.clone(),
-        build_tls(&ca_file, &ssl_mode)?,
-    );
+    let tls = build_tls(&ca_file, &ssl_mode)?;
+    let mgr: Manager = build_manager(mgr_config, pg_config.clone(), tls.clone());
 
     let mut db_pool_builder = Pool::builder(mgr);
     if let Some(max_db_pool_size) = max_db_pool_size {
@@ -158,7 +155,7 @@ pub fn connect_pool(
     let pool = db_pool_builder.build()?;
 
     Ok(ConnectionPool::build(
-        pool, pg_config, ca_file, ssl_mode, None,
+        pool, pg_config, ca_file, ssl_mode, None, tls,
     ))
 }
 
@@ -226,6 +223,7 @@ pub struct ConnectionPool {
     pool: Pool,
     pg_config: Arc<Config>,
     pool_conf: ConnectionPoolConf,
+    tls: ConfiguredTLS,
 }
 
 impl ConnectionPool {
@@ -236,11 +234,13 @@ impl ConnectionPool {
         ca_file: Option<String>,
         ssl_mode: Option<SslMode>,
         prepare: Option<bool>,
+        tls: ConfiguredTLS,
     ) -> Self {
         ConnectionPool {
             pool,
             pg_config: Arc::new(pg_config),
             pool_conf: ConnectionPoolConf::new(ca_file, ssl_mode, prepare.unwrap_or(true)),
+            tls,
         }
     }
 
@@ -253,7 +253,7 @@ impl ConnectionPool {
 
         Ok(Connection::new(
             Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
-                PoolConnection::new(connection, self.pg_config.clone()),
+                PoolConnection::new(connection, self.pg_config.clone(), self.tls.clone()),
             )))),
             None,
             self.pg_config.clone(),
@@ -399,7 +399,11 @@ impl ConnectionPool {
 
     #[must_use]
     pub fn acquire(&self) -> Connection {
-        Connection::new(None, Some(self.pool.clone()), self.pg_config.clone())
+        Connection::new(
+            None,
+            Some((self.pool.clone(), self.tls.clone())),
+            self.pg_config.clone(),
+        )
     }
 
     #[must_use]
@@ -418,9 +422,9 @@ impl ConnectionPool {
     /// # Errors
     /// May return Err Result if cannot get new connection from the pool.
     pub async fn connection(self_: pyo3::Py<Self>) -> PSQLPyResult<Connection> {
-        let (db_pool, pg_config) = pyo3::Python::attach(|gil| {
+        let (db_pool, pg_config, tls) = pyo3::Python::attach(|gil| {
             let slf = self_.borrow(gil);
-            (slf.pool.clone(), slf.pg_config.clone())
+            (slf.pool.clone(), slf.pg_config.clone(), slf.tls.clone())
         });
         let connection = tokio_runtime()
             .spawn(async move {
@@ -430,7 +434,7 @@ impl ConnectionPool {
 
         Ok(Connection::new(
             Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
-                PoolConnection::new(connection, pg_config.clone()),
+                PoolConnection::new(connection, pg_config.clone(), tls),
             )))),
             None,
             pg_config,

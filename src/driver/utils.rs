@@ -1,10 +1,10 @@
-use std::{str::FromStr, time::Duration};
+use std::{fmt, str::FromStr, time::Duration};
 
 use deadpool_postgres::{Manager, ManagerConfig};
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use postgres_openssl::MakeTlsConnector;
 use pyo3::{types::PyAnyMethods, Py, PyAny, Python};
-use tokio_postgres::{Config, NoTls};
+use tokio_postgres::{CancelToken, Config, NoTls};
 
 use crate::{
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
@@ -171,9 +171,35 @@ pub fn build_connection_config(
     Ok(pg_config)
 }
 
+#[derive(Clone)]
 pub enum ConfiguredTLS {
     NoTls,
     TlsConnector(MakeTlsConnector),
+}
+
+impl fmt::Debug for ConfiguredTLS {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfiguredTLS::NoTls => f.write_str("NoTls"),
+            ConfiguredTLS::TlsConnector(_) => f.write_str("TlsConnector"),
+        }
+    }
+}
+
+impl ConfiguredTLS {
+    /// Ask the server to cancel the query running on the connection of `token`.
+    ///
+    /// The cancel request goes over a new connection that negotiates TLS the
+    /// same way the original connection did.
+    ///
+    /// # Errors
+    /// May return Err Result if cannot connect to the server.
+    pub async fn cancel_query(self, token: CancelToken) -> Result<(), tokio_postgres::Error> {
+        match self {
+            ConfiguredTLS::NoTls => token.cancel_query(NoTls).await,
+            ConfiguredTLS::TlsConnector(connector) => token.cancel_query(connector).await,
+        }
+    }
 }
 
 /// Create TLS.

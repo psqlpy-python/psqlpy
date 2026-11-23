@@ -15,7 +15,7 @@ use crate::{
     runtime::tokio_runtime,
 };
 
-use super::{connection_pool::connect_pool, transaction::Transaction};
+use super::{connection_pool::connect_pool, transaction::Transaction, utils::ConfiguredTLS};
 
 /// Make new connection pool.
 ///
@@ -115,7 +115,8 @@ pub async fn connect(
 #[derive(Clone, Debug)]
 pub struct Connection {
     pub conn: Option<Arc<RwLock<PSQLPyConnection>>>,
-    db_pool: Option<Pool>,
+    /// Pool to check a connection out of, with the TLS its cancel requests use.
+    db_pool: Option<(Pool, ConfiguredTLS)>,
     pub pg_config: Arc<Config>,
 }
 
@@ -123,7 +124,7 @@ impl Connection {
     #[must_use]
     pub fn new(
         conn: Option<Arc<RwLock<PSQLPyConnection>>>,
-        db_pool: Option<Pool>,
+        db_pool: Option<(Pool, ConfiguredTLS)>,
         pg_config: Arc<Config>,
     ) -> Self {
         Connection {
@@ -140,7 +141,7 @@ impl Connection {
 
     #[must_use]
     pub fn db_pool(&self) -> Option<Pool> {
-        self.db_pool.clone()
+        self.db_pool.as_ref().map(|(pool, _)| pool.clone())
     }
 }
 
@@ -172,7 +173,7 @@ impl Connection {
             return Ok(self_);
         }
 
-        if let Some(db_pool) = db_pool {
+        if let Some((db_pool, tls)) = db_pool {
             let connection = tokio_runtime()
                 .spawn(async move {
                     Ok::<deadpool_postgres::Object, RustPSQLDriverError>(db_pool.get().await?)
@@ -181,7 +182,7 @@ impl Connection {
             pyo3::Python::attach(|gil| {
                 let mut self_ = self_.borrow_mut(gil);
                 self_.conn = Some(Arc::new(RwLock::new(PSQLPyConnection::PoolConn(
-                    PoolConnection::new(connection, pg_config),
+                    PoolConnection::new(connection, pg_config, tls),
                 ))));
             });
             return Ok(self_);
