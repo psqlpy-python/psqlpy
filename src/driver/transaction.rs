@@ -356,7 +356,9 @@ impl Transaction {
                     }
                 }
             }
-            return future::try_join_all(futures).await;
+            // Wait for every query before returning the first error: dropping
+            // the ones still in flight would cancel them and close the connection.
+            return future::join_all(futures).await.into_iter().collect();
         }
 
         Err(RustPSQLDriverError::TransactionClosedError)
