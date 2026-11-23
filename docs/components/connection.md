@@ -16,6 +16,7 @@ db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
 
+
 async def main() -> None:
     connection = await db_pool.connection()
 ```
@@ -23,6 +24,7 @@ async def main() -> None:
 @tab single connection
 ```python
 from psqlpy import connect
+
 
 async def main() -> None:
     db_connection: Final = await connect(
@@ -38,6 +40,7 @@ from psqlpy import ConnectionPool
 db_pool: Final = ConnectionPool(
     dsn="postgres://postgres:postgres@localhost:5432/postgres",
 )
+
 
 async def main() -> None:
     async with db_pool.acquire() as connection:
@@ -197,6 +200,7 @@ async def main() -> None:
 ```python
 from psqlpy import IsolationLevel, ReadVariant
 
+
 async def main() -> None:
     ...
     connection = await db_pool.connection()
@@ -235,6 +239,7 @@ Prepare statement and return new instance.
 
 ```python
 from psqlpy import IsolationLevel, ReadVariant
+
 
 async def main() -> None:
     ...
