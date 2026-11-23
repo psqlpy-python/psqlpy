@@ -54,11 +54,8 @@ impl ConnectionPoolBuilder {
             };
         }
 
-        let mgr: Manager = build_manager(
-            mgr_config,
-            self.config.clone(),
-            build_tls(&self.ca_file, &self.ssl_mode)?,
-        );
+        let tls = build_tls(&self.ca_file, &self.ssl_mode)?;
+        let mgr: Manager = build_manager(mgr_config, self.config.clone(), tls.clone());
 
         let mut db_pool_builder = Pool::builder(mgr);
         if let Some(max_db_pool_size) = self.max_db_pool_size {
@@ -73,6 +70,7 @@ impl ConnectionPoolBuilder {
             self.ca_file.clone(),
             self.ssl_mode,
             self.prepare,
+            tls,
         ))
     }
 

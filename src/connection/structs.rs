@@ -5,6 +5,10 @@ use deadpool_postgres::Object;
 use postgres_types::Type;
 use tokio_postgres::{Client, Config, Statement};
 
+use crate::driver::utils::ConfiguredTLS;
+
+use super::cancel::CancellableObject;
+
 /// Per-connection cache for COPY column-type introspection results.
 /// Key: `(schema_name, table_name, columns_in_declaration_order)`.
 /// Column order is significant: `["a","b"]` and `["b","a"]` produce different COPY targets.
@@ -14,7 +18,7 @@ pub type CopyTypeCache = DashMap<(Option<String>, String, Vec<String>), Vec<Type
 
 #[derive(Debug)]
 pub struct PoolConnection {
-    pub connection: Object,
+    pub connection: CancellableObject,
     pub in_transaction: bool,
     pub in_cursor: bool,
     pub pg_config: Arc<Config>,
@@ -24,9 +28,9 @@ pub struct PoolConnection {
 
 impl PoolConnection {
     #[must_use]
-    pub fn new(connection: Object, pg_config: Arc<Config>) -> Self {
+    pub fn new(connection: Object, pg_config: Arc<Config>, tls: ConfiguredTLS) -> Self {
         Self {
-            connection,
+            connection: CancellableObject::new(connection, tls),
             in_transaction: false,
             in_cursor: false,
             pg_config,
