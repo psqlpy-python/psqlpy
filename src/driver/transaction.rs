@@ -15,6 +15,7 @@ use crate::{
         traits::{CloseTransaction, Connection, StartTransaction as _},
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    format_helpers::quote_ident,
     options::{IsolationLevel, ReadVariant},
     query_result::{PSQLDriverPyQueryResult, PSQLDriverSinglePyQueryResult},
 };
@@ -257,6 +258,9 @@ impl Transaction {
 
     /// Create new savepoint in a transaction.
     ///
+    /// Savepoint name is quoted as an identifier, so it is safe to pass
+    /// a name that comes from the outside.
+    ///
     /// # Errors
     /// Can return error if there is a problem with DB communication.
     pub async fn create_savepoint(&mut self, savepoint_name: String) -> PSQLPyResult<()> {
@@ -266,13 +270,16 @@ impl Transaction {
 
         let read_conn_g = conn.read().await;
         read_conn_g
-            .batch_execute(format!("SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute(format!("SAVEPOINT {}", quote_ident(&savepoint_name)).as_str())
             .await?;
 
         Ok(())
     }
 
     /// Release a savepoint in a transaction.
+    ///
+    /// Savepoint name is quoted as an identifier, so it is safe to pass
+    /// a name that comes from the outside.
     ///
     /// # Errors
     /// Can return error if there is a problem with DB communication.
@@ -283,13 +290,16 @@ impl Transaction {
 
         let read_conn_g = conn.read().await;
         read_conn_g
-            .batch_execute(format!("RELEASE SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute(format!("RELEASE SAVEPOINT {}", quote_ident(&savepoint_name)).as_str())
             .await?;
 
         Ok(())
     }
 
     /// Rollback to a savepoint in a transaction.
+    ///
+    /// Savepoint name is quoted as an identifier, so it is safe to pass
+    /// a name that comes from the outside.
     ///
     /// # Errors
     /// Can return error if there is a problem with DB communication.
@@ -300,7 +310,9 @@ impl Transaction {
 
         let read_conn_g = conn.read().await;
         read_conn_g
-            .batch_execute(format!("ROLLBACK TO SAVEPOINT {savepoint_name}").as_str())
+            .batch_execute(
+                format!("ROLLBACK TO SAVEPOINT {}", quote_ident(&savepoint_name)).as_str(),
+            )
             .await?;
 
         Ok(())

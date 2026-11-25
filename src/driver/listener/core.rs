@@ -21,6 +21,7 @@ use crate::{
         utils::{build_tls, is_coroutine_function, ConfiguredTLS},
     },
     exceptions::rust_errors::{PSQLPyResult, RustPSQLDriverError},
+    format_helpers::quote_ident,
     options::SslMode,
     runtime::{rustdriver_future, tokio_runtime},
 };
@@ -382,6 +383,11 @@ async fn dispatch_callback(
 /// and executed. Re-subscribing is idempotent, so a redundant `LISTEN` is
 /// harmless; the `UNLISTEN` half is what stops a cleared channel from delivering.
 ///
+/// Channel names are quoted as identifiers. Besides closing the injection hole,
+/// this is what makes a mixed-case channel work at all: unquoted `LISTEN MyChan`
+/// is folded by the backend to `mychan`, so the incoming notification would carry
+/// a channel name that never matches the key the callback was registered under.
+///
 /// Lock order is `client` -> `is_listened` -> `channel_callbacks` ->
 /// `applied_channels`. `mark_subscriptions_dirty` only ever takes `is_listened`
 /// (never while holding `channel_callbacks`), so the two cannot deadlock.
@@ -408,10 +414,10 @@ async fn execute_listen(
 
         let mut reconcile_query = String::new();
         for channel in applied.difference(&desired) {
-            reconcile_query.push_str(format!("UNLISTEN {channel};").as_str());
+            reconcile_query.push_str(format!("UNLISTEN {};", quote_ident(channel)).as_str());
         }
         for channel in desired.difference(&applied) {
-            reconcile_query.push_str(format!("LISTEN {channel};").as_str());
+            reconcile_query.push_str(format!("LISTEN {};", quote_ident(channel)).as_str());
         }
 
         if !reconcile_query.is_empty() {

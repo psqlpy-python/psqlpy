@@ -207,6 +207,46 @@ async def test_listener_asynciterator(
 
 
 @pytest.mark.usefixtures("create_table_for_listener_tests")
+async def test_listener_mixed_case_channel(
+    psql_pool: ConnectionPool,
+    listener_table_name: str,
+) -> None:
+    """Test that a channel name is subscribed to verbatim, without case folding.
+
+    An unquoted ``LISTEN MixedCase`` is folded by the backend to ``mixedcase``,
+    so the delivered notification would carry a channel name that never matches
+    the key the callback was registered under.
+    """
+    channel = "MixedCaseChannel"
+    listener = psql_pool.listener()
+    await listener.add_callback(
+        channel=channel,
+        callback=construct_insert_callback(
+            listener_table_name=listener_table_name,
+        ),
+    )
+    await listener.startup()
+    listener.listen()
+
+    await wait_until_listening(listener, channel)
+
+    connection = await psql_pool.connection()
+    try:
+        await connection.execute(f"NOTIFY \"{channel}\", '{TEST_PAYLOAD}'")
+    finally:
+        connection.close()
+
+    rows = await wait_for_callback(
+        psql_pool=psql_pool,
+        listener_table_name=listener_table_name,
+    )
+    assert rows[0]["channel"] == channel
+    assert rows[0]["payload"] == TEST_PAYLOAD
+
+    await listener.shutdown()
+
+
+@pytest.mark.usefixtures("create_table_for_listener_tests")
 async def test_listener_abort(
     psql_pool: ConnectionPool,
     listener_table_name: str,

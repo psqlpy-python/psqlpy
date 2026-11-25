@@ -209,6 +209,55 @@ async def test_transaction_release_savepoint(
     await transaction.create_savepoint(sp_name_1)
 
 
+async def test_transaction_savepoint_name_is_quoted(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    """Test that a savepoint name cannot smuggle in a second statement."""
+    connection = await psql_pool.connection()
+    transaction = connection.transaction()
+    await transaction.begin()
+
+    savepoint_name = f"sp1; DROP TABLE {table_name}"
+    await transaction.create_savepoint(savepoint_name=savepoint_name)
+
+    result = await transaction.execute(
+        "SELECT to_regclass($1) IS NOT NULL AS exists",
+        parameters=[table_name],
+    )
+    assert result.result()[0]["exists"]
+
+    # The quoted name still identifies a real savepoint.
+    await transaction.rollback_savepoint(savepoint_name=savepoint_name)
+    await transaction.release_savepoint(savepoint_name=savepoint_name)
+
+    await transaction.commit()
+
+
+async def test_transaction_savepoint_name_with_quotes(
+    psql_pool: ConnectionPool,
+    table_name: str,
+) -> None:
+    """Test that a savepoint name containing a double quote is escaped."""
+    connection = await psql_pool.connection()
+    transaction = connection.transaction()
+    await transaction.begin()
+
+    rows_before = await count_rows_in_test_table(table_name, transaction)
+
+    savepoint_name = 'we"ird name'
+    await transaction.create_savepoint(savepoint_name=savepoint_name)
+    await transaction.execute(
+        f"INSERT INTO {table_name} VALUES ($1, $2)",
+        parameters=[100, "test_name"],
+    )
+    await transaction.rollback_savepoint(savepoint_name=savepoint_name)
+
+    assert await count_rows_in_test_table(table_name, transaction) == rows_before
+
+    await transaction.commit()
+
+
 async def test_transaction_cursor(
     psql_pool: ConnectionPool,
     table_name: str,
